@@ -1,0 +1,12 @@
+{
+  "language": "Русский",
+  "ru": "Русский",
+  "kk": "Қазақ тілі",
+  "en": "English",
+  "@language": {
+    "description": "Русский"
+  },
+  "orders" : "Заказы",
+  "history" : "История",
+  "profile" : "Профиль"
+}

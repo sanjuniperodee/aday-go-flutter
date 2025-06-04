@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "656207473991",
+    "project_id": "aktau-go",
+    "storage_bucket": "aktau-go.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:656207473991:android:db969aebb2cdd7f6cd3062",
+        "android_client_info": {
+          "package_name": "kz.aday.go"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdbfwj3DMW_7YbJdEaDweUej0wFBEJCa4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
