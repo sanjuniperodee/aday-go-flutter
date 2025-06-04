@@ -46,3 +46,180 @@ app.*.map.json
 /appleCerts/AdayGOaps.cer
 /appleCerts/AdayGOCertificateSigningRequest.certSigningRequest
 /appleCerts/AuthKey_PVDFZSG8A2.p8
+
+# Flutter-specific ignores
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.dart_tool/
+.idea/
+.DS_Store
+build/
+*.iml
+*.lock
+**/*.iml
+**/*.lock
+
+# IDE-specific ignores
+.idea/
+.vscode/
+.history/
+.cxx/
+.gradle/
+.lift/
+
+# OS-specific ignores
+.DS_Store
+.Trash/
+Thumbs.db
+
+# Project-specific ignores
+Generated.xcconfig
+Flutter.podspec
+flutter_export_environment.sh
+
+# Dependency caching
+.pub-cache/
+
+# Android-specific
+android/app/src/main/assets/flutter_assets/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/key.properties
+android/keystore.jks
+
+# iOS-specific
+ios/Flutter/.last_build_id
+ios/Flutter/Generated.xcconfig
+ios/Flutter/App.framework
+ios/Flutter/engine/
+ios/Runner/*.pbxuser
+ios/Runner/*.xcscheme
+ios/Runner/project.xcworkspace/
+ios/Pods/
+ios/.symlinks/
+
+# Windows-specific
+windows/flutter/ephemeral/
+windows/build/
+
+# macOS-specific
+macos/build/
+macos/Flutter/ephemeral/
+
+# Linux-specific
+linux/build/
+linux/flutter/ephemeral/
+
+# Web-specific
+web/build/
+
+# Other generated files
+*.apk
+*.apks
+*.app
+*.ipa
+*.xcdynlib
+*.so
+*.dll
+*.dylib
+*.exe
+*.obj
+*.pdb
+*.lib
+*.a
+*.lo
+*.la
+*.pyc
+*.swp
+*~
+*.log
+*.diff
+*.patch
+*.suo
+*.user
+*.bak
+*.orig
+*.rej
+*.sbr
+*.bsc
+*.ncb
+*.resource
+*.opensdf
+*.sdf
+*.tlog
+*.vspscc
+*.vssscc
+*.buildlog
+*.docstates
+*.mfcribtool.content
+.db
+.sqlite
+.sqlite3
+.history
+.asset_cache
+.tool_code_output
+.flutter_tool_state
+
+# Crashlytics-specific
+crashlytics-build.properties
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+fastlane/upload_logs/
+
+# Melos
+.melos_tool
+
+# Binary files
+*.bin
+*.dat
+*.hex
+*.obj
+*.out
+*.dump
+*.mem
+
+# Archive files
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+# Temp files
+*.tmp
+temp/
+tmp/
+
+# Log files
+*.log
+
+# VS Code specific
+.vscode/
+.vscode-test/
+
+# IntelliJ IDEA specific
+.idea/
+*.iml
+
+# Android Studio specific
+.gradle/
+local.properties
+.DS_Store
+
+# build files
+build/
+target/
+
+# packages
+.packages
+pubspec.lock
+
+# other
+.tool_code_output
+.flutter-plugins-dependencies
