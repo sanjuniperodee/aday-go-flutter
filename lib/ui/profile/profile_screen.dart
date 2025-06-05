@@ -1,5 +1,7 @@
 import 'package:aktau_go/domains/user/user_domain.dart';
+import 'package:aktau_go/router/router.dart';
 import 'package:aktau_go/ui/earning_analytics/earning_analytics_bottom_sheet.dart';
+import 'package:aktau_go/ui/widgets/notification_badge.dart';
 import 'package:aktau_go/ui/widgets/primary_bottom_sheet.dart';
 import 'package:elementary_helper/elementary_helper.dart';
 import 'package:flutter/material.dart';
@@ -35,31 +37,23 @@ class ProfileScreen extends ElementaryWidget<IProfileWM> {
         String? role,
         UserDomain? me,
       ) {
+        final bool isLoggedIn = me != null && me.id.isNotEmpty;
+        
         return Scaffold(
+          backgroundColor: Colors.grey.shade50,
           appBar: AppBar(
-            title: Column(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: Text(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            title: Text(
                     'Профиль',
-                    style: text500Size24Black,
-                  ),
-                ),
-                if (!['TENANT', 'LANDLORD'].contains(role))
-                  SizedBox(
-                    width: double.infinity,
-                    child: Text(
-                      'Войдите в аккаунт',
-                      style: text400Size16Black,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
                     ),
-                  ),
-              ],
             ),
-            centerTitle: false,
-            bottom: ['TENANT', 'LANDLORD'].contains(role)
-                ? null
-                : PreferredSize(
+            centerTitle: true,
+            bottom: PreferredSize(
                     preferredSize: Size.fromHeight(1),
                     child: Divider(
                       height: 1,
@@ -67,452 +61,461 @@ class ProfileScreen extends ElementaryWidget<IProfileWM> {
                     ),
                   ),
           ),
-          body: (['TENANT', 'LANDLORD'].contains(role))
-              ? ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+          body: isLoggedIn 
+              ? _buildLoggedInProfile(context, me, wm)
+              : _buildLoginScreen(context, wm),
+        );
+      },
+    );
+  }
+  
+  Widget _buildLoggedInProfile(BuildContext context, UserDomain? me, IProfileWM wm) {
+    // Force update the role from the widget model to ensure it's current
+    final String? currentRole = wm.role.value;
+    final bool isDriverMode = currentRole == 'LANDLORD';
+    
+    print("Current user role: $currentRole, isDriverMode: $isDriverMode");
+    
+    return ListView(
+      padding: EdgeInsets.zero,
                   children: [
+        // Профиль пользователя
                     Container(
-                      width: double.infinity,
-                      height: 96,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 24,
-                      ),
-                      decoration: ShapeDecoration(
                         color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(width: 1, color: Color(0xFFE7E1E1)),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.center,
+          padding: EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Avatar and user info
+              Row(
                         children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: ShapeDecoration(
-                              image: DecorationImage(
-                                image: NetworkImage(
-                                    "https://via.placeholder.com/48x48"),
-                                fit: BoxFit.cover,
-                              ),
-                              shape: OvalBorder(),
-                            ),
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Colors.grey.shade200,
+                    backgroundImage: null,
+                    child: Icon(Icons.person, size: 40, color: Colors.grey),
                           ),
-                          const SizedBox(width: 10),
+                  SizedBox(width: 16),
                           Expanded(
-                            child: Container(
                               child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Text(
-                                      me?.fullName ?? '',
-                                      textAlign: TextAlign.center,
+                        Text(
+                          me?.fullName ?? 'Пользователь',
                                       style: TextStyle(
-                                        color: Color(0xFF261619),
                                         fontSize: 20,
-                                        fontFamily: 'Rubik',
-                                        fontWeight: FontWeight.w400,
-                                        height: 0.06,
-                                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          me?.phone ?? '',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.start,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
+                        SizedBox(height: 8),
+                        Row(
                                       children: [
-                                        IgnorePointer(
-                                          ignoring: true,
-                                          child: RatingBar.builder(
-                                            initialRating:
-                                                me?.rating.toDouble() ?? 0,
-                                            minRating: 1,
+                            RatingBar.builder(
+                              initialRating: me?.rating.toDouble() ?? 0,
+                              minRating: 0,
                                             direction: Axis.horizontal,
                                             allowHalfRating: true,
                                             itemCount: 5,
-                                            itemSize: 20,
-                                            itemPadding: EdgeInsets.symmetric(
-                                              horizontal: 4.0,
-                                            ),
+                              itemSize: 16,
+                              ignoreGestures: true,
                                             itemBuilder: (context, _) => Icon(
                                               Icons.star,
-                                              color: primaryColor,
+                                color: Colors.amber,
                                             ),
-                                            onRatingUpdate: (rating) {
-                                              print(rating);
-                                            },
+                              onRatingUpdate: (_) {},
                                           ),
-                                        ),
-                                        const SizedBox(width: 10),
+                            SizedBox(width: 8),
                                         Text(
-                                          '(${me?.ratedOrders.length} отзыва)',
-                                          textAlign: TextAlign.center,
+                              '(${me?.ratedOrders.length ?? 0})',
                                           style: TextStyle(
-                                            color: Color(0xFF261619),
                                             fontSize: 12,
-                                            fontFamily: 'Rubik',
-                                            fontWeight: FontWeight.w400,
-                                            height: 0.11,
+                                color: Colors.grey.shade600,
                                           ),
                                         ),
                                       ],
+                                  ),
+                                ],
+                            ),
+                          ),
+                        ],
+                      ),
+              
+                    SizedBox(height: 16),
+              
+              // Analytics section for driver - show only in driver mode
+              if (isDriverMode)
+                Column(
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                          ),
+                          builder: (_) => EarningAnalyticsBottomSheet(me: me),
+                        );
+                      },
+                      child: Container(
+                        margin: EdgeInsets.only(bottom: 12),
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.shade100),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.monetization_on,
+                              color: primaryColor,
+                              size: 24,
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Аналитика заработка',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Просмотр статистики доходов',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                              color: Colors.grey.shade600,
                           ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    // Container(
-                    //   width: double.infinity,
-                    //   padding: const EdgeInsets.symmetric(
-                    //       horizontal: 16, vertical: 12),
-                    //   clipBehavior: Clip.antiAlias,
-                    //   decoration: BoxDecoration(
-                    //     color: Color(0xFFF73C4E),
-                    //     borderRadius: BorderRadius.circular(16),
-                    //   ),
-                    //   child: Row(
-                    //     mainAxisSize: MainAxisSize.min,
-                    //     mainAxisAlignment: MainAxisAlignment.start,
-                    //     crossAxisAlignment: CrossAxisAlignment.center,
-                    //     children: [
-                    //       Container(
-                    //         width: 48,
-                    //         height: 48,
-                    //         child: Row(
-                    //           mainAxisSize: MainAxisSize.min,
-                    //           mainAxisAlignment: MainAxisAlignment.center,
-                    //           crossAxisAlignment: CrossAxisAlignment.center,
-                    //           children: [
-                    //             Container(
-                    //               width: 48,
-                    //               height: 48,
-                    //               child: SvgPicture.asset(
-                    //                   'assets/icons/subscription.svg'),
-                    //             ),
-                    //           ],
-                    //         ),
-                    //       ),
-                    //       const SizedBox(width: 8),
-                    //       Expanded(
-                    //         child: Container(
-                    //           child: Column(
-                    //             mainAxisSize: MainAxisSize.min,
-                    //             mainAxisAlignment: MainAxisAlignment.center,
-                    //             crossAxisAlignment: CrossAxisAlignment.start,
-                    //             children: [
-                    //               Container(
-                    //                 width: double.infinity,
-                    //                 child: Row(
-                    //                   mainAxisSize: MainAxisSize.min,
-                    //                   mainAxisAlignment:
-                    //                       MainAxisAlignment.spaceBetween,
-                    //                   crossAxisAlignment:
-                    //                       CrossAxisAlignment.center,
-                    //                   children: [
-                    //                     Text(
-                    //                       'Подписка активна',
-                    //                       textAlign: TextAlign.center,
-                    //                       style: text600Size16White,
-                    //                     ),
-                    //                     const SizedBox(width: 10),
-                    //                     Container(
-                    //                       width: 16,
-                    //                       height: 16,
-                    //                       child: Row(
-                    //                         mainAxisSize: MainAxisSize.min,
-                    //                         mainAxisAlignment:
-                    //                             MainAxisAlignment.center,
-                    //                         crossAxisAlignment:
-                    //                             CrossAxisAlignment.center,
-                    //                         children: [
-                    //                           Container(
-                    //                             width: 16,
-                    //                             height: 16,
-                    //                             child: Row(
-                    //                               mainAxisSize:
-                    //                                   MainAxisSize.min,
-                    //                               mainAxisAlignment:
-                    //                                   MainAxisAlignment.center,
-                    //                               crossAxisAlignment:
-                    //                                   CrossAxisAlignment.center,
-                    //                               children: [
-                    //                                 Container(
-                    //                                     width: 16,
-                    //                                     height: 16,
-                    //                                     child: Stack()),
-                    //                               ],
-                    //                             ),
-                    //                           ),
-                    //                         ],
-                    //                       ),
-                    //                     ),
-                    //                   ],
-                    //                 ),
-                    //               ),
-                    //               const SizedBox(height: 4),
-                    //               Container(
-                    //                 child: Column(
-                    //                   mainAxisSize: MainAxisSize.min,
-                    //                   mainAxisAlignment:
-                    //                       MainAxisAlignment.center,
-                    //                   crossAxisAlignment:
-                    //                       CrossAxisAlignment.start,
-                    //                   children: [
-                    //                     Text(
-                    //                       'Начало подписки: 02.06.24',
-                    //                       textAlign: TextAlign.center,
-                    //                       style: text400Size10White,
-                    //                     ),
-                    //                     Text(
-                    //                       'Конец подписки:  02.07.24',
-                    //                       textAlign: TextAlign.center,
-                    //                       style: text400Size10White,
-                    //                     ),
-                    //                   ],
-                    //                 ),
-                    //               ),
-                    //             ],
-                    //           ),
-                    //         ),
-                    //       ),
-                    //     ],
-                    //   ),
-                    // ),
-                    const SizedBox(height: 24),
-                    if (['LANDLORD'].contains(role))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        child: ListTile(
-                          onTap: wm.navigateDriverRegistration,
-                          leading: SvgPicture.asset(icRegistration),
-                          title: Text(
-                            'Регистрация',
-                            style: text400Size16Black,
-                          ),
-                          trailing: Icon(Icons.chevron_right),
+                          ],
+                        ),
                         ),
                       ),
-                    if (['LANDLORD'].contains(role))
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        child: ListTile(
-                          onTap: () => showModalBottomSheet(
-                            context: context,
-                            isDismissible: true,
-                            isScrollControlled: true,
-                            builder: (context) =>
-                                EarningAnalyticsBottomSheet(me: me),
-                          ),
-                          leading: SvgPicture.asset(icAnalytics),
-                          title: Text(
-                            'Аналитика',
-                            style: text400Size16Black,
-                          ),
-                          trailing: Icon(Icons.chevron_right),
+                    
+                    // Vehicle category registration button
+                    InkWell(
+                      onTap: () => Navigator.of(context).pushNamed(Routes.driverRegistrationScreen),
+                      child: Container(
+                        margin: EdgeInsets.only(bottom: 16),
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.green.shade100),
                         ),
-                      ),
-                    ListTile(
-                      leading: SvgPicture.asset(icSupport),
-                      onTap: () => showModalBottomSheet(
-                        context: context,
-                        isDismissible: true,
-                        isScrollControlled: true,
-                        builder: (context) => PrimaryBottomSheet(
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 16,
-                          ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.directions_car,
+                              color: Colors.green,
+                              size: 24,
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
                           child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Center(
-                                child: Container(
-                                  width: 38,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: greyscale30,
-                                    borderRadius: BorderRadius.circular(1.4),
+                                  Text(
+                                    'Управление автомобилями',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                    ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              SizedBox(
-                                width: double.infinity,
-                                child: Text(
-                                  'Поддержка',
-                                  style: text500Size24Greyscale90,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ListTile(
-                                onTap: () {
-                                  launchUrlString('https://wa.me/77088431748');
-                                },
-                                contentPadding: EdgeInsets.zero,
-                                title: TextLocale(
-                                  'Написать Whatsapp',
-                                  style: text400Size16Greyscale90,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
-                        ),
-                      ),
-                      title: Text(
-                        'Поддержка',
-                        style: text400Size16Black,
-                      ),
-                      trailing: Icon(Icons.chevron_right),
-                    ),
-                    const SizedBox(height: 24),
-                    ListTile(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => AboutApplicationScreen(),
-                        ),
-                      ),
-                      leading: SvgPicture.asset(icInfo),
-                      title: Text(
-                        'О приложении',
-                        style: text400Size16Black,
-                      ),
-                      trailing: Icon(Icons.chevron_right),
-                    ),
-                    const SizedBox(height: 24),
-                    if (role != "GUEST")
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: SizedBox(
-                          height: 70,
-                          child: PrimaryOutlinedButton.primary(
-                            style: outlinedRounded12Green,
-                            onPressed: wm.toggleRole,
-                            text: role == 'TENANT'
-                                ? 'Режим водителя'
-                                : 'Режим пассажира',
-                            textStyle: text600Size16White,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 24),
-                    ListTile(
-                      onTap: wm.logOut,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16),
-                      title: TextLocale(
-                        'Выйти',
-                        style: text400Size16Primary,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    ListTile(
-                      onTap: wm.logOut,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16),
-                      title: TextLocale(
-                        'Удалить аккаунт',
-                        style: text400Size16Primary,
-                      ),
-                    ),
-                  ],
-                )
-              : ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    const SizedBox(height: 24),
-                    PrimaryButton.primary(
-                      onPressed: wm.navigateToLogin,
-                      text: 'Войти',
-                      textStyle: text400Size16White,
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      leading: SvgPicture.asset(icSupport),
-                      onTap: () => showModalBottomSheet(
-                        context: context,
-                        isDismissible: true,
-                        isScrollControlled: true,
-                        builder: (context) => PrimaryBottomSheet(
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 16,
-                          ),
-                          child: Column(
-                            children: [
-                              Center(
-                                child: Container(
-                                  width: 38,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: greyscale30,
-                                    borderRadius: BorderRadius.circular(1.4),
+                                  Text(
+                                    'Регистрация и редактирование категорий',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 13,
+                                    ),
                                   ),
+                                ],
                                 ),
                               ),
-                              const SizedBox(height: 10),
-                              SizedBox(
-                                width: double.infinity,
-                                child: Text(
-                                  'Поддержка',
-                                  style: text500Size24Greyscale90,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ListTile(
-                                onTap: () {
-                                  launchUrlString('https://wa.me/77088431748');
-                                },
-                                contentPadding: EdgeInsets.zero,
-                                title: TextLocale(
-                                  'Написать Whatsapp',
-                                  style: text400Size16Greyscale90,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                              color: Colors.grey.shade600,
+                            ),
+                          ],
                         ),
                       ),
-                      title: Text(
-                        'Поддержка',
-                        style: text400Size16Black,
-                      ),
-                      trailing: Icon(Icons.chevron_right),
-                    ),
-                    const SizedBox(height: 24),
-                    ListTile(
-                      leading: SizedBox(),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => AboutApplicationScreen(),
-                        ),
-                      ),
-                      title: Text(
-                        'О приложении',
-                        style: text400Size16Black,
-                      ),
-                      trailing: Icon(Icons.chevron_right),
                     ),
                   ],
                 ),
+              
+              // Кнопка редактирования профиля
+                              SizedBox(
+                                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => wm.goToEditProfile(),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: primaryColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                  ),
+                                child: Text(
+                    'Редактировать профиль',
+                    style: TextStyle(
+                      color: primaryColor,
+                      fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                ),
+              ),
+              
+              SizedBox(height: 12),
+              
+              // Кнопка переключения в режим водителя
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: Icon(Icons.local_taxi),
+                  label: Text(
+                    wm.role.value == 'LANDLORD' 
+                        ? 'Переключиться в режим клиента' 
+                        : 'Переключиться в режим водителя'
+                  ),
+                  onPressed: () => wm.toggleRole(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                                  ),
+                                ),
+                              ),
+            ],
+          ),
+        ),
+        
+        SizedBox(height: 8),
+        
+        // Разделы профиля
+        Container(
+          color: Colors.white,
+          child: Column(
+            children: [
+              _buildProfileSection(
+                icon: Icons.history,
+                title: 'История поездок',
+                onTap: () => wm.goToHistoryScreen(),
+                                ),
+              _buildDivider(),
+              _buildProfileSection(
+                icon: Icons.notifications,
+                title: 'Уведомления',
+                onTap: () => Navigator.of(context).pushNamed(Routes.notificationsScreen),
+                trailing: NotificationBadge(
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
+                  color: Colors.red,
+                  size: 20,
+                                ),
+                              ),
+              _buildDivider(),
+              _buildProfileSection(
+                icon: Icons.credit_card,
+                title: 'Способы оплаты',
+                onTap: () {},
+              ),
+              _buildDivider(),
+              _buildProfileSection(
+                icon: Icons.support_agent,
+                title: 'Поддержка',
+                onTap: () => wm.goToSupportScreen(),
+              ),
+                            ],
+                          ),
+                        ),
+        
+        SizedBox(height: 8),
+        
+        // Дополнительные настройки
+        Container(
+          color: Colors.white,
+          child: Column(
+            children: [
+              _buildProfileSection(
+                icon: Icons.info_outline,
+                title: 'О приложении',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => AboutApplicationScreen(),
+                        ),
+                      ),
+              ),
+              _buildDivider(),
+              _buildProfileSection(
+                icon: Icons.settings,
+                title: 'Настройки',
+                onTap: () {},
+                      ),
+            ],
+          ),
+                    ),
+        
+        SizedBox(height: 24),
+        
+        // Кнопка выхода
+                      Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: ElevatedButton(
+            onPressed: () => wm.logout(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade50,
+              foregroundColor: Colors.red,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: Text('Выйти из аккаунта'),
+                      ),
+                    ),
+        
+        SizedBox(height: 24),
+      ],
+    );
+  }
+  
+  Widget _buildLoginScreen(BuildContext context, IProfileWM wm) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+            Icon(
+              Icons.account_circle,
+              size: 80,
+              color: Colors.grey.shade400,
+            ),
+            SizedBox(height: 24),
+            Text(
+              'Войдите в аккаунт',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                    ),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Чтобы получить доступ ко всем функциям приложения, пожалуйста, войдите в свой аккаунт',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade700,
+              ),
+                                  ),
+            SizedBox(height: 32),
+                              SizedBox(
+                                width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => wm.login(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                                child: Text(
+                  'Войти',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                                ),
+                              ),
+            ),
+                            ],
+                          ),
+                        ),
+    );
+  }
+  
+  Widget _buildProfileSection({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Widget? trailing,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: primaryColor,
+                size: 20,
+                        ),
+                      ),
+            SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+                      ),
+            trailing ?? Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey,
+                    ),
+                  ],
+        ),
+                ),
         );
-      },
+  }
+  
+  Widget _buildDivider() {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      indent: 56,
+      endIndent: 0,
+      color: Colors.grey.shade100,
     );
   }
 }

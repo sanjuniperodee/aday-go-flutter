@@ -1,4 +1,5 @@
 import 'package:aktau_go/interactors/session_interactor.dart';
+import 'package:aktau_go/router/router.dart';
 import 'package:elementary/elementary.dart';
 import 'package:elementary_helper/elementary_helper.dart';
 import 'package:flutter/cupertino.dart';
@@ -18,13 +19,15 @@ abstract class IMainNavigationInteractor {
 
   PageController get pageController;
 
-  void changeTab(int newTab);
+  void changeTab(int newTab, [int? newSubTab]);
 
   void doubleTapped();
 
   void changeMyAdsSubTab(int newTab);
 
   void onMapTapped(geotypes.Position point);
+  
+  Future<void> navigateToLogin();
 }
 
 @singleton
@@ -82,5 +85,17 @@ class MainNavigationInteractor extends IMainNavigationInteractor {
   @override
   void onMapTapped(geotypes.Position point) {
     lastMapTapped.accept(point);
+  }
+
+  @override
+  Future<void> navigateToLogin() async {
+    try {
+      // Navigate to login screen
+      await Routes.router.navigate(
+        Routes.loginScreen,
+      );
+    } catch (e) {
+      print('Error navigating to login screen: $e');
+    }
   }
 }

@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
 
 import '../interactors/common/aktau_go_rest_client.dart';
+import '../interactors/notification_service.dart';
 import 'di_container.config.dart';
 
 final getIt = GetIt.instance;
@@ -18,6 +19,11 @@ Future<void> initDi(String flavor) async {
     AktauGoRestClient(
       getIt<Dio>(),
     ),
+  );
+  
+  // Register NotificationService
+  getIt.registerSingleton<NotificationService>(
+    NotificationService(),
   );
 
   return getIt.allReady();

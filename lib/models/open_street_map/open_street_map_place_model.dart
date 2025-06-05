@@ -31,8 +31,19 @@ class OpenStreetMapPlaceModel {
 
   Map<String, dynamic> toJson() => _$OpenStreetMapPlaceModelToJson(this);
 
-  static _stringToNum(dynamic json) {
-    logger.w('${json is String}');
-    return double.tryParse(json as String) ?? 0;
+  static double _stringToNum(dynamic json) {
+    if (json == null) return 0.0;
+    
+    if (json is num) {
+      // Если это уже число, просто возвращаем его как double
+      return json.toDouble();
+    } else if (json is String) {
+      // Если это строка, пытаемся преобразовать в double
+      return double.tryParse(json) ?? 0.0;
+    } else {
+      // Если это что-то другое, возвращаем 0.0
+      logger.w('Неизвестный тип для конвертации в число: ${json.runtimeType}');
+      return 0.0;
+    }
   }
 }

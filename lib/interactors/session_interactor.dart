@@ -23,6 +23,8 @@ abstract class ISessionInteractor {
   Future<bool> checkAccessTokenExpired();
 
   void logout();
+
+  void saveRole();
 }
 
 @lazySingleton
@@ -100,6 +102,13 @@ class SessionInteractor extends ISessionInteractor {
     } on Exception catch (e) {
       // await refreshToken();
       return true;
+    }
+  }
+
+  @override
+  void saveRole() {
+    if (role.value != null && role.value != 'GUEST') {
+      sharedPreferences.setString(SELECTED_ROLE, role.value!);
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:aktau_go/interactors/notification_service.dart';
 import 'package:aktau_go/utils/utils.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:injectable/injectable.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 import './router/router.dart';
 import './app.dart';
@@ -23,6 +25,16 @@ Future<void> main() async {
 
   Routes.initRoutes();
   await initDi(Environment.prod);
+  
+  // Initialize notifications
+  final notificationInteractor = inject<NotificationInteractor>();
+  await notificationInteractor.setupFirebaseConfig();
+  await notificationInteractor.setupInteractedMessage();
+  
+  // Initialize timeago in Russian
+  timeago.setLocaleMessages('ru', timeago.RuMessages());
+  timeago.setLocaleMessages('en', timeago.EnMessages());
+  timeago.setDefaultLocale('ru');
 
   runApp(
     EasyLocalization(

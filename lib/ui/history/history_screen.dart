@@ -29,15 +29,19 @@ class HistoryScreen extends ElementaryWidget<IHistoryWM> {
           List<ActiveRequestDomain>? orderHistoryRequests,
         ) {
           return Scaffold(
+            backgroundColor: Colors.grey.shade50,
             appBar: AppBar(
-              title: SizedBox(
-                width: double.infinity,
-                child: Text(
-                  'История заказов',
-                  style: text500Size24Black,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              title: Text(
+                'История поездок',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
                 ),
               ),
-              centerTitle: false,
+              centerTitle: true,
               bottom: PreferredSize(
                 preferredSize: Size.fromHeight(1),
                 child: Divider(
@@ -46,63 +50,114 @@ class HistoryScreen extends ElementaryWidget<IHistoryWM> {
                 ),
               ),
             ),
-            body: ListView(
+            body: Column(
               children: [
-                const SizedBox(height: 24),
-                SizedBox(
-                  height: 40,
-                  child: ListView(
+                // Фильтры по типу поездки
+                Container(
+                  color: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
                     children: [
-                      const SizedBox(width: 16),
                       ...DriverType.values.asMap().entries.map(
-                            (e) => InkWell(
-                              onTap: () => wm.tabIndexChanged(e.key),
-                              child: Container(
-                                margin: const EdgeInsets.only(right: 8),
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                decoration: ShapeDecoration(
-                                  color: tabIndex == e.key
-                                      ? Color(0xFFF73C4E)
-                                      : Colors.white,
+                          (e) => Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: FilterChip(
+                              selected: tabIndex == e.key,
+                              showCheckmark: false,
+                              backgroundColor: Colors.white,
+                              selectedColor: primaryColor,
+                              side: BorderSide(
+                                color: tabIndex == e.key ? primaryColor : Colors.grey.shade300,
+                                width: 1,
+                              ),
                                   shape: RoundedRectangleBorder(
-                                    side: tabIndex != e.key
-                                        ? BorderSide(
-                                            width: 1, color: Color(0xFFB4AAA9))
-                                        : BorderSide.none,
-                                    borderRadius: BorderRadius.circular(102),
+                                borderRadius: BorderRadius.circular(20),
                                   ),
-                                ),
-                                child: Row(
+                              label: Row(
                                   children: [
                                     SvgPicture.asset(
                                       e.value.asset!,
-                                      color: tabIndex == e.key
-                                          ? Colors.white
-                                          : Colors.grey,
-                                    ),
-                                    const SizedBox(width: 8),
+                                    color: tabIndex == e.key ? Colors.white : Colors.grey,
+                                    width: 16,
+                                    height: 16,
+                                  ),
+                                  SizedBox(width: 8),
                                     TextLocale(
                                       e.value.value!,
-                                      style: tabIndex == e.key
-                                          ? text400Size16White
-                                          : text400Size16Greyscale30,
-                                    )
-                                  ],
+                                    style: TextStyle(
+                                      color: tabIndex == e.key ? Colors.white : Colors.black87,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              onSelected: (_) => wm.tabIndexChanged(e.key),
+                            ),
                                 ),
                               ),
-                            ),
-                          )
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                for (ActiveRequestDomain order in (orderHistoryRequests ?? []))
-                  HistoryOrderCard(orderRequest: order)
+                
+                // Список заказов
+                Expanded(
+                  child: orderHistoryRequests == null || orderHistoryRequests.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: () async {
+                            await wm.fetchOrderHistoryRequests();
+                          },
+                          child: ListView.builder(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            itemCount: orderHistoryRequests.length,
+                            itemBuilder: (context, index) {
+                              return HistoryOrderCard(
+                                orderRequest: orderHistoryRequests[index],
+                              );
+                            },
+                          ),
+                        ),
+                ),
               ],
             ),
           );
         });
+  }
+  
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.history,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          SizedBox(height: 16),
+          Text(
+            'История поездок пуста',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Здесь будут отображаться ваши поездки',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 }

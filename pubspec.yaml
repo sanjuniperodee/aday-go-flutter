@@ -98,6 +98,8 @@ dependencies:
   intl: ^0.20.1
   uuid: ^4.5.1
   collection: ^1.17.0
+  timeago: ^3.7.1
+  fl_chart: ^0.66.2
   
   # Networking extensions
   dio_smart_retry: ^6.0.0

@@ -26,6 +26,16 @@ abstract class IProfileWM implements IWidgetModel {
 
   void navigateToLogin();
 
+  void login();
+  
+  void logout();
+  
+  void goToHistoryScreen();
+  
+  void goToEditProfile();
+  
+  void goToSupportScreen();
+
   StateNotifier<String> get role;
 
   Future<void> navigateDriverRegistration();
@@ -47,14 +57,137 @@ class ProfileWM extends WidgetModel<ProfileScreen, ProfileModel>
       Routes.loginScreen,
     );
   }
+  
+  @override
+  Future<void> login() async {
+    await model.login();
+    // After login, refresh the profile data
+    await _fetchProfile();
+  }
+  
+  @override
+  Future<void> logout() async {
+    await model.logout();
+    // Clear user data after logout
+    me.accept(null);
+    role.accept(null);
+  }
+  
+  @override
+  void goToHistoryScreen() {
+    Routes.router.navigate(
+      Routes.historyScreen,
+    );
+  }
+  
+  @override
+  void goToEditProfile() {
+    Routes.router.navigate(
+      Routes.editProfileScreen,
+    );
+  }
+  
+  @override
+  void goToSupportScreen() {
+    // Показываем модальное окно поддержки
+    showModalBottomSheet(
+      context: context,
+      isDismissible: true,
+      isScrollControlled: true,
+      builder: (context) => buildSupportBottomSheet(context),
+    );
+  }
+  
+  // Вспомогательный метод для построения нижнего листа поддержки
+  Widget buildSupportBottomSheet(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Ручка для закрытия
+          Container(
+            width: 40,
+            height: 4,
+            margin: EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Text(
+            'Поддержка',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 16),
+          InkWell(
+            onTap: () {
+              // Вызов WhatsApp
+              model.launchWhatsApp();
+            },
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.chat_bubble_outline),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'Написать в WhatsApp',
+                      style: TextStyle(
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios, size: 16),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
 
   @override
   void initWidgetModel() {
     super.initWidgetModel();
-    model.role.addListener(() {
-      role.accept(model.role.value);
-      fetchUserProfile();
+
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+      _fetchProfile();
     });
+  }
+
+  Future<void> _fetchProfile() async {
+    try {
+      print('Fetching user profile data...');
+      final response = await model.getUserProfile();
+      
+      // Check if the response contains a valid user
+      final bool hasValidUser = response != null && response.id.isNotEmpty;
+      print('User profile loaded: ${hasValidUser ? 'Valid user found' : 'No valid user'}');
+      
+      if (hasValidUser) {
+        me.accept(response);
+        
+        // Try to get role from session interactor
+        final currentRole = model.role.value;
+        if (currentRole != null && currentRole.isNotEmpty) {
+          role.accept(currentRole);
+          print('Set role: $currentRole');
+        }
+      } else {
+        print('No valid user profile data received');
+        me.accept(null);
+      }
+    } catch (e) {
+      print('Error fetching profile: $e');
+      me.accept(null);
+    }
   }
 
   @override
@@ -62,12 +195,6 @@ class ProfileWM extends WidgetModel<ProfileScreen, ProfileModel>
 
   @override
   final StateNotifier<UserDomain> me = StateNotifier();
-
-  void fetchUserProfile() async {
-    final response = await model.fetchUserProfile();
-
-    me.accept(response);
-  }
 
   @override
   Future<void> navigateDriverRegistration() async {
@@ -86,9 +213,21 @@ class ProfileWM extends WidgetModel<ProfileScreen, ProfileModel>
 
   @override
   Future<void> toggleRole() async {
+    // Toggle the role immediately in UI
+    final newRole = role.value == 'LANDLORD' ? 'ROLE_TENANT' : 'LANDLORD';
+    role.accept(newRole);
+    
+    // Then update the backend
     model.toggleRole();
+    
+    // Show loading screen during transition
     await Navigator.of(context)
         .push(MaterialPageRoute(builder: (context) => LoadingScreen()));
+    
+    // Change tab to first tab
     model.changeTab(0);
+    
+    // Refresh profile to get latest data
+    await _fetchProfile();
   }
 }

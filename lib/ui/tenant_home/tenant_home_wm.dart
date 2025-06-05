@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:aktau_go/core/images.dart';
+import 'package:aktau_go/interactors/common/mapbox_api/mapbox_api.dart';
 import 'package:aktau_go/interactors/main_navigation_interactor.dart';
 import 'package:aktau_go/ui/basket/forms/food_order_form.dart';
 import 'package:elementary/elementary.dart';
@@ -78,6 +80,18 @@ abstract class ITenantHomeWM implements IWidgetModel {
   StateNotifier<bool> get rateOpened;
 
   StateNotifier<double> get draggableScrolledSize;
+  
+  // Route display state management
+  StateNotifier<bool> get isRouteDisplayed;
+  
+  // Map fixed state management
+  StateNotifier<bool> get isMapFixed;
+  
+  // Сохраненные адреса для заказа
+  StateNotifier<String> get savedFromAddress;
+  StateNotifier<String> get savedToAddress;
+  StateNotifier<String> get savedFromMapboxId;
+  StateNotifier<String> get savedToMapboxId;
 
   DraggableScrollableController get draggableScrollableController;
   
@@ -91,6 +105,9 @@ abstract class ITenantHomeWM implements IWidgetModel {
   void tabIndexChanged(int newTabIndex);
 
   Future<void> onSubmit(DriverOrderForm form, DriverType taxi);
+  
+  // Создать заказ такси
+  Future<void> createDriverOrder(DriverOrderForm form);
 
   void cancelActiveClientOrder();
 
@@ -105,6 +122,26 @@ abstract class ITenantHomeWM implements IWidgetModel {
 
   // Добавляем метод для отображения маршрута на карте
   Future<void> displayRouteOnMainMap(geotypes.Position fromPosition, geotypes.Position toPosition);
+  
+  // Toggle map fixed state
+  void toggleMapFixed();
+  
+  // Set map fixed state directly
+  void setMapFixed(bool fixed);
+  
+  // Set route displayed state
+  void setRouteDisplayed(bool displayed);
+  
+  // Clear displayed route
+  Future<void> clearRoute();
+  
+  // Сохранить адреса заказа
+  void saveOrderAddresses({
+    required String fromAddress,
+    required String toAddress,
+    required String fromMapboxId,
+    required String toMapboxId,
+  });
 }
 
 class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
@@ -141,7 +178,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
 
   @override
   late final TabController tabController = TabController(
-    length: 5,
+    length: 2,
     vsync: this,
   );
 
@@ -188,68 +225,129 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
   late final TextEditingController commentTextController = createTextEditingController();
 
   @override
+  final StateNotifier<bool> isRouteDisplayed = StateNotifier(
+    initValue: false,
+  );
+
+  @override
+  final StateNotifier<bool> isMapFixed = StateNotifier(
+    initValue: false,
+  );
+
+  @override
+  final StateNotifier<String> savedFromAddress = StateNotifier();
+  @override
+  final StateNotifier<String> savedToAddress = StateNotifier();
+  @override
+  final StateNotifier<String> savedFromMapboxId = StateNotifier();
+  @override
+  final StateNotifier<String> savedToMapboxId = StateNotifier();
+
+  @override
   void initWidgetModel() {
     super.initWidgetModel();
-    fetchUserProfile();
-    fetchFoods();
+    
+    print('Инициализация TenantHomeWM...');
+    
+    // Важно: сначала получаем профиль пользователя
+    fetchUserProfile().then((_) {
+      // После получения профиля - инициализируем сокет
+      initializeSocket();
+      
+      // Проверяем наличие активного заказа
     fetchActiveOrder();
+    });
+    
+    // Загружаем категории и еду в параллели
+    fetchFoods();
     
     // ВАЖНО: Запрашиваем разрешения на геолокацию при инициализации
     determineLocationPermission();
     
-    // Сначала получаем реальное местоположение
+    // Получаем реальное местоположение
     _initializeUserLocation();
     
+    // Загружаем сохраненные адреса из SharedPreferences
+    _loadSavedAddresses();
+    
+    // Настраиваем слушатель для draggableScrollableController
     draggableScrollableController.addListener(() {
       draggableScrolledSize.accept(draggableScrollableController.size);
     });
     
+    // Настраиваем слушатель для обновления местоположения пользователя
     Geolocator.getPositionStream().listen((geoLocator.Position position) {
+      // Отключаем лишние сообщения
+      // print('Получено обновление местоположения: ${position.latitude}, ${position.longitude}');
       userLocation.accept(
         geotypes.Position(
           position.longitude,
           position.latitude,
         ),
       );
-      
-      // Автоматически обновляем камеру при получении нового местоположения
-      // if (mapboxMapController != null) {
-      //   mapboxMapController!.animateCamera(
-      //     mapbox.CameraUpdate.newCameraPosition(
-      //       mapbox.CameraPosition(
-      //         target: mapbox.LatLng(
-      //           data.latitude,
-      //           data.longitude,
-      //         ),
-      //         zoom: 20, // Максимально близкий зум
-      //       ),
-      //     ),
-      //   );
-      // }
 
       _checkLocation();
     });
 
+    // Делаем отложенную инициализацию UI с увеличенным размером draggableMaxChildSize
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      draggableScrolledSize.accept(0);
+      draggableMaxChildSize.accept(1.0); // Увеличиваем до полного размера экрана
       draggableScrolledSize.accept(draggableScrollableController.size);
     });
   }
   
+  // Улучшенная инициализация местоположения пользователя
   Future<void> _initializeUserLocation() async {
     try {
-      final geoLocator.Position? location = await Geolocator.getCurrentPosition();
+      print('Инициализация местоположения пользователя...');
+      final geoLocator.Position? location = await Geolocator.getCurrentPosition(
+        desiredAccuracy: geoLocator.LocationAccuracy.high,
+        timeLimit: Duration(seconds: 5),
+      ).catchError((e) {
+        print('Ошибка при получении точного местоположения: $e');
+        // Fallback to last known position if high accuracy takes too long
+        return Geolocator.getLastKnownPosition();
+      });
+      
       if (location != null) {
+        print('Получено местоположение: ${location.latitude}, ${location.longitude}');
         userLocation.accept(
           geotypes.Position(
             location.longitude,
             location.latitude,
           ),
         );
+        
+        // Сохраняем координаты в SharedPreferences
+        await inject<SharedPreferences>().setDouble('latitude', location.latitude);
+        await inject<SharedPreferences>().setDouble('longitude', location.longitude);
+        
+        // Обновляем камеру если контроллер уже создан
+        if (_mapboxMapController != null) {
+          _updateMapCamera();
+        }
+      } else {
+        print('Не удалось получить текущее местоположение, используем последние сохраненные координаты');
+        
+        // Пробуем загрузить координаты из SharedPreferences
+        final prefs = inject<SharedPreferences>();
+        final latitude = prefs.getDouble('latitude');
+        final longitude = prefs.getDouble('longitude');
+        
+        if (latitude != null && longitude != null) {
+          userLocation.accept(
+            geotypes.Position(
+              longitude,
+              latitude,
+            ),
+          );
+          print('Загружены координаты из SharedPreferences: $latitude, $longitude');
+        } else {
+          print('Сохраненных координат нет, используем координаты Актау по умолчанию');
+        }
       }
     } catch (e) {
-      // Если не удалось получить местоположение, оставляем дефолтное
-      print('Error getting location: $e');
+      print('Ошибка при инициализации местоположения: $e');
     }
   }
 
@@ -299,26 +397,26 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     bool force = false,
   }) async {
     try {
-      print('🔍 Начинаем determineLocationPermission...');
+      // print('🔍 Начинаем determineLocationPermission...');
       
       // Сначала запрашиваем разрешения через LocationInteractor
       final permission = await inject<LocationInteractor>().requestLocation();
-      print('📍 Получены разрешения: $permission');
+      // print('📍 Получены разрешения: $permission');
       
       // ВАЖНО: Обновляем состояние locationPermission!
       if (permission != null) {
         locationPermission.accept(permission);
-        print('✅ locationPermission обновлен: $permission');
+        // print('✅ locationPermission обновлен: $permission');
       } else {
         // Если не удалось получить разрешения, устанавливаем denied
         locationPermission.accept(geoLocator.LocationPermission.denied);
-        print('❌ Устанавливаем locationPermission как denied');
+        // print('❌ Устанавливаем locationPermission как denied');
         return; // Выходим если нет разрешений
       }
       
       // Проверяем что разрешения действительно получены
       if (![geoLocator.LocationPermission.always, geoLocator.LocationPermission.whileInUse].contains(permission)) {
-        print('❌ Недостаточные разрешения: $permission');
+        // print('❌ Недостаточные разрешения: $permission');
         return;
       }
       
@@ -337,12 +435,13 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         await inject<SharedPreferences>().setDouble('latitude', location.latitude);
         await inject<SharedPreferences>().setDouble('longitude', location.longitude);
         
-        print('✅ Успешно получены и сохранены координаты: ${location.latitude}, ${location.longitude}');
+        // print('✅ Успешно получены и сохранены координаты: ${location.latitude}, ${location.longitude}');
         
         // ДОБАВЛЯЕМ: Обновляем камеру карты на новое местоположение
         await _updateMapCamera();
         
-        // Показываем пользователю успешное сообщение
+        // Убираем сообщение об успешном определении местоположения
+        /*
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Местоположение определено успешно'),
@@ -350,8 +449,9 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
             backgroundColor: Colors.green,
           ),
         );
+        */
       } else {
-        print('⚠️ Не удалось получить координаты');
+        // print('⚠️ Не удалось получить координаты');
         // Попробуем использовать сохраненные координаты
         final savedLat = inject<SharedPreferences>().getDouble('latitude');
         final savedLng = inject<SharedPreferences>().getDouble('longitude');
@@ -360,9 +460,9 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
           userLocation.accept(
             geotypes.Position(savedLng, savedLat),
           );
-          print('📌 Используем сохраненные координаты: $savedLat, $savedLng');
+          // print('📌 Используем сохраненные координаты: $savedLat, $savedLng');
         } else {
-          print('🌍 Используем координаты Актау по умолчанию');
+          // print('🌍 Используем координаты Актау по умолчанию');
           // В случае если нет сохраненных координат, используем координаты Актау
           userLocation.accept(
             geotypes.Position(51.260834, 43.693695),
@@ -370,7 +470,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         }
       }
     } catch (e) {
-      print('❌ Ошибка при получении геопозиции: $e');
+      // print('❌ Ошибка при получении геопозиции: $e');
       // В случае ошибки устанавливаем denied и дефолтные координаты
       locationPermission.accept(geoLocator.LocationPermission.denied);
       userLocation.accept(
@@ -381,15 +481,39 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
 
   @override
   void tabIndexChanged(int newTabIndex) {
-    currentTab.accept(newTabIndex);
-    if (newTabIndex == 1) {
-      draggableMaxChildSize.accept(0.9);
-      draggableScrollableController.jumpTo(0.9);
-    } else {
-      draggableMaxChildSize.accept(0.6);
-      draggableScrollableController.jumpTo(0.6);
+    // Keep this method for backward compatibility, but simplify its behavior
+    // Since we no longer have tabs, just ensure the panel is visible
+    ensurePanelVisible();
+  }
+  
+  // New method: Ensure panel is at least at its minimum state
+  void ensurePanelVisible() {
+    // Make sure the panel is at least at minimum height
+    if (draggableScrollableController.size < 0.35) {
+      draggableScrollableController.animateTo(
+        0.35,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
-    tabController.animateTo(newTabIndex);
+  }
+  
+  // Add a method to expand the panel fully
+  void expandPanel() {
+    draggableScrollableController.animateTo(
+      0.92,
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+    }
+  
+  // Add a method to collapse the panel
+  void collapsePanel() {
+    draggableScrollableController.animateTo(
+      0.35,
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   Future<void> fetchFoods() async {
@@ -434,11 +558,11 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       // Проверяем, есть ли уже активное подключение
       if (newOrderSocket != null) {
         if (newOrderSocket!.connected) {
-          print('Сокет уже подключен, используем существующее соединение');
+          // print('Сокет уже подключен, используем существующее соединение');
           return;
         } else {
           // Закрываем старое подключение перед созданием нового
-          print('Закрываем старое неактивное соединение перед созданием нового');
+          // print('Закрываем старое неактивное соединение перед созданием нового');
           newOrderSocket!.dispose();
           newOrderSocket = null;
         }
@@ -449,11 +573,11 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
 
       // Проверяем наличие необходимых данных для подключения
       if (me.value == null || me.value!.id == null) {
-        print('Ошибка: нет данных пользователя для подключения сокета');
+        // print('Ошибка: нет данных пользователя для подключения сокета');
         return;
       }
 
-      print('Создаем новое соединение сокета для пользователя ${me.value!.id}');
+      // print('Создаем новое соединение сокета для пользователя ${me.value!.id}');
       newOrderSocket = IO.io(
         'https://taxi.aktau-go.kz',
         <String, dynamic>{
@@ -470,7 +594,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       newOrderSocket?.on(
         'orderRejected',
         (data) async {
-          print('Получено событие orderRejected: $data');
+          // print('Получено событие orderRejected: $data');
           isOrderRejected.accept(true);
           await showModalBottomSheet(
             context: context,
@@ -523,32 +647,32 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       );
 
       newOrderSocket?.on('orderStarted', (data) {
-        print('Получено событие orderStarted: $data');
+        // print('Получено событие orderStarted: $data');
         fetchActiveOrder();
       });
 
       newOrderSocket?.on('driverArrived', (data) {
-        print('Получено событие driverArrived: $data');
+        // print('Получено событие driverArrived: $data');
         fetchActiveOrder();
       });
 
       newOrderSocket?.on('rideStarted', (data) {
-        print('Получено событие rideStarted: $data');
+        // print('Получено событие rideStarted: $data');
         fetchActiveOrder();
       });
 
       newOrderSocket?.on('rideEnded', (data) {
-        print('Получено событие rideEnded: $data');
+        // print('Получено событие rideEnded: $data');
         fetchActiveOrder();
       });
 
       newOrderSocket?.on('orderAccepted', (data) {
-        print('Получено событие orderAccepted: $data');
+        // print('Получено событие orderAccepted: $data');
         fetchActiveOrder();
       });
 
       newOrderSocket?.on('driverLocation', (data) {
-        print('Получено событие driverLocation');
+        // print('Получено событие driverLocation');
         geotypes.Position point;
         if (data['lat'] is String) {
           point = geotypes.Position(double.tryParse(data['lng']) ?? 0, double.tryParse(data['lat']) ?? 0);
@@ -560,16 +684,16 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
 
       // Настраиваем обработчик отключения
       newOrderSocket?.onDisconnect((_) {
-        print('Сокет отключен: $_, для tenant (клиента) переподключаемся автоматически');
+        // print('Сокет отключен: $_, для tenant (клиента) переподключаемся автоматически');
         // Только для tenant (клиента) переподключаемся автоматически
         initializeSocket();
       });
       
       // Устанавливаем соединение
       newOrderSocket?.connect();
-      print('Сокет подключен для пользователя (tenant)');
+      // print('Сокет подключен для пользователя (tenant)');
     } on Exception catch (e) {
-      print('Ошибка при инициализации сокета: $e');
+      // print('Ошибка при инициализации сокета: $e');
       logger.e(e);
     }
   }
@@ -596,12 +720,22 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     }
   }
 
+  @override
   Future<void> fetchActiveOrder() async {
+    // print('Проверка наличия активного заказа...');
     try {
       final response = await model.getMyClientActiveOrder();
+      
+      // Проверяем наличие заказа
+      if (response.order != null) {
+        // print('Найден активный заказ: ${response.order!.id}');
+        
+        // Проверяем, завершен ли заказ и нужно ли его оценить
       if (response.order?.orderStatus == 'COMPLETED' &&
           response.order?.rating == null &&
           rateOpened.value == false) {
+          // print('Заказ завершен, но не оценен. Показываем окно оценки.');
+          
         rateOpened.accept(true);
         await showModalBottomSheet(
           context: context,
@@ -711,30 +845,21 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         );
         rateOpened.accept(false);
       }
+        
+        // Если заказ не завершен - показываем его как активный
       if (response.order?.orderStatus != 'COMPLETED') {
         activeOrder.accept(response);
+        } else {
+          activeOrder.accept(null);
       }
-    } on Exception catch (e) {
+      } else {
+        // print('Активных заказов не найдено');
       activeOrder.accept(null);
-      // TODO
+      }
+    } catch (e) {
+      // print('Ошибка при проверке активного заказа: $e');
+      activeOrder.accept(null);
     }
-    // showModalBottomSheet(
-    //   context: context,
-    //   isDismissible: false,
-    //   enableDrag: false,
-    //   isScrollControlled: true,
-    //   useSafeArea: true,
-    //   builder: (context) => ActiveClientOrderBottomSheet(
-    //     me: me.value!,
-    //     activeOrder: activeOrder.value!,
-    //     activeOrderListener: activeOrder,
-    //     onCancel: () {
-    //       model.rejectOrderByClientRequest(
-    //         orderRequestId: activeOrder.value!.order!.id!,
-    //       );
-    //     },
-    //   ),
-    // );
   }
 
   @override
@@ -815,12 +940,6 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
   @override
   void setMapboxController(MapboxMap controller) {
     _mapboxMapController = controller;
-    print('Контроллер карты установлен успешно');
-    
-    // Обновляем камеру при установке контроллера, если есть местоположение
-    if (userLocation.value != null) {
-      _updateMapCamera();
-    }
   }
   
   // Метод для обновления камеры карты
@@ -841,19 +960,359 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     }
   }
   
-  // Метод для отображения маршрута, вызывает соответствующий метод в TenantHomeScreen
   @override
-  Future<void> displayRouteOnMainMap(geotypes.Position fromPosition, geotypes.Position toPosition) async {
+  void setRouteDisplayed(bool displayed) {
+    isRouteDisplayed.accept(displayed);
+  }
+  
+  @override
+  void toggleMapFixed() async {
+    isMapFixed.accept(!(isMapFixed.value ?? false));
+    await _applyMapGestureSettings();
+  }
+  
+  @override
+  void setMapFixed(bool fixed) async {
+    isMapFixed.accept(fixed);
+    await _applyMapGestureSettings();
+  }
+  
+  // Apply map gesture settings based on fixed state
+  Future<void> _applyMapGestureSettings() async {
     if (_mapboxMapController == null) {
-      print('Ошибка: контроллер карты не инициализирован');
+      print('Cannot apply map gesture settings: mapboxMapController is null');
       return;
     }
     
-    // Используем метод из TenantHomeScreen
-    await context.findAncestorWidgetOfExactType<TenantHomeScreen>()?.displayRouteOnMainMap(
-      _mapboxMapController!,
-      fromPosition,
-      toPosition
-    );
+    try {
+      final bool fixed = isMapFixed.value ?? false;
+      
+      // Configure gestures based on fixed state
+      await _mapboxMapController!.gestures.updateSettings(
+        GesturesSettings(
+          rotateEnabled: !fixed,
+          scrollEnabled: !fixed,
+          pitchEnabled: !fixed,
+          doubleTapToZoomInEnabled: !fixed,
+          doubleTouchToZoomOutEnabled: !fixed,
+          quickZoomEnabled: !fixed,
+          pinchToZoomEnabled: !fixed,
+        ),
+      );
+      
+      print('Map gestures ${fixed ? 'disabled' : 'enabled'}');
+    } catch (e) {
+      print('Error applying map gesture settings: $e');
+    }
+  }
+
+  @override
+  Future<void> displayRouteOnMainMap(geotypes.Position fromPosition, geotypes.Position toPosition) async {
+    try {
+      print('Отображение маршрута на главной карте...');
+      print('Координаты from: ${fromPosition.lat}, ${fromPosition.lng}');
+      print('Координаты to: ${toPosition.lat}, ${toPosition.lng}');
+      
+      // Получаем маршрут из API Mapbox
+      final mapboxApi = inject<MapboxApi>();
+      final directions = await mapboxApi.getDirections(
+        fromLat: fromPosition.lat.toDouble(),
+        fromLng: fromPosition.lng.toDouble(),
+        toLat: toPosition.lat.toDouble(),
+        toLng: toPosition.lng.toDouble(),
+      );
+      
+      if (directions == null) {
+        print('Не удалось получить маршрут от API: directions is null');
+        return;
+      }
+      
+      // Удаляем существующие слои и источники маршрута
+      await clearRoute();
+      
+      // Создаем GeoJSON LineString из геометрии маршрута
+      if (!directions.containsKey('routes') || directions['routes'] == null || directions['routes'].isEmpty) {
+        print('В ответе API нет маршрутов');
+        return;
+      }
+      
+      final routeGeometry = directions['routes'][0]['geometry'];
+      print('Геометрия маршрута: ${routeGeometry.toString().substring(0, min(routeGeometry.toString().length, 100))}...');
+      
+      final lineString = {
+        "type": "Feature",
+        "geometry": routeGeometry,
+        "properties": {}
+      };
+      
+      // Конвертируем в JSON
+      final jsonData = json.encode({
+        "type": "FeatureCollection",
+        "features": [lineString]
+      });
+      
+      // Добавляем источник данных для маршрута
+      await _mapboxMapController!.style.addSource(GeoJsonSource(
+        id: 'main-route-source',
+        data: jsonData,
+      ));
+      
+      // Добавляем слой контура (белая граница для лучшей видимости)
+      await _mapboxMapController!.style.addLayer(LineLayer(
+        id: 'main-route-outline-layer',
+        sourceId: 'main-route-source',
+        lineColor: Colors.white.value,
+        lineWidth: 8.0,
+        lineOpacity: 0.9,
+      ));
+      
+      // Добавляем основной слой линии маршрута
+      await _mapboxMapController!.style.addLayer(LineLayer(
+        id: 'main-route-layer',
+        sourceId: 'main-route-source',
+        lineColor: primaryColor.value,
+        lineWidth: 5.0,
+        lineOpacity: 0.9,
+      ));
+      
+      // Добавляем маркеры для начальной и конечной точек
+      try {
+        // Добавляем GeoJSON для маркеров
+        final markersJson = {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Point",
+                "coordinates": [fromPosition.lng, fromPosition.lat]
+              },
+              "properties": {
+                "icon": "point_a"
+              }
+            },
+            {
+              "type": "Feature",
+              "geometry": {
+                "type": "Point",
+                "coordinates": [toPosition.lng, toPosition.lat]
+              },
+              "properties": {
+                "icon": "point_b"
+              }
+            }
+          ]
+        };
+        
+        // Добавляем источник данных для маркеров
+        await _mapboxMapController!.style.addSource(GeoJsonSource(
+          id: 'main-markers-source',
+          data: json.encode(markersJson),
+        ));
+        
+        // Добавляем слой символов для маркеров
+        await _mapboxMapController!.style.addLayer(SymbolLayer(
+          id: 'main-markers-layer',
+          sourceId: 'main-markers-source',
+          iconImage: "{icon}",
+          iconSize: 1.0,
+          iconAnchor: IconAnchor.BOTTOM,
+        ));
+      } catch (e) {
+        print('Ошибка при добавлении маркеров: $e');
+      }
+      
+      // Подстраиваем камеру для отображения всего маршрута
+      final bounds = directions['routes'][0]['bounds'];
+      if (bounds != null) {
+        final southwest = bounds[0];
+        final northeast = bounds[1];
+        
+        final camera = await _mapboxMapController!.cameraForCoordinateBounds(
+          CoordinateBounds(
+            southwest: Point(coordinates: geotypes.Position(southwest[0], southwest[1])),
+            northeast: Point(coordinates: geotypes.Position(northeast[0], northeast[1])),
+            infiniteBounds: false
+          ),
+          MbxEdgeInsets(top: 150, left: 50, bottom: 350, right: 50),
+          null, // bearing
+          null, // pitch
+          null, // maxZoom
+          null, // minZoom
+        );
+        
+        await _mapboxMapController!.flyTo(
+          camera,
+          MapAnimationOptions(duration: 1000),
+        );
+      }
+      
+      // Блокируем взаимодействие с картой, если включен режим фиксации
+      if (isMapFixed.value == true) {
+        await _applyMapGestureSettings();
+      }
+      
+      // Обновляем состояние отображения маршрута
+      setRouteDisplayed(true);
+      
+    } catch (e) {
+      print('Ошибка при отображении маршрута: $e');
+    }
+  }
+
+  @override
+  Future<void> clearRoute() async {
+    if (_mapboxMapController == null) {
+      print('Cannot clear route: mapboxMapController is null');
+      return;
+    }
+    
+    try {
+      print('Clearing route from map...');
+      
+      // Remove existing route layers and sources
+      for (final layerId in ['main-route-layer', 'main-route-outline-layer', 'main-markers-layer']) {
+        if (await _mapboxMapController!.style.styleLayerExists(layerId)) {
+          await _mapboxMapController!.style.removeStyleLayer(layerId);
+          print('Removed layer $layerId');
+        }
+      }
+      
+      for (final sourceId in ['main-route-source', 'main-markers-source']) {
+        if (await _mapboxMapController!.style.styleSourceExists(sourceId)) {
+          await _mapboxMapController!.style.removeStyleSource(sourceId);
+          print('Removed source $sourceId');
+        }
+      }
+      
+      isRouteDisplayed.accept(false);
+      isMapFixed.accept(false);
+      
+      // Применяем настройки взаимодействия с картой
+      await _applyMapGestureSettings();
+      
+      print('Route cleared successfully');
+    } catch (e) {
+      print('Error clearing route: $e');
+    }
+  }
+
+  @override
+  Future<void> createDriverOrder(DriverOrderForm form) async {
+    try {
+      print('Создание заказа с данными: ${form.toString()}');
+      
+      // Сохраняем адреса для будущего использования
+      saveOrderAddresses(
+        fromAddress: form.fromAddress.value ?? '',
+        toAddress: form.toAddress.value ?? '',
+        fromMapboxId: form.fromMapboxId.value ?? '',
+        toMapboxId: form.toMapboxId.value ?? '',
+      );
+      
+      // Определяем тип заказа на основе текущей вкладки
+      final orderType = currentTab.value == 0 ? DriverType.TAXI : DriverType.INTERCITY_TAXI;
+      
+      // Отправляем заказ на сервер
+      await onSubmit(form, orderType);
+      
+      // Обновляем состояние активного заказа
+      await fetchActiveOrder();
+    } catch (e) {
+      print('Ошибка при создании заказа: $e');
+      rethrow; // Передаем ошибку дальше для обработки в UI
+    }
+  }
+
+  @override
+  void saveOrderAddresses({
+    required String fromAddress,
+    required String toAddress,
+    required String fromMapboxId,
+    required String toMapboxId,
+  }) {
+    print('Сохранение адресов заказа:');
+    print('fromAddress: $fromAddress');
+    print('toAddress: $toAddress');
+    print('fromMapboxId: $fromMapboxId');
+    print('toMapboxId: $toMapboxId');
+    
+    // Сохраняем в StateNotifier для использования в UI
+    savedFromAddress.accept(fromAddress);
+    savedToAddress.accept(toAddress);
+    savedFromMapboxId.accept(fromMapboxId);
+    savedToMapboxId.accept(toMapboxId);
+    
+    // Также сохраняем в SharedPreferences для восстановления после перезапуска
+    try {
+      final prefs = inject<SharedPreferences>();
+      prefs.setString('saved_from_address', fromAddress);
+      prefs.setString('saved_to_address', toAddress);
+      prefs.setString('saved_from_mapbox_id', fromMapboxId);
+      prefs.setString('saved_to_mapbox_id', toMapboxId);
+    } catch (e) {
+      print('Ошибка при сохранении адресов в SharedPreferences: $e');
+    }
+  }
+
+  // Загрузка сохраненных адресов из SharedPreferences
+  Future<void> _loadSavedAddresses() async {
+    try {
+      final prefs = inject<SharedPreferences>();
+      final fromAddress = prefs.getString('saved_from_address');
+      final toAddress = prefs.getString('saved_to_address');
+      final fromMapboxId = prefs.getString('saved_from_mapbox_id');
+      final toMapboxId = prefs.getString('saved_to_mapbox_id');
+      
+      if (fromAddress != null && fromAddress.isNotEmpty) {
+        savedFromAddress.accept(fromAddress);
+      }
+      
+      if (toAddress != null && toAddress.isNotEmpty) {
+        savedToAddress.accept(toAddress);
+      }
+      
+      if (fromMapboxId != null && fromMapboxId.isNotEmpty) {
+        savedFromMapboxId.accept(fromMapboxId);
+      }
+      
+      if (toMapboxId != null && toMapboxId.isNotEmpty) {
+        savedToMapboxId.accept(toMapboxId);
+      }
+      
+      print('Загружены сохраненные адреса:');
+      print('fromAddress: $fromAddress');
+      print('toAddress: $toAddress');
+      print('fromMapboxId: $fromMapboxId');
+      print('toMapboxId: $toMapboxId');
+      
+      // Если оба адреса и координаты загружены успешно, можно отобразить маршрут
+      if (fromMapboxId != null && toMapboxId != null && 
+          fromMapboxId.isNotEmpty && toMapboxId.isNotEmpty) {
+        final fromParts = fromMapboxId.split(';');
+        final toParts = toMapboxId.split(';');
+        
+        if (fromParts.length >= 2 && toParts.length >= 2) {
+          final fromLat = double.tryParse(fromParts[0]);
+          final fromLng = double.tryParse(fromParts[1]);
+          final toLat = double.tryParse(toParts[0]);
+          final toLng = double.tryParse(toParts[1]);
+          
+          if (fromLat != null && fromLng != null && toLat != null && toLng != null) {
+            // Отображаем маршрут с небольшой задержкой, чтобы карта успела инициализироваться
+            Future.delayed(Duration(seconds: 1), () {
+              if (_mapboxMapController != null) {
+                displayRouteOnMainMap(
+                  geotypes.Position(fromLng, fromLat),
+                  geotypes.Position(toLng, toLat),
+                );
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('Ошибка при загрузке сохраненных адресов: $e');
+    }
   }
 }

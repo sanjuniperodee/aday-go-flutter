@@ -1,5 +1,7 @@
 import 'package:aktau_go/interactors/main_navigation_interactor.dart';
 import 'package:aktau_go/interactors/profile_interactor.dart';
+import 'package:aktau_go/interactors/common/mapbox_api/mapbox_api.dart';
+import 'package:aktau_go/utils/utils.dart';
 import 'package:elementary/elementary.dart';
 import 'package:geotypes/geotypes.dart' as geotypes;
 
@@ -39,5 +41,25 @@ class TenantHomeModel extends ElementaryModel {
 
   void onMapTapped(geotypes.Position point) {
     _mainNavigationInteractor.onMapTapped(point);
+  }
+  
+  Future<Map<String, dynamic>?> getDirections({
+    required double fromLat,
+    required double fromLng,
+    required double toLat,
+    required double toLng,
+  }) async {
+    try {
+      final mapboxApi = inject<MapboxApi>();
+      return await mapboxApi.getDirections(
+        fromLat: fromLat,
+        fromLng: fromLng,
+        toLat: toLat,
+        toLng: toLng,
+      );
+    } catch (e) {
+      print('Error fetching directions: $e');
+      return null;
+    }
   }
 }

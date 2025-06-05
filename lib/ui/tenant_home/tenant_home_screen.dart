@@ -30,6 +30,7 @@ import '../../core/colors.dart';
 import '../../core/text_styles.dart';
 import '../../domains/user/user_domain.dart';
 import '../../forms/driver_registration_form.dart';
+import '../../forms/inputs/required_formz_input.dart';
 import '../../models/active_client_request/active_client_request_model.dart';
 import '../../domains/food/food_category_domain.dart';
 import '../../domains/food/food_domain.dart';
@@ -39,8 +40,12 @@ import 'package:elementary_helper/elementary_helper.dart';
 import './widgets/tenant_home_create_food_view.dart';
 import './widgets/tenant_home_create_order_view.dart';
 import './widgets/tenant_home_tab_view.dart';
+import './forms/driver_order_form.dart';
 import 'tenant_home_wm.dart';
 import 'widgets/active_client_order_bottom_sheet.dart';
+import 'package:aktau_go/router/router.dart';
+import 'package:aktau_go/ui/widgets/notification_badge.dart';
+import 'package:aktau_go/ui/map_picker/map_picker_screen.dart';
 
 class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
   TenantHomeScreen({
@@ -49,373 +54,496 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
           (context) => defaultTenantHomeWMFactory(context),
         );
 
+  // Add price state variable
+  static const double _defaultPrice = 400;
+  
   @override
   Widget build(ITenantHomeWM wm) {
+    // Add a state variable for the price
+    final ValueNotifier<double> priceNotifier = ValueNotifier<double>(_defaultPrice);
+    // Контроллер для комментариев
+    final TextEditingController commentController = TextEditingController();
+    
+    // Для корректной работы с ролями
+    final String? currentRole = wm.me.value?.role;
+    final bool isDriverMode = currentRole == 'LANDLORD'; // Роль LANDLORD означает водителя
+    print("Current user role: $currentRole, isDriverMode: $isDriverMode");
+    
     return TripleSourceBuilder(
-        firstSource: wm.userLocation,
-        secondSource: wm.driverLocation,
-        thirdSource: wm.draggableScrolledSize,
-        builder: (
-          context,
-          geotypes.Position? userLocation,
-          geotypes.Position? driverLocation,
-          double? draggableScrolledSize,
-        ) {
-          return Scaffold(
-            resizeToAvoidBottomInset: false,
-            body: Stack(
-              children: [
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        child: MapWidget(
-                          key: ValueKey("mainMapWidget"),
-                          cameraOptions: CameraOptions(
-                            center: Point(coordinates: geotypes.Position(
-                              userLocation?.lng ?? 76.893156,
-                              userLocation?.lat ?? 43.239337,
-                            )),
-                            zoom: 18.0,
-                          ),
-                          onMapCreated: (mapboxController) async {
-                            // Передаем контроллер в WidgetModel для управления камерой
-                            wm.setMapboxController(mapboxController);
-                            
-                            // Загружаем только маркер для конечных точек маршрута
-                            // (point_b остается для отметки конечной точки)
-                            _addImageFromAsset(mapboxController, 'point_b', 'assets/images/point_b.png');
-                            _addImageFromAsset(mapboxController, 'point_a', 'assets/images/point_a.png');
-                            
-                            // Включаем встроенное отображение местоположения пользователя
-                            try {
-                              await mapboxController.location.updateSettings(
-                                LocationComponentSettings(
-                                  enabled: true,
-                                  pulsingEnabled: false,
-                                  showAccuracyRing: false,
-                                  puckBearingEnabled: false,
+      firstSource: wm.userLocation,
+      secondSource: wm.driverLocation,
+      thirdSource: wm.draggableScrolledSize,
+      builder: (
+        context,
+        geotypes.Position? userLocation,
+        geotypes.Position? driverLocation,
+        double? draggableScrolledSize,
+      ) {
+        // Add route state variables
+        final bool isRouteDisplayed = wm.isRouteDisplayed.value ?? false;
+        final bool isMapFixed = wm.isMapFixed.value ?? false;
+        
+        return Scaffold(
+          resizeToAvoidBottomInset: true,
+          body: Stack(
+            children: [
+              // Map container - takes full screen
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: double.infinity,
+                      child: MapWidget(
+                        key: ValueKey("mainMapWidget"),
+                        cameraOptions: CameraOptions(
+                          center: Point(coordinates: geotypes.Position(
+                            userLocation?.lng ?? 76.893156,
+                            userLocation?.lat ?? 43.239337,
+                          )),
+                          zoom: 18.0,
+                        ),
+                        onMapCreated: (mapboxController) async {
+                          // Pass controller to WidgetModel
+                          wm.setMapboxController(mapboxController);
+                          
+                          // Load marker images
+                          _addImageFromAsset(mapboxController, 'point_b', 'assets/images/point_b.png');
+                          _addImageFromAsset(mapboxController, 'point_a', 'assets/images/point_a.png');
+                          _addImageFromAsset(mapboxController, 'car_icon', 'assets/images/car_icon.png');
+                          
+                          // Enable built-in user location display
+                          try {
+                            await mapboxController.location.updateSettings(
+                              LocationComponentSettings(
+                                enabled: true,
+                                pulsingEnabled: true,
+                                showAccuracyRing: true,
+                                puckBearingEnabled: false,
+                              ),
+                            );
+                          } catch (e) {
+                            print('Ошибка при включении отображения местоположения: $e');
+                          }
+                          
+                          // Setup map localization
+                          _setupMapLocalization(mapboxController);
+                          
+                          // Setup map styling
+                          await _setupMapStyling(mapboxController);
+                        },
+                      ),
+                    ),
+                    
+                    // Location button with improved shadow
+                    Positioned(
+                      top: 32,
+                      right: 32,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Material(
+                            color: Colors.white,
+                            child: InkWell(
+                              onTap: wm.getMyLocation,
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                child: Icon(
+                                  Icons.my_location,
+                                  color: primaryColor,
                                 ),
-                              );
-                            } catch (e) {
-                              print('Ошибка при включении отображения местоположения: $e');
-                            }
-                            
-                            // Настраиваем русскую локализацию
-                            _setupMapLocalization(mapboxController);
-                          },
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      Positioned(
-                        top: 32,
-                        right: 32,
-                        child: InkWell(
-                          onTap: wm.getMyLocation,
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
+                    ),
+                    
+                    // Fixed map toggle button
+                    if (isRouteDisplayed)
+                    Positioned(
+                      top: 32,
+                      left: 32,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
                             ),
-                            child: Icon(Icons.location_searching),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Material(
+                            color: Colors.white,
+                            child: InkWell(
+                              onTap: () => wm.toggleMapFixed(),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                child: Icon(
+                                  isMapFixed ? Icons.lock : Icons.lock_open,
+                                  color: isMapFixed ? primaryColor : Colors.grey,
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      )
-                    ],
-                  ),
+                      ),
+                    ),
+                    
+                    // Route preview hint (shows briefly when route is drawn)
+                    if (isRouteDisplayed)
+                    Positioned(
+                      top: 90,
+                      left: 0,
+                      right: 0,
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0, end: 1),
+                        duration: Duration(milliseconds: 500),
+                        builder: (context, value, child) {
+                          return Opacity(
+                            opacity: value,
+                            child: child,
+                          );
+                        },
+                        child: Center(
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              'Маршрут построен',
+                              style: TextStyle(
+                                color: primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  child: TripleSourceBuilder(
-                      firstSource: wm.currentTab,
-                      secondSource: wm.activeOrder,
-                      thirdSource: wm.me,
-                      builder: (
-                        context,
-                        int? currentTab,
-                        ActiveClientRequestModel? activeOrder,
-                        UserDomain? me,
-                      ) {
-                        return TripleSourceBuilder(
-                            firstSource: wm.draggableMaxChildSize,
-                            secondSource: wm.locationPermission,
-                            thirdSource: wm.showFood,
-                            builder: (
-                              context,
-                              double? draggableMaxChildSize,
-                              LocationPermission? locationPermission,
-                              bool? showFood,
-                            ) {
-                              return DraggableScrollableSheet(
-                                initialChildSize: 0.3,
-                                controller: wm.draggableScrollableController,
-                                minChildSize: 0.3,
-                                maxChildSize: 1,
-                                snap: false,
-                                expand: false,
-                                builder: (
-                                  context,
-                                  scrollController,
-                                ) {
-                                  return Container(
-                                    color: Colors.white,
-                                    child: SingleChildScrollView(
-                                      controller: scrollController,
-                                      child: TripleSourceBuilder(
-                                        firstSource: wm.currentTab,
-                                        secondSource: wm.activeOrder,
-                                        thirdSource: wm.me,
-                                        builder: (
-                                          context,
-                                          int? currentTab,
-                                          ActiveClientRequestModel? activeOrder,
-                                          UserDomain? me,
-                                        ) {
-                                          if (![
-                                            LocationPermission.always,
-                                            LocationPermission.whileInUse
-                                          ].contains(locationPermission)) {
-                                            return Container(
-                                              color: Colors.white,
-                                              child: PopScope(
-                                                canPop: false,
-                                                child: PrimaryBottomSheet(
-                                                  contentPadding:
-                                                      const EdgeInsets
-                                                          .symmetric(
-                                                    vertical: 8,
-                                                    horizontal: 16,
-                                                  ),
-                                                  child: SizedBox(
-                                                    child: Column(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        Center(
-                                                          child: Container(
-                                                            width: 38,
-                                                            height: 4,
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color:
-                                                                  greyscale30,
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          1.4),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 24,
-                                                        ),
-                                                        SizedBox(
-                                                          width:
-                                                              double.infinity,
-                                                          child: Text(
-                                                            'Для заказа пожалуйста поделитесь геолокацией',
-                                                            style:
-                                                                text400Size24Greyscale60,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 24,
-                                                        ),
-                                                        SizedBox(
-                                                          width:
-                                                              double.infinity,
-                                                          child: PrimaryButton
-                                                              .primary(
-                                                            onPressed: () => wm
-                                                                .determineLocationPermission(
-                                                              force: true,
-                                                            ),
-                                                            text:
-                                                                'Включить геолокацию',
-                                                            textStyle:
-                                                                text400Size16White,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          }
-
-                                          if (activeOrder != null) {
-                                            return Container(
-                                              color: Colors.white,
-                                              child:
-                                                  ActiveClientOrderBottomSheet(
-                                                me: me!,
-                                                activeOrder: activeOrder,
-                                                activeOrderListener:
-                                                    wm.activeOrder,
-                                                onCancel:
-                                                    wm.cancelActiveClientOrder,
-                                              ),
-                                            );
-                                          }
-                                          return Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 16,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.vertical(
-                                                top: Radius.circular(20),
-                                              ),
-                                            ),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Container(
-                                                  width: 38,
-                                                  height: 4,
-                                                  decoration: BoxDecoration(
-                                                    color: greyscale30,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            1.40),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 16),
-                                                TabBar(
-                                                  controller: wm.tabController,
-                                                  isScrollable: true,
-                                                  padding:
-                                                      EdgeInsets.only(left: 16),
-                                                  tabAlignment:
-                                                      TabAlignment.start,
-                                                  dividerColor:
-                                                      Colors.transparent,
-                                                  indicatorColor:
-                                                      Colors.transparent,
-                                                  enableFeedback: false,
-                                                  labelPadding:
-                                                      EdgeInsets.only(right: 8),
-                                                  tabs: [
-                                                    ...[
-                                                      DriverType.TAXI,
-                                                      /* Временно скрываем эти вкладки
-                                                      if (showFood == true)
-                                                        "FOOD",
-                                                      DriverType.DELIVERY,
-                                                      DriverType.CARGO,
-                                                      */
-                                                      DriverType.INTERCITY_TAXI,
-                                                    ].asMap().entries.map(
-                                                          (e) => InkWell(
-                                                            onTap: () => wm
-                                                                .tabIndexChanged(
-                                                                    e.key),
-                                                            child:
-                                                                TenantHomeTabView(
-                                                              isActive:
-                                                                  currentTab ==
-                                                                      e.key,
-                                                              label: e.value
-                                                                      is DriverType
-                                                                  ? (e.value
-                                                                          as DriverType)
-                                                                      .value!.tr()
-                                                                  : 'Eда'.tr(),
-                                                              asset: e.value
-                                                                      is DriverType
-                                                                  ? (e.value
-                                                                          as DriverType)
-                                                                      .asset!
-                                                                  : 'assets/icons/food.svg',
-                                                            ),
-                                                          ),
-                                                        )
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 24),
-                                
-                                // Показываем соответствующий компонент в зависимости от выбранной вкладки
-                                Builder(
-                                  builder: (context) {
-                                    // Видимые вкладки - только такси и межгород
-                                    if (currentTab == 0) {
-                                      // Такси
-                                      return Navigator(
-                                        onGenerateRoute: (settings) {
-                                          return MaterialPageRoute(
-                                            builder: (context) => TenantHomeCreateOrderView(
-                                              scrollController: scrollController,
-                                              onSubmit: (form) => wm.onSubmit(form, DriverType.TAXI),
-                                            ),
-                                            settings: settings,
+              ),
+              
+              // Bottom sheet containing the form
+              TripleSourceBuilder(
+                firstSource: wm.activeOrder,
+                secondSource: wm.me,
+                thirdSource: wm.locationPermission,
+                builder: (
+                  context,
+                  ActiveClientRequestModel? activeOrder,
+                  UserDomain? me,
+                  LocationPermission? locationPermission,
+                ) {
+                  // Check location permission
+                  if (![
+                    LocationPermission.always,
+                    LocationPermission.whileInUse
+                  ].contains(locationPermission)) {
+                    return _buildLocationPermissionBottomSheet(wm);
+                  }
+                  
+                  // Check for active order
+                  if (activeOrder != null) {
+                    return _buildActiveOrderBottomSheet(activeOrder, me!, wm);
+                  }
+                  
+                  // Order creation panel
+                  return Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: Offset(0, -2),
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Компактный индикатор для перетаскивания
+                          Padding(
+                            padding: EdgeInsets.only(top: 8, bottom: 4),
+                            child: Container(
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                          
+                          // Основное содержимое
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Откуда
+                                _buildAddressField(
+                                  context: context,
+                                  icon: Icons.radio_button_checked,
+                                  iconColor: Colors.green,
+                                  hint: 'Откуда',
+                                  value: wm.savedFromAddress.value ?? '',
+                                  onTap: () {
+                                    try {
+                                      print('Открываю экран выбора адреса "Откуда"');
+                                      
+                                      // Создаем экземпляр аргументов
+                                      final args = MapAddressPickerScreenArgs(
+                                        placeName: wm.savedFromAddress.value,
+                                        onSubmit: (position, placeName) {
+                                          print('Выбран адрес отправления: $placeName в позиции ${position.lat}, ${position.lng}');
+                                          wm.saveOrderAddresses(
+                                            fromAddress: placeName,
+                                            toAddress: wm.savedToAddress.value ?? '',
+                                            fromMapboxId: '${position.lat};${position.lng}',
+                                            toMapboxId: wm.savedToMapboxId.value ?? '',
                                           );
-                                        },
-                                        onPopPage: (route, result) {
-                                          if (result != null && result is Map && result['shouldShowRoute'] == true) {
-                                            // Обрабатываем результат с маршрутом
-                                            final fromPosition = result['fromPosition'] as geotypes.Position?;
-                                            final toPosition = result['toPosition'] as geotypes.Position?;
-                                            
-                                            print('Получены данные для отображения маршрута:');
-                                            print('From: ${fromPosition?.lat},${fromPosition?.lng}');
-                                            print('To: ${toPosition?.lat},${toPosition?.lng}');
-                                            print('From address: ${result['fromAddress']}');
-                                            print('To address: ${result['toAddress']}');
-                                            
-                                            if (fromPosition != null && toPosition != null && wm.mapboxMapController != null) {
-                                              print('Отображаем маршрут на карте');
-                                              // Используем Future.delayed для обеспечения времени на отрисовку экрана
-                                              Future.delayed(Duration(milliseconds: 300), () {
-                                                displayRouteOnMainMap(wm.mapboxMapController!, fromPosition, toPosition);
-                                              });
-                                            } else {
-                                              print('Не удается отобразить маршрут: fromPosition=${fromPosition != null}, toPosition=${toPosition != null}, mapController=${wm.mapboxMapController != null}');
-                                            }
-                                          }
-                                          return route.didPop(result);
+                                          wm.setRouteDisplayed(false);
                                         },
                                       );
-                                    } else {
-                                      // Межгород
-                                      return TenantHomeCreateOrderView(
-                                        isIntercity: true,
-                                        scrollController: scrollController,
-                                        onSubmit: (form) => wm.onSubmit(form, DriverType.INTERCITY_TAXI),
+                                      
+                                      // Используем Routes.router вместо Navigator
+                                      Routes.router.navigate(
+                                        Routes.selectMapPicker,
+                                        args: args,
+                                      );
+                                    } catch (e) {
+                                      print('Ошибка при навигации к экрану выбора адреса: $e');
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Ошибка: $e')),
                                       );
                                     }
                                   },
                                 ),
-                                              ],
-                                            ),
+                                
+                                // Куда
+                                _buildAddressField(
+                                  context: context,
+                                  icon: Icons.location_on,
+                                  iconColor: Colors.red,
+                                  hint: 'Куда',
+                                  value: wm.savedToAddress.value ?? '',
+                                  onTap: () {
+                                    try {
+                                      print('Открываю экран выбора адреса "Куда"');
+                                      
+                                      // Создаем экземпляр аргументов
+                                      final args = MapAddressPickerScreenArgs(
+                                        placeName: wm.savedToAddress.value,
+                                        fromPosition: wm.savedFromMapboxId.value != null ? 
+                                            _parseMapboxId(wm.savedFromMapboxId.value!) : null,
+                                        onSubmit: (position, placeName) {
+                                          print('Выбран адрес назначения: $placeName в позиции ${position.lat}, ${position.lng}');
+                                          wm.saveOrderAddresses(
+                                            fromAddress: wm.savedFromAddress.value ?? '',
+                                            toAddress: placeName,
+                                            fromMapboxId: wm.savedFromMapboxId.value ?? '',
+                                            toMapboxId: '${position.lat};${position.lng}',
                                           );
+                                          wm.setRouteDisplayed(false);
                                         },
+                                      );
+                                      
+                                      // Используем Routes.router вместо Navigator
+                                      Routes.router.navigate(
+                                        Routes.selectMapPicker,
+                                        args: args,
+                                      );
+                                    } catch (e) {
+                                      print('Ошибка при навигации к экрану выбора адреса: $e');
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Ошибка: $e')),
+                                      );
+                                    }
+                                  },
+                                ),
+                                
+                                // Комментарий - прямой ввод без диалога
+                                Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.chat_bubble_outline, color: Colors.grey),
+                                      SizedBox(width: 16),
+                                      Expanded(
+                                        child: TextField(
+                                          controller: commentController,
+                                          decoration: InputDecoration(
+                                            hintText: 'Комментарий (необязательно)',
+                                            hintStyle: TextStyle(color: Colors.grey),
+                                            border: InputBorder.none,
+                                            isDense: true,
+                                            contentPadding: EdgeInsets.zero,
+                                          ),
+                                          style: TextStyle(
+                                            color: Colors.black87,
+                                            fontSize: 16,
+                                          ),
+                                        ),
                                       ),
+                                    ],
+                                  ),
+                                ),
+                                
+                                // Ввод цены - как на скрине
+                                Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8),
+                                  child: InkWell(
+                                    onTap: () {
+                                      // Показать клавиатуру для ввода цены
+                                    },
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.monetization_on_outlined, color: Colors.grey),
+                                        SizedBox(width: 16),
+                                        Expanded(
+                                          child: ValueListenableBuilder<double>(
+                                            valueListenable: priceNotifier,
+                                            builder: (context, price, _) {
+                                              // Текстовое поле для ввода цены
+                                              return TextFormField(
+                                                initialValue: price.round().toString(),
+                                                keyboardType: TextInputType.number,
+                                                decoration: InputDecoration(
+                                                  hintText: 'Введите цену',
+                                                  hintStyle: TextStyle(color: Colors.grey),
+                                                  border: InputBorder.none,
+                                                  isDense: true,
+                                                  contentPadding: EdgeInsets.zero,
+                                                  suffixText: '₸',
+                                                  suffixStyle: TextStyle(
+                                                    color: Colors.black87, 
+                                                    fontWeight: FontWeight.bold
+                                                  ),
+                                                ),
+                                                style: TextStyle(
+                                                  color: Colors.black87,
+                                                  fontSize: 16,
+                                                ),
+                                                onChanged: (value) {
+                                                  final newPrice = double.tryParse(value);
+                                                  if (newPrice != null) {
+                                                    priceNotifier.value = newPrice;
+                                                  }
+                                                },
+                                              );
+                                            }
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  );
-                                },
-                              );
-                            });
-                      }),
-                )
-              ],
-            ),
-          );
-        });
+                                  ),
+                                ),
+                                
+                                // Кнопка вызова такси
+                                Padding(
+                                  padding: EdgeInsets.only(top: 8, bottom: 16),
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      // Проверка полей
+                                      if ((wm.savedFromAddress.value ?? '').isEmpty) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Пожалуйста, укажите пункт отправления')),
+                                        );
+                                        return;
+                                      }
+                                      
+                                      if ((wm.savedToAddress.value ?? '').isEmpty) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Пожалуйста, укажите пункт назначения')),
+                                        );
+                                        return;
+                                      }
+                                      
+                                      // Создание формы заказа
+                                      final orderForm = DriverOrderForm(
+                                        fromAddress: Required.dirty(wm.savedFromAddress.value ?? ''),
+                                        toAddress: Required.dirty(wm.savedToAddress.value ?? ''),
+                                        fromMapboxId: Required.dirty(wm.savedFromMapboxId.value ?? ''),
+                                        toMapboxId: Required.dirty(wm.savedToMapboxId.value ?? ''),
+                                        cost: Required.dirty(priceNotifier.value.round()),
+                                        comment: commentController.text, // Используем текст из поля комментария
+                                      );
+                                      
+                                      // Создание заказа
+                                      wm.createDriverOrder(orderForm);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: primaryColor,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      padding: EdgeInsets.symmetric(vertical: 14),
+                                    ),
+                                    child: Text(
+                                      'Вызвать',
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      }
+    );
   }
 
-  // Методы для работы с картой
+  // Map utility methods
   Future<void> _addImageFromAsset(MapboxMap mapboxController, String name, String assetName) async {
     try {
       final ByteData bytes = await rootBundle.load(assetName);
@@ -442,25 +570,46 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
   
   Future<void> _setupMapLocalization(MapboxMap mapboxController) async {
     try {
-      // Настраиваем русскую локализацию для карты
+      // Set Russian localization for map
       await mapboxController.style.setStyleImportConfigProperty(
         "basemap",
         "language",
-        "ru" // Русский язык
+        "ru" // Russian language
       );
     } catch (e) {
       print('Error setting map localization: $e');
     }
   }
+  
+  // Setup additional map styling
+  Future<void> _setupMapStyling(MapboxMap mapboxController) async {
+    try {
+      // Customize map styling for better appearance
+      // These are subtle improvements that make the map look more professional
+      await mapboxController.style.setStyleImportConfigProperty(
+        "basemap",
+        "showPointOfInterestLabels",
+        "true"
+      );
+      
+      await mapboxController.style.setStyleImportConfigProperty(
+        "basemap", 
+        "lightPreset", 
+        "day"
+      );
+    } catch (e) {
+      print('Error setting map styling: $e');
+    }
+  }
 
-  // Метод для отображения маршрута между точками на главной карте
-  Future<void> displayRouteOnMainMap(MapboxMap mapboxController, geotypes.Position fromPosition, geotypes.Position toPosition) async {
+  // Method to display route between points on main map with improved visuals
+  Future<void> displayRouteOnMainMap(geotypes.Position fromPosition, geotypes.Position toPosition, ITenantHomeWM wm) async {
     try {
       print('Отображение маршрута на главной карте...');
       print('Координаты from: ${fromPosition.lat}, ${fromPosition.lng}');
       print('Координаты to: ${toPosition.lat}, ${toPosition.lng}');
       
-      // Получаем маршрут через API Mapbox
+      // Get route from Mapbox API
       final mapboxApi = inject<MapboxApi>();
       final directions = await mapboxApi.getDirections(
         fromLat: fromPosition.lat.toDouble(),
@@ -476,18 +625,24 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
       
       print('Получен ответ от API маршрутов: ${directions.toString().substring(0, min(directions.toString().length, 200))}...');
       
-      // Удаляем существующие слои маршрута и маркеров, если они есть
+      // Remove existing route layers and sources if they exist
+      final mapController = wm.mapboxMapController;
+      if (mapController == null) {
+        print('Ошибка: контроллер карты не инициализирован');
+        return;
+      }
+      
       try {
-        for (final layerId in ['main-route-layer', 'main-markers-layer']) {
-          if (await mapboxController.style.styleLayerExists(layerId)) {
-            await mapboxController.style.removeStyleLayer(layerId);
+        for (final layerId in ['main-route-layer', 'main-route-outline-layer', 'main-markers-layer', 'main-route-progress-layer']) {
+          if (await mapController.style.styleLayerExists(layerId)) {
+            await mapController.style.removeStyleLayer(layerId);
             print('Удален слой $layerId');
           }
         }
         
         for (final sourceId in ['main-route-source', 'main-markers-source']) {
-          if (await mapboxController.style.styleSourceExists(sourceId)) {
-            await mapboxController.style.removeStyleSource(sourceId);
+          if (await mapController.style.styleSourceExists(sourceId)) {
+            await mapController.style.removeStyleSource(sourceId);
             print('Удален источник $sourceId');
           }
         }
@@ -495,7 +650,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
         print('Ошибка при удалении существующих слоев: $e');
       }
       
-      // Создаем GeoJSON LineString из геометрии маршрута
+      // Create GeoJSON LineString from route geometry
       if (!directions.containsKey('routes') || directions['routes'] == null || directions['routes'].isEmpty) {
         print('В ответе API нет маршрутов');
         return;
@@ -510,32 +665,41 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
         "properties": {}
       };
       
-      // Преобразуем в JSON
+      // Convert to JSON
       final jsonData = json.encode({
         "type": "FeatureCollection",
         "features": [lineString]
       });
       
-      // Добавляем источник данных для маршрута
-      await mapboxController.style.addSource(GeoJsonSource(
+      // Add data source for route
+      await mapController.style.addSource(GeoJsonSource(
         id: 'main-route-source',
         data: jsonData,
       ));
       print('Добавлен источник данных для маршрута');
       
-      // Добавляем слой линии для маршрута
-      await mapboxController.style.addLayer(LineLayer(
+      // Add outline layer (white border to make route more visible)
+      await mapController.style.addLayer(LineLayer(
+        id: 'main-route-outline-layer',
+        sourceId: 'main-route-source',
+        lineColor: Colors.white.value,
+        lineWidth: 8.0,
+        lineOpacity: 0.9,
+      ));
+      
+      // Add main route line layer with primary color
+      await mapController.style.addLayer(LineLayer(
         id: 'main-route-layer',
         sourceId: 'main-route-source',
-        lineColor: Colors.blue.value,
+        lineColor: primaryColor.value,
         lineWidth: 5.0,
-        lineOpacity: 0.8,
+        lineOpacity: 0.9,
       ));
-      print('Добавлен слой линии для маршрута');
+      print('Добавлены слои линии для маршрута');
       
-      // Добавляем маркеры начальной и конечной точек
+      // Add markers for origin and destination points
       try {
-        // Добавляем геоJSON для маркеров
+        // Add GeoJSON for markers
         final markersJson = {
           "type": "FeatureCollection",
           "features": [
@@ -562,73 +726,214 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
           ]
         };
         
-        // Добавляем источник данных для маркеров
-        await mapboxController.style.addSource(GeoJsonSource(
+        // Add data source for markers
+        await mapController.style.addSource(GeoJsonSource(
           id: 'main-markers-source',
           data: json.encode(markersJson),
         ));
         print('Добавлен источник данных для маркеров');
         
-        // Добавляем слой символов для маркеров
-        await mapboxController.style.addLayer(SymbolLayer(
+        // Add symbol layer for markers
+        await mapController.style.addLayer(SymbolLayer(
           id: 'main-markers-layer',
           sourceId: 'main-markers-source',
-          iconImage: "{icon}",  // Используем шаблонную строку для получения свойства icon
+          iconImage: "{icon}",
           iconSize: 1.0,
-          iconAnchor: IconAnchor.BOTTOM, // Важно: закрепляем маркер внизу изображения
+          iconAnchor: IconAnchor.BOTTOM,
         ));
         print('Добавлен слой символов для маркеров');
       } catch (e) {
         print('Ошибка при добавлении маркеров: $e');
       }
       
-      // Настраиваем камеру, чтобы отобразить весь маршрут
+      // Fit camera to show entire route
       final bounds = directions['routes'][0]['bounds'];
       if (bounds != null) {
         final southwest = bounds[0];
         final northeast = bounds[1];
         
-        final camera = await mapboxController.cameraForCoordinateBounds(
+        final camera = await mapController.cameraForCoordinateBounds(
           CoordinateBounds(
             southwest: Point(coordinates: geotypes.Position(southwest[0], southwest[1])),
             northeast: Point(coordinates: geotypes.Position(northeast[0], northeast[1])),
             infiniteBounds: false
           ),
-          MbxEdgeInsets(top: 100, left: 100, bottom: 100, right: 100),
+          MbxEdgeInsets(top: 150, left: 50, bottom: 350, right: 50),
           null, // bearing
           null, // pitch
           null, // maxZoom
           null, // minZoom
         );
         
-        await mapboxController.flyTo(
+        await mapController.flyTo(
           camera,
           MapAnimationOptions(duration: 1000),
         );
         print('Камера карты обновлена для отображения всего маршрута');
       }
       
-      // Блокируем взаимодействие с картой
-      try {
-        await mapboxController.gestures.updateSettings(
-          GesturesSettings(
-            rotateEnabled: false,
-            scrollEnabled: false,
-            doubleTapToZoomInEnabled: false,
-            doubleTouchToZoomOutEnabled: false,
-            quickZoomEnabled: false,
-            pitchEnabled: false,
-          )
-        );
-        
-        print('Взаимодействие с картой заблокировано');
-      } catch (e) {
-        print('Ошибка при блокировке взаимодействия с картой: $e');
+      // Lock map interaction if fixed mode is enabled
+      if (wm.isMapFixed.value == true) {
+        try {
+          await mapController.gestures.updateSettings(
+            GesturesSettings(
+              rotateEnabled: false,
+              scrollEnabled: false,
+              doubleTapToZoomInEnabled: false,
+              doubleTouchToZoomOutEnabled: false,
+              quickZoomEnabled: false,
+              pitchEnabled: false,
+            )
+          );
+          
+          print('Взаимодействие с картой заблокировано');
+        } catch (e) {
+          print('Ошибка при блокировке взаимодействия с картой: $e');
+        }
       }
+      
+      // Update route display state
+      wm.setRouteDisplayed(true);
       
       print('Маршрут успешно отображен на главной карте');
     } catch (e) {
       print('Ошибка при отображении маршрута на главной карте: $e');
     }
+  }
+
+  // Панель запроса разрешений на геолокацию
+  Widget _buildLocationPermissionBottomSheet(ITenantHomeWM wm) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: Offset(0, -2),
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: greyscale30,
+                borderRadius: BorderRadius.circular(1.4),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: Text(
+              'Для заказа пожалуйста поделитесь геолокацией',
+              style: text400Size24Greyscale60,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: PrimaryButton.primary(
+              onPressed: () => wm.determineLocationPermission(
+                force: true,
+              ),
+              text: 'Включить геолокацию',
+              textStyle: text400Size16White,
+            ),
+          ),
+          SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+  
+  // Панель активного заказа
+  Widget _buildActiveOrderBottomSheet(ActiveClientRequestModel activeOrder, UserDomain me, ITenantHomeWM wm) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: Offset(0, -2),
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: ActiveClientOrderBottomSheet(
+        me: me,
+        activeOrder: activeOrder,
+        activeOrderListener: wm.activeOrder,
+        onCancel: wm.cancelActiveClientOrder,
+      ),
+    );
+  }
+
+  // Helper method to build address fields
+  Widget _buildAddressField({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String hint,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 24),
+            SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                value.isEmpty ? hint : value,
+                style: TextStyle(
+                  color: value.isEmpty ? Colors.grey : Colors.black87,
+                  fontSize: 16,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Вспомогательный метод для разбора Mapbox ID
+  geotypes.Position? _parseMapboxId(String mapboxId) {
+    try {
+      final parts = mapboxId.split(';');
+      if (parts.length == 2) {
+        final lat = double.tryParse(parts[0]);
+        final lng = double.tryParse(parts[1]);
+        if (lat != null && lng != null) {
+          return geotypes.Position(lng, lat);
+        }
+      }
+    } catch (e) {
+      print('Ошибка при разборе mapboxId: $e');
+    }
+    return null;
   }
 }
