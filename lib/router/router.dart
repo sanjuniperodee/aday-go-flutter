@@ -15,6 +15,13 @@ import '../ui/otp/otp_screen.dart';
 // Добавляем экспорт для отладки ошибок
 import 'dart:developer';
 
+// Wrapper class for all navigation arguments
+class ArgumentsWrapper {
+  final dynamic arguments;
+  
+  ArgumentsWrapper(this.arguments);
+}
+
 class Routes {
   Routes._();
 
@@ -61,74 +68,21 @@ class Routes {
         builder: (context, args, params) {
           log('Router: selectMapPicker получил аргументы типа: ${args.runtimeType}');
           
-          // Полностью переработанная логика обработки аргументов
           try {
-            // Если пришел ArgumentsWrapper
-            if (args is ArgumentsWrapper) {
-              log('Аргументы в формате ArgumentsWrapper');
-              final actualArgs = args.arguments;
-              
-              if (actualArgs is MapAddressPickerScreenArgs) {
-                log('Внутри wrapper содержится MapAddressPickerScreenArgs');
-                return MapAddressPickerScreen(args: actualArgs);
-              } 
-              
-              if (actualArgs is Map<String, dynamic>) {
-                log('Внутри wrapper содержится Map');
-                return MapAddressPickerScreen(
-                  args: MapAddressPickerScreenArgs(
-                    placeName: actualArgs['placeName'],
-                    position: actualArgs['position'],
-                    fromPosition: actualArgs['fromPosition'],
-                    onSubmit: (position, placeName) {
-                      final callback = actualArgs['onSubmit'] ?? actualArgs['onSubmitCallback'];
-                      if (callback != null) {
-                        callback(position, placeName);
-                      } else {
-                        log('ВНИМАНИЕ: коллбэк отсутствует в аргументах');
-                      }
-                    },
-                  ),
-                );
-              }
-            }
-            
-            // Напрямую передан MapAddressPickerScreenArgs
             if (args is MapAddressPickerScreenArgs) {
-              log('Аргументы напрямую в формате MapAddressPickerScreenArgs');
+              log('Успешно: аргументы соответствуют типу MapAddressPickerScreenArgs');
               return MapAddressPickerScreen(args: args);
+            } else if (args == null) {
+              log('Аргументы равны null, использую пустые аргументы');
+              return MapAddressPickerScreen(args: MapAddressPickerScreenArgs.empty());
+            } else {
+              log('Аргументы не соответствуют типу MapAddressPickerScreenArgs: ${args.runtimeType}');
+              return MapAddressPickerScreen(args: MapAddressPickerScreenArgs.empty());
             }
-            
-            // Напрямую передан Map
-            if (args is Map<String, dynamic>) {
-              log('Аргументы напрямую в формате Map');
-              return MapAddressPickerScreen(
-                args: MapAddressPickerScreenArgs(
-                  placeName: args['placeName'],
-                  position: args['position'],
-                  fromPosition: args['fromPosition'],
-                  onSubmit: (position, placeName) {
-                    final callback = args['onSubmit'] ?? args['onSubmitCallback'];
-                    if (callback != null) {
-                      callback(position, placeName);
-                    } else {
-                      log('ВНИМАНИЕ: коллбэк отсутствует в аргументах');
-                    }
-                  },
-                ),
-              );
-            }
-            
-            // Запасной вариант - использовать пустые аргументы
-            log('Не удалось определить тип аргументов. Используем пустые аргументы.');
-            return MapAddressPickerScreen(
-              args: MapAddressPickerScreenArgs.empty()
-            );
-          } catch (e) {
+          } catch (e, stackTrace) {
             log('Ошибка при обработке аргументов: $e');
-            return MapAddressPickerScreen(
-              args: MapAddressPickerScreenArgs.empty()
-            );
+            log('Стек вызовов: $stackTrace');
+            return MapAddressPickerScreen(args: MapAddressPickerScreenArgs.empty());
           }
         },
       ),
@@ -180,10 +134,6 @@ class MyCustomTransition extends CustomSeafarerTransition {
 
     return ScaleTransition(
       scale: tween.animate(curvedAnimation),
-      child: child,
-    );
-    return ScaleTransition(
-      scale: animation,
       child: child,
     );
   }

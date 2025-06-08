@@ -81,512 +81,566 @@ class _ActiveClientOrderBottomSheetState
         ),
         child: SizedBox(
           child: activeRequest.order?.orderStatus == 'CREATED'
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 38,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: greyscale30,
-                          borderRadius: BorderRadius.circular(1.4),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Заказ размещён, ищем водителя',
-                            style: text400Size24Greyscale60,
-                          ),
-                        ),
-                        SizedBox(
-                          width: 90,
-                          height: 90,
-                          child: Stack(
-                            children: [
-                              Lottie.asset(
-                                'assets/lottie/location.json',
-                                fit: BoxFit.cover,
-                              ),
-                              // Center(child: SvgPicture.asset('assets/icons/placemark.svg', color: Color(0xFFDC3545),),)
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    PrimaryButton.secondary(
-                      onPressed: widget.onCancel,
-                      text: 'Остановить поиск',
-                      textStyle: text400Size16Greyscale60,
-                    ),
-                  ],
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    Column(
-                      children: [
-                        Center(
-                          child: Container(
-                            width: 38,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: greyscale30,
-                              borderRadius: BorderRadius.circular(1.4),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        if (!isOrderFinished &&
-                            activeRequest.order?.orderStatus == 'CREATED')
-                          SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              'Ваш заказ принят, ожидайте.',
-                              style: TextStyle(
-                                color: Color(0xFF261619),
-                                fontSize: 20,
-                                fontFamily: 'Rubik',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          )
-                        else if (!isOrderFinished &&
-                            activeRequest.order?.orderStatus == 'STARTED')
-                          SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              'Водитель в пути, ожидайте',
-                              style: TextStyle(
-                                color: Color(0xFF261619),
-                                fontSize: 20,
-                                fontFamily: 'Rubik',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          )
-                        else if (!isOrderFinished &&
-                            activeRequest.order?.orderStatus == 'WAITING')
-                          SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              'Водитель на месте',
-                              style: TextStyle(
-                                color: Color(0xFF261619),
-                                fontSize: 20,
-                                fontFamily: 'Rubik',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          )
-                        else if (!isOrderFinished &&
-                            activeRequest.order?.orderStatus == 'ONGOING')
-                          SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              'Поездка началась',
-                              style: TextStyle(
-                                color: Color(0xFF261619),
-                                fontSize: 20,
-                                fontFamily: 'Rubik',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          )
-                        else if (isOrderFinished &&
-                            activeRequest.order?.orderStatus == 'REJECTED')
-                          SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              'Заказ отменен',
-                              style: TextStyle(
-                                color: Color(0xFF261619),
-                                fontSize: 20,
-                                fontFamily: 'Rubik',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          )
-                        else if (isOrderFinished)
-                          SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              'Заказ завершен',
-                              style: TextStyle(
-                                color: Color(0xFF261619),
-                                fontSize: 20,
-                                fontFamily: 'Rubik',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        if (activeRequest.driver != null)
-                          Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(top: 10),
-                            padding: const EdgeInsets.all(16),
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                    width: 1, color: Color(0xFFE7E1E1)),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: ShapeDecoration(
-                                    image: DecorationImage(
-                                      image: NetworkImage(
-                                          "https://via.placeholder.com/48x48"),
-                                      fit: BoxFit.cover,
-                                    ),
-                                    shape: OvalBorder(),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Container(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Водитель',
-                                          textAlign: TextAlign.center,
-                                          style: text400Size12Greyscale60,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${activeRequest.driver?.lastName ?? ''} ${activeRequest.driver?.firstName ?? ''}',
-                                          textAlign: TextAlign.center,
-                                          style: text400Size16Greyscale90,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Машина',
-                                          textAlign: TextAlign.center,
-                                          style: text400Size12Greyscale60,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            SizedBox(
-                                              width: 50,
-                                              height: 50,
-                                              child: Image.asset(
-                                                'assets/images/car.png',
-                                                color: CarColor.fromHex(
-                                                        activeRequest
-                                                            .car!.props!.color!)
-                                                    ?.color,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  '${activeRequest.car?.props?.brand ?? ''} ${activeRequest.car?.props?.model ?? ''}',
-                                                  textAlign: TextAlign.center,
-                                                  style:
-                                                      text400Size16Greyscale90,
-                                                ),
-                                                Text(
-                                                  '${activeRequest.car?.props?.number ?? ''}',
-                                                  textAlign: TextAlign.center,
-                                                  style:
-                                                      text400Size16Greyscale90,
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                InkWell(
-                                  onTap: () {
-                                    launchUrlString(
-                                        'https://wa.me/${(widget.activeOrder.driver?.phone ?? '').replaceAll('+', '')}');
-                                  },
-                                  child: Container(
-                                    width: 32,
-                                    height: 32,
-                                    child: SvgPicture.asset(icWhatsapp),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        const SizedBox(height: 24),
-                        Container(
-                          width: double.infinity,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Откуда',
-                                                textAlign: TextAlign.center,
-                                                style: text400Size10Greyscale60,
-                                              ),
-                                              Container(
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.start,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    SvgPicture.asset(
-                                                      'assets/icons/placemark.svg',
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Expanded(
-                                                      child: Text(
-                                                        widget.activeOrder.order
-                                                                ?.from ??
-                                                            '',
-                                                        textAlign:
-                                                            TextAlign.left,
-                                                        style:
-                                                            text400Size16Black,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Куда',
-                                                textAlign: TextAlign.center,
-                                                style: text400Size10Greyscale60,
-                                              ),
-                                              Container(
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.start,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    SvgPicture.asset(
-                                                      'assets/icons/placemark.svg',
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Expanded(
-                                                      child: Text(
-                                                        widget.activeOrder.order
-                                                                ?.to ??
-                                                            '',
-                                                        textAlign:
-                                                            TextAlign.left,
-                                                        style:
-                                                            text400Size16Black,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Container(
-                          width: double.infinity,
-                          height: 36,
-                          padding: const EdgeInsets.all(8),
-                          decoration: ShapeDecoration(
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                  width: 1, color: Color(0xFFE7E1E1)),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: SizedBox(
-                                  child: Text(
-                                    'Цена поездки: ${NumUtils.humanizeNumber(activeRequest.order?.price)} ₸ ',
-                                    style: text400Size16Greyscale90,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if ((widget.activeOrder.order?.comment ?? '')
-                            .isNotEmpty)
-                          Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(top: 24),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                    width: 1, color: Color(0xFFE7E1E1)),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: Text('Комментарии'),
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: SizedBox(
-                                        child: Text(
-                                          widget.activeOrder.order?.comment ??
-                                              '',
-                                          style: text400Size12Greyscale90,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (activeRequest.order?.orderStatus == 'WAITING')
-                          Container(
-                            width: double.infinity,
-                            height: 36,
-                            padding: const EdgeInsets.all(8),
-                            margin: const EdgeInsets.only(top: 24),
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                    width: 1, color: Color(0xFFE7E1E1)),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    child: Text(
-                                      'Ожидание: ${waitingTimerLeft ~/ 60}:${waitingTimerLeft % 60}',
-                                      style: text400Size16Greyscale90,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: PrimaryButton.secondary(
-                              onPressed: widget.onCancel,
-                              text: 'Отменить заказ',
-                              textStyle: text400Size16Greyscale60,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: PrimaryButton.primary(
-                              onPressed: () {
-                                launchUrlString(
-                                    'tel://${(widget.activeOrder.driver?.phone ?? '')}');
-                              },
-                              text: 'Отказаться',
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Позвонить',
-                                    style: text400Size16White,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+              ? _buildSearchingForDriverView()
+              : _buildActiveOrderView(),
         ),
       ),
     );
+  }
+
+  // Новый дизайн экрана поиска водителя
+  Widget _buildSearchingForDriverView() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Полоска для перетаскивания
+        Center(
+          child: Container(
+            width: 38,
+            height: 4,
+            decoration: BoxDecoration(
+              color: greyscale30,
+              borderRadius: BorderRadius.circular(1.4),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        
+        // Анимация и текст
+        Container(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              SizedBox(
+                width: 120,
+                height: 120,
+                child: Lottie.asset(
+                  'assets/lottie/location.json',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              
+              Text(
+                'Поиск водителя',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: primaryColor,
+                ),
+              ),
+              
+              SizedBox(height: 8),
+              
+              Text(
+                'Ожидайте, мы ищем подходящего водителя',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        SizedBox(height: 16),
+        
+        // Информация о поездке
+        Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              // Откуда
+              Row(
+                children: [
+                  Icon(Icons.radio_button_checked, color: Colors.green, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      activeRequest.order?.from ?? '',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              
+              // Вертикальная линия
+              Padding(
+                padding: EdgeInsets.only(left: 10),
+                child: Container(
+                  height: 20,
+                  width: 1,
+                  color: Colors.grey.shade300,
+                ),
+              ),
+              
+              // Куда
+              Row(
+                children: [
+                  Icon(Icons.location_on, color: Colors.red, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      activeRequest.order?.to ?? '',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              
+              Divider(height: 24),
+              
+              // Цена
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Стоимость',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  Text(
+                    '${activeRequest.order?.price} ₸',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        
+        SizedBox(height: 16),
+        
+        // Кнопка отмены
+        PrimaryButton.secondary(
+          onPressed: widget.onCancel,
+          text: 'Отменить поиск',
+          textStyle: TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        
+        SizedBox(height: 16),
+      ],
+    );
+  }
+
+  // Обновленный дизайн для активного заказа
+  Widget _buildActiveOrderView() {
+    final orderStatus = activeRequest.order?.orderStatus;
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Полоска для перетаскивания
+        Center(
+          child: Container(
+            width: 38,
+            height: 4,
+            decoration: BoxDecoration(
+              color: greyscale30,
+              borderRadius: BorderRadius.circular(1.4),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        
+        // Статус заказа с иконкой
+        Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _getStatusColor(orderStatus).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _getStatusColor(orderStatus).withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(orderStatus).withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _getStatusIcon(orderStatus),
+                  color: _getStatusColor(orderStatus),
+                  size: 24,
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getStatusTitle(orderStatus),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      _getStatusDescription(orderStatus),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        SizedBox(height: 16),
+        
+        // Информация о поездке
+        Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              // Откуда
+              Row(
+                children: [
+                  Icon(Icons.radio_button_checked, color: Colors.green, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      activeRequest.order?.from ?? '',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              
+              // Вертикальная линия
+              Padding(
+                padding: EdgeInsets.only(left: 10),
+                child: Container(
+                  height: 20,
+                  width: 1,
+                  color: Colors.grey.shade300,
+                ),
+              ),
+              
+              // Куда
+              Row(
+                children: [
+                  Icon(Icons.location_on, color: Colors.red, size: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      activeRequest.order?.to ?? '',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              
+              Divider(height: 24),
+              
+              // Цена
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Стоимость',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  Text(
+                    '${activeRequest.order?.price} ₸',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        
+        SizedBox(height: 16),
+        
+        // Информация о водителе
+        if (activeRequest.driver != null)
+        Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.person,
+                        color: primaryColor,
+                        size: 30,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${activeRequest.driver?.firstName ?? ''} ${activeRequest.driver?.lastName ?? ''}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.star, color: Colors.amber, size: 16),
+                            SizedBox(width: 4),
+                            Text(
+                              '${activeRequest.driver?.rating?.toStringAsFixed(1) ?? '0.0'}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Кнопка звонка
+                  if (activeRequest.driver?.phone != null)
+                  InkWell(
+                    onTap: () => _callDriver(activeRequest.driver?.phone),
+                    borderRadius: BorderRadius.circular(30),
+                    child: Container(
+                      padding: EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.phone,
+                        color: Colors.green,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              if (activeRequest.car != null)
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.directions_car,
+                      color: Colors.grey.shade700,
+                      size: 16,
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${activeRequest.car?.props?.brand ?? ''} ${activeRequest.car?.props?.model ?? ''}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          activeRequest.car?.props?.number ?? '',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: _getCarColor(activeRequest.car?.props?.color),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.grey.shade300,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        
+        SizedBox(height: 16),
+        
+        // Кнопка отмены
+        if (activeRequest.order?.orderStatus != 'ONGOING' && !isOrderFinished)
+        PrimaryButton.secondary(
+          onPressed: widget.onCancel,
+          text: 'Отменить поездку',
+          textStyle: TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        
+        SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Future<void> _callDriver(String? phoneNumber) async {
+    if (phoneNumber == null) return;
+    
+    final url = 'tel:$phoneNumber';
+    try {
+      await launchUrlString(url);
+    } catch (e) {
+      print('Ошибка при попытке позвонить: $e');
+    }
+  }
+  
+  // Вспомогательные методы для стилизации статусов
+  
+  Color _getStatusColor(String? status) {
+    switch (status) {
+      case 'STARTED':
+        return Colors.blue;
+      case 'WAITING':
+        return Colors.orange;
+      case 'ONGOING':
+        return Colors.green;
+      default:
+        return primaryColor;
+    }
+  }
+  
+  IconData _getStatusIcon(String? status) {
+    switch (status) {
+      case 'STARTED':
+        return Icons.directions_car;
+      case 'WAITING':
+        return Icons.timer;
+      case 'ONGOING':
+        return Icons.directions;
+      default:
+        return Icons.check_circle;
+    }
+  }
+  
+  String _getStatusTitle(String? status) {
+    switch (status) {
+      case 'STARTED':
+        return 'Водитель в пути';
+      case 'WAITING':
+        return 'Водитель на месте';
+      case 'ONGOING':
+        return 'Поездка началась';
+      case 'COMPLETED':
+        return 'Поездка завершена';
+      default:
+        return 'Заказ принят';
+    }
+  }
+  
+  String _getStatusDescription(String? status) {
+    switch (status) {
+      case 'STARTED':
+        return 'Водитель уже едет к вам';
+      case 'WAITING':
+        return 'Водитель ожидает вас на месте посадки';
+      case 'ONGOING':
+        return 'Вы в пути к месту назначения';
+      case 'COMPLETED':
+        return 'Спасибо за поездку!';
+      default:
+        return 'Водитель скоро будет назначен';
+    }
+  }
+  
+  Color _getCarColor(String? colorString) {
+    if (colorString == null) return Colors.grey;
+    
+    try {
+      final colorValue = int.parse(colorString.replaceFirst('#', '0xFF'));
+      return Color(colorValue);
+    } catch (e) {
+      return Colors.grey;
+    }
   }
 }

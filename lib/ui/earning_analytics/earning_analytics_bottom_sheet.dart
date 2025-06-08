@@ -129,7 +129,8 @@ class _EarningAnalyticsBottomSheetState extends State<EarningAnalyticsBottomShee
                     ),
           SizedBox(height: 24),
           
-          // Chart section
+          // Chart section - REMOVED
+          /*
           Text(
             'Динамика дохода',
             style: TextStyle(
@@ -151,7 +152,7 @@ class _EarningAnalyticsBottomSheetState extends State<EarningAnalyticsBottomShee
           ),
           SizedBox(height: 24),
           
-          // Recent orders section
+          // Recent orders section - REMOVED
           Text(
             'Недавние поездки',
             style: TextStyle(
@@ -201,10 +202,10 @@ class _EarningAnalyticsBottomSheetState extends State<EarningAnalyticsBottomShee
                       ],
                     ),
                   ),
-                ),
-          SizedBox(height: 20),
-              ],
-            ),
+          ),
+          */
+        ],
+      ),
     );
   }
 

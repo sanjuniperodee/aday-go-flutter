@@ -467,7 +467,7 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
         sourceId: 'markers-source',
         filter: ['==', ['get', 'marker-symbol'], 'start'],
         iconImage: 'point_a',
-        iconSize: 0.6,
+        iconSize: 0.8,
         iconAllowOverlap: true,
       ));
       
@@ -477,7 +477,7 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
         sourceId: 'markers-source',
         filter: ['==', ['get', 'marker-symbol'], 'end'],
         iconImage: 'point_b',
-        iconSize: 0.6,
+        iconSize: 0.8,
         iconAllowOverlap: true,
       ));
     } catch (e) {

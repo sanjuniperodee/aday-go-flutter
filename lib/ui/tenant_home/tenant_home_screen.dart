@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'dart:typed_data';
-import 'dart:ui';
+import 'dart:ui' as ui;
 import 'dart:convert';
 
 import 'package:flutter_svg/svg.dart';
@@ -63,11 +63,6 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
     final ValueNotifier<double> priceNotifier = ValueNotifier<double>(_defaultPrice);
     // Контроллер для комментариев
     final TextEditingController commentController = TextEditingController();
-    
-    // Для корректной работы с ролями
-    final String? currentRole = wm.me.value?.role;
-    final bool isDriverMode = currentRole == 'LANDLORD'; // Роль LANDLORD означает водителя
-    print("Current user role: $currentRole, isDriverMode: $isDriverMode");
     
     return TripleSourceBuilder(
       firstSource: wm.userLocation,
@@ -166,42 +161,6 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                 child: Icon(
                                   Icons.my_location,
                                   color: primaryColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    
-                    // Fixed map toggle button
-                    if (isRouteDisplayed)
-                    Positioned(
-                      top: 32,
-                      left: 32,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 8,
-                              offset: Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: ClipOval(
-                          child: Material(
-                            color: Colors.white,
-                            child: InkWell(
-                              onTap: () => wm.toggleMapFixed(),
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                child: Icon(
-                                  isMapFixed ? Icons.lock : Icons.lock_open,
-                                  color: isMapFixed ? primaryColor : Colors.grey,
                                 ),
                               ),
                             ),
@@ -332,13 +291,20 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                     try {
                                       print('Открываю экран выбора адреса "Откуда"');
                                       
-                                      // Создаем экземпляр аргументов
+                                      // Создаем экземпляр MapAddressPickerScreenArgs для точки А
                                       final args = MapAddressPickerScreenArgs(
                                         placeName: wm.savedFromAddress.value,
+                                        position: wm.savedFromMapboxId.value != null ? 
+                                            _parseMapboxId(wm.savedFromMapboxId.value!) : null,
                                         onSubmit: (position, placeName) {
                                           print('Выбран адрес отправления: $placeName в позиции ${position.lat}, ${position.lng}');
+                                          
+                                          // Убедимся, что имя места не пустое
+                                          final actualPlaceName = placeName.isNotEmpty ? placeName : "Адрес не найден";
+                                          print('Сохраняем адрес отправления: $actualPlaceName');
+                                          
                                           wm.saveOrderAddresses(
-                                            fromAddress: placeName,
+                                            fromAddress: actualPlaceName,
                                             toAddress: wm.savedToAddress.value ?? '',
                                             fromMapboxId: '${position.lat};${position.lng}',
                                             toMapboxId: wm.savedToMapboxId.value ?? '',
@@ -347,7 +313,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                         },
                                       );
                                       
-                                      // Используем Routes.router вместо Navigator
+                                      // Используем Seafarer вместо Navigator
                                       Routes.router.navigate(
                                         Routes.selectMapPicker,
                                         args: args,
@@ -372,16 +338,23 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                     try {
                                       print('Открываю экран выбора адреса "Куда"');
                                       
-                                      // Создаем экземпляр аргументов
+                                      // Создаем экземпляр MapAddressPickerScreenArgs для точки Б
                                       final args = MapAddressPickerScreenArgs(
                                         placeName: wm.savedToAddress.value,
+                                        position: wm.savedToMapboxId.value != null ? 
+                                            _parseMapboxId(wm.savedToMapboxId.value!) : null,
                                         fromPosition: wm.savedFromMapboxId.value != null ? 
                                             _parseMapboxId(wm.savedFromMapboxId.value!) : null,
                                         onSubmit: (position, placeName) {
                                           print('Выбран адрес назначения: $placeName в позиции ${position.lat}, ${position.lng}');
+                                          
+                                          // Убедимся, что имя места не пустое
+                                          final actualPlaceName = placeName.isNotEmpty ? placeName : "Адрес не найден";
+                                          print('Сохраняем адрес назначения: $actualPlaceName');
+                                          
                                           wm.saveOrderAddresses(
                                             fromAddress: wm.savedFromAddress.value ?? '',
-                                            toAddress: placeName,
+                                            toAddress: actualPlaceName,
                                             fromMapboxId: wm.savedFromMapboxId.value ?? '',
                                             toMapboxId: '${position.lat};${position.lng}',
                                           );
@@ -389,7 +362,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                         },
                                       );
                                       
-                                      // Используем Routes.router вместо Navigator
+                                      // Используем Seafarer вместо Navigator
                                       Routes.router.navigate(
                                         Routes.selectMapPicker,
                                         args: args,
@@ -433,50 +406,45 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                 // Ввод цены - как на скрине
                                 Padding(
                                   padding: EdgeInsets.symmetric(vertical: 8),
-                                  child: InkWell(
-                                    onTap: () {
-                                      // Показать клавиатуру для ввода цены
-                                    },
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.monetization_on_outlined, color: Colors.grey),
-                                        SizedBox(width: 16),
-                                        Expanded(
-                                          child: ValueListenableBuilder<double>(
-                                            valueListenable: priceNotifier,
-                                            builder: (context, price, _) {
-                                              // Текстовое поле для ввода цены
-                                              return TextFormField(
-                                                initialValue: price.round().toString(),
-                                                keyboardType: TextInputType.number,
-                                                decoration: InputDecoration(
-                                                  hintText: 'Введите цену',
-                                                  hintStyle: TextStyle(color: Colors.grey),
-                                                  border: InputBorder.none,
-                                                  isDense: true,
-                                                  contentPadding: EdgeInsets.zero,
-                                                  suffixText: '₸',
-                                                  suffixStyle: TextStyle(
-                                                    color: Colors.black87, 
-                                                    fontWeight: FontWeight.bold
-                                                  ),
-                                                ),
-                                                style: TextStyle(
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.monetization_on_outlined, color: Colors.grey),
+                                      SizedBox(width: 16),
+                                      Expanded(
+                                        child: ValueListenableBuilder<double>(
+                                          valueListenable: priceNotifier,
+                                          builder: (context, price, _) {
+                                            // Текстовое поле для ввода цены
+                                            return TextFormField(
+                                              initialValue: price > 0 ? price.round().toString() : "",
+                                              keyboardType: TextInputType.number,
+                                              decoration: InputDecoration(
+                                                hintText: '1000',
+                                                hintStyle: TextStyle(color: Colors.grey),
+                                                border: InputBorder.none,
+                                                isDense: true,
+                                                contentPadding: EdgeInsets.zero,
+                                                suffixText: "₸",
+                                                suffixStyle: TextStyle(
                                                   color: Colors.black87,
-                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold
                                                 ),
-                                                onChanged: (value) {
-                                                  final newPrice = double.tryParse(value);
-                                                  if (newPrice != null) {
-                                                    priceNotifier.value = newPrice;
-                                                  }
-                                                },
-                                              );
-                                            }
-                                          ),
+                                              ),
+                                              style: TextStyle(
+                                                color: Colors.black87,
+                                                fontSize: 16,
+                                              ),
+                                              onChanged: (value) {
+                                                final newPrice = double.tryParse(value);
+                                                if (newPrice != null) {
+                                                  priceNotifier.value = newPrice;
+                                                }
+                                              },
+                                            );
+                                          }
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 
@@ -543,16 +511,66 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
     );
   }
 
-  // Map utility methods
+  // Map utility methods - completely revamped with smaller marker sizes
   Future<void> _addImageFromAsset(MapboxMap mapboxController, String name, String assetName) async {
     try {
       final ByteData bytes = await rootBundle.load(assetName);
       final Uint8List list = bytes.buffer.asUint8List();
       final image = await decodeImageFromList(list);
       
+      // Create a custom scaled version for point_a and point_b to make them much smaller
+      if (name == 'point_a' || name == 'point_b') {
+        // Scale down to 50% of original size
+        final scaleFactor = 0.5;
+        final ui.Codec codec = await ui.instantiateImageCodec(list);
+        final ui.FrameInfo frameInfo = await codec.getNextFrame();
+        final ui.Image originalImage = frameInfo.image;
+        
+        // Calculate scaled dimensions
+        final int scaledWidth = (originalImage.width * scaleFactor).round();
+        final int scaledHeight = (originalImage.height * scaleFactor).round();
+        
+        // Create a scaled version of the image
+        final ui.PictureRecorder recorder = ui.PictureRecorder();
+        final Canvas canvas = Canvas(recorder);
+        canvas.drawImageRect(
+          originalImage,
+          Rect.fromLTWH(0, 0, originalImage.width.toDouble(), originalImage.height.toDouble()),
+          Rect.fromLTWH(0, 0, scaledWidth.toDouble(), scaledHeight.toDouble()),
+          Paint()..filterQuality = FilterQuality.high
+        );
+        
+        final ui.Picture picture = recorder.endRecording();
+        final ui.Image scaledImage = await picture.toImage(scaledWidth, scaledHeight);
+        final ByteData? scaledData = await scaledImage.toByteData(format: ui.ImageByteFormat.png);
+        
+        if (scaledData != null) {
+          final Uint8List scaledList = scaledData.buffer.asUint8List();
+          await mapboxController.style.addStyleImage(
+            name,
+            1.0,
+            MbxImage(
+              width: scaledWidth,
+              height: scaledHeight,
+              data: scaledList,
+            ),
+            false, // sdf
+            [], // stretchX
+            [], // stretchY
+            null, // content
+          );
+          print('Added scaled image for $name with dimensions $scaledWidth x $scaledHeight (50% of original)');
+          return;
+        }
+      }
+      
+      // For other images or if scaling fails, add normally but with appropriate scale
+      double scale = 1.0;
+      if (name == 'car_icon') scale = 0.8;
+      
       await mapboxController.style.addStyleImage(
         name,
-        1.0, // scale
+        scale,
         MbxImage(
           width: image.width,
           height: image.height,
@@ -563,8 +581,10 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
         [], // stretchY
         null, // content
       );
+      
+      print('Added normal image for $name with scale: $scale');
     } catch (e) {
-      print('Ошибка при добавлении изображения: $e');
+      print('Error adding image asset: $e');
     }
   }
   
@@ -860,28 +880,41 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
   
   // Панель активного заказа
   Widget _buildActiveOrderBottomSheet(ActiveClientRequestModel activeOrder, UserDomain me, ITenantHomeWM wm) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 15,
-            offset: Offset(0, -2),
-            spreadRadius: 1,
+    return DraggableScrollableSheet(
+      initialChildSize: 0.35,
+      minChildSize: 0.2,
+      maxChildSize: 0.9,
+      snap: true,
+      snapSizes: [0.35, 0.9],
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 15,
+                offset: Offset(0, -2),
+                spreadRadius: 1,
+              ),
+            ],
           ),
-        ],
-      ),
-      child: ActiveClientOrderBottomSheet(
-        me: me,
-        activeOrder: activeOrder,
-        activeOrderListener: wm.activeOrder,
-        onCancel: wm.cancelActiveClientOrder,
-      ),
+          child: SingleChildScrollView(
+            controller: scrollController,
+            physics: ClampingScrollPhysics(),
+            child: ActiveClientOrderBottomSheet(
+              me: me,
+              activeOrder: activeOrder,
+              activeOrderListener: wm.activeOrder,
+              onCancel: wm.cancelActiveClientOrder,
+            ),
+          ),
+        );
+      },
     );
   }
 

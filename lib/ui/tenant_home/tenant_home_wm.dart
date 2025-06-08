@@ -549,7 +549,16 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       "fromMapboxId": form.fromMapboxId.value,
       "toMapboxId": form.toMapboxId.value,
     });
-    draggableScrollableController.jumpTo(0.3);
+    
+    // Check if controller is attached before using it
+    try {
+      if (draggableScrollableController.isAttached) {
+        draggableScrollableController.jumpTo(0.3);
+      }
+    } catch (e) {
+      print('Error with draggableScrollableController: $e');
+    }
+    
     fetchActiveOrder();
   }
 
@@ -1077,8 +1086,8 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       
       // Добавляем маркеры для начальной и конечной точек
       try {
-        // Добавляем GeoJSON для маркеров
-        final markersJson = {
+        // Создаем отдельные GeoJSON для маркеров A и B
+        final markersJsonA = {
           "type": "FeatureCollection",
           "features": [
             {
@@ -1090,7 +1099,13 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
               "properties": {
                 "icon": "point_a"
               }
-            },
+            }
+          ]
+        };
+
+        final markersJsonB = {
+          "type": "FeatureCollection",
+          "features": [
             {
               "type": "Feature",
               "geometry": {
@@ -1104,19 +1119,41 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
           ]
         };
         
-        // Добавляем источник данных для маркеров
+        // Добавляем отдельные источники данных для маркеров
         await _mapboxMapController!.style.addSource(GeoJsonSource(
-          id: 'main-markers-source',
-          data: json.encode(markersJson),
+          id: 'main-markers-source-a',
+          data: json.encode(markersJsonA),
         ));
         
-        // Добавляем слой символов для маркеров
+        await _mapboxMapController!.style.addSource(GeoJsonSource(
+          id: 'main-markers-source-b',
+          data: json.encode(markersJsonB),
+        ));
+        
+        // Добавляем слой для маркера A (меньший размер)
         await _mapboxMapController!.style.addLayer(SymbolLayer(
-          id: 'main-markers-layer',
-          sourceId: 'main-markers-source',
-          iconImage: "{icon}",
-          iconSize: 1.0,
+          id: 'main-markers-layer-a',
+          sourceId: 'main-markers-source-a',
+          iconImage: "point_a",
+          iconSize: 0.7, // Размер маркера A
           iconAnchor: IconAnchor.BOTTOM,
+          minZoom: 0, // Видно на любом масштабе
+          maxZoom: 22, // Максимальный зум
+          iconAllowOverlap: true, // Разрешаем перекрытие иконок
+          symbolSortKey: 10, // Приоритет отображения
+        ));
+        
+        // Добавляем слой для маркера B (стандартный размер)
+        await _mapboxMapController!.style.addLayer(SymbolLayer(
+          id: 'main-markers-layer-b',
+          sourceId: 'main-markers-source-b',
+          iconImage: "point_b",
+          iconSize: 0.7, // Размер маркера B
+          iconAnchor: IconAnchor.BOTTOM,
+          minZoom: 0, // Видно на любом масштабе
+          maxZoom: 22, // Максимальный зум
+          iconAllowOverlap: true, // Разрешаем перекрытие иконок
+          symbolSortKey: 11, // Приоритет отображения
         ));
       } catch (e) {
         print('Ошибка при добавлении маркеров: $e');
@@ -1171,14 +1208,14 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       print('Clearing route from map...');
       
       // Remove existing route layers and sources
-      for (final layerId in ['main-route-layer', 'main-route-outline-layer', 'main-markers-layer']) {
+      for (final layerId in ['main-route-layer', 'main-route-outline-layer', 'main-markers-layer', 'main-markers-layer-a', 'main-markers-layer-b']) {
         if (await _mapboxMapController!.style.styleLayerExists(layerId)) {
           await _mapboxMapController!.style.removeStyleLayer(layerId);
           print('Removed layer $layerId');
         }
       }
       
-      for (final sourceId in ['main-route-source', 'main-markers-source']) {
+      for (final sourceId in ['main-route-source', 'main-markers-source', 'main-markers-source-a', 'main-markers-source-b']) {
         if (await _mapboxMapController!.style.styleSourceExists(sourceId)) {
           await _mapboxMapController!.style.removeStyleSource(sourceId);
           print('Removed source $sourceId');
@@ -1237,21 +1274,55 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     print('fromMapboxId: $fromMapboxId');
     print('toMapboxId: $toMapboxId');
     
+    // Validate addresses - if empty, use default text
+    final validFromAddress = fromAddress.isNotEmpty ? fromAddress : "Выберите адрес отправления";
+    final validToAddress = toAddress.isNotEmpty ? toAddress : "Выберите адрес прибытия";
+    
     // Сохраняем в StateNotifier для использования в UI
-    savedFromAddress.accept(fromAddress);
-    savedToAddress.accept(toAddress);
+    savedFromAddress.accept(validFromAddress);
+    savedToAddress.accept(validToAddress);
     savedFromMapboxId.accept(fromMapboxId);
     savedToMapboxId.accept(toMapboxId);
     
     // Также сохраняем в SharedPreferences для восстановления после перезапуска
     try {
       final prefs = inject<SharedPreferences>();
-      prefs.setString('saved_from_address', fromAddress);
-      prefs.setString('saved_to_address', toAddress);
+      prefs.setString('saved_from_address', validFromAddress);
+      prefs.setString('saved_to_address', validToAddress);
       prefs.setString('saved_from_mapbox_id', fromMapboxId);
       prefs.setString('saved_to_mapbox_id', toMapboxId);
     } catch (e) {
       print('Ошибка при сохранении адресов в SharedPreferences: $e');
+    }
+    
+    // Если есть оба адреса и координаты - отображаем маршрут на главной карте
+    if (fromMapboxId.isNotEmpty && toMapboxId.isNotEmpty && _mapboxMapController != null) {
+      try {
+        final fromParts = fromMapboxId.split(';');
+        final toParts = toMapboxId.split(';');
+        
+        if (fromParts.length >= 2 && toParts.length >= 2) {
+          final fromLat = double.tryParse(fromParts[0]);
+          final fromLng = double.tryParse(fromParts[1]);
+          final toLat = double.tryParse(toParts[0]);
+          final toLng = double.tryParse(toParts[1]);
+          
+          if (fromLat != null && fromLng != null && toLat != null && toLng != null) {
+            print('Отображаем маршрут между точками на главной карте');
+            
+            // Автоматически фиксируем карту когда оба адреса заданы
+            setMapFixed(true);
+            
+            // Отображаем маршрут
+            displayRouteOnMainMap(
+              geotypes.Position(fromLng, fromLat),
+              geotypes.Position(toLng, toLat),
+            );
+          }
+        }
+      } catch (e) {
+        print('Ошибка при отображении маршрута после сохранения адресов: $e');
+      }
     }
   }
 

@@ -203,7 +203,7 @@ class DriverRegistrationWM
         id: Required.dirty(e.id),
         brand: Required.dirty(e.brand),
         model: Required.dirty(e.model),
-        color: Required.dirty(CarColor.fromHex(e.color)),
+        color: e.color != null ? Required.dirty(CarColor.fromHex(e.color!)!) : null,
         type: Required.dirty(e.categoryType),
         governmentNumber: Required.dirty(e.number),
         SSN: SSNFormzInput.dirty(e.sSN),

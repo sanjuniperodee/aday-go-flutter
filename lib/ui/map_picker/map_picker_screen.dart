@@ -36,17 +36,12 @@ class MapAddressPickerScreenArgs extends BaseArguments {
     String placeName,
   ) onSubmit;
 
-  final Function(
-    String prediction,
-  )? onSubmit2;
-
   // Regular constructor
   MapAddressPickerScreenArgs({
     this.position,
     this.placeName,
     this.fromPosition,
     required this.onSubmit,
-    this.onSubmit2,
   });
   
   // Default constructor with empty callback
@@ -59,81 +54,9 @@ class MapAddressPickerScreenArgs extends BaseArguments {
     );
   }
   
-  // Factory to safely unwrap arguments
-  factory MapAddressPickerScreenArgs.fromDynamic(dynamic args) {
-    try {
-      print('MapAddressPickerScreenArgs.fromDynamic: получил аргументы типа ${args.runtimeType}');
-      
-      if (args is MapAddressPickerScreenArgs) {
-        print('Аргументы уже в формате MapAddressPickerScreenArgs');
-        return args;
-      } else if (args is Map) {
-        print('Конвертирую аргументы из Map: $args');
-        // Extract the onSubmit function from the map
-        final dynamic onSubmitFunc = args['onSubmit'];
-        
-        if (onSubmitFunc != null) {
-          print('onSubmit функция найдена');
-        } else {
-          print('onSubmit функция отсутствует!');
-        }
-        
-        return MapAddressPickerScreenArgs(
-          position: args['position'],
-          placeName: args['placeName'],
-          fromPosition: args['fromPosition'],
-          onSubmit: (position, placeName) {
-            try {
-              if (onSubmitFunc != null) {
-                print('Вызываю onSubmit с параметрами: $position, $placeName');
-                onSubmitFunc(position, placeName);
-              } else {
-                print('Warning: onSubmit function is null');
-              }
-            } catch (e) {
-              print('Ошибка при вызове onSubmit: $e');
-            }
-          },
-          onSubmit2: args['onSubmit2'],
-        );
-      } else {
-        // Try to access through dynamic arguments property
-        final dynamic wrappedArgs = args;
-        if (wrappedArgs != null && wrappedArgs.arguments != null) {
-          print('Обнаружены вложенные аргументы типа ${wrappedArgs.arguments.runtimeType}');
-          if (wrappedArgs.arguments is MapAddressPickerScreenArgs) {
-            return wrappedArgs.arguments;
-          } else if (wrappedArgs.arguments is Map) {
-            final dynamic argsMap = wrappedArgs.arguments;
-            final dynamic onSubmitFunc = argsMap['onSubmit'];
-            
-            return MapAddressPickerScreenArgs(
-              position: argsMap['position'],
-              placeName: argsMap['placeName'],
-              fromPosition: argsMap['fromPosition'],
-              onSubmit: (position, placeName) {
-                try {
-                  if (onSubmitFunc != null) {
-                    onSubmitFunc(position, placeName);
-                  } else {
-                    print('Warning: nested onSubmit function is null');
-                  }
-                } catch (e) {
-                  print('Ошибка при вызове вложенного onSubmit: $e');
-                }
-              },
-              onSubmit2: argsMap['onSubmit2'],
-            );
-          }
-        }
-      }
-    } catch (e) {
-      print('Ошибка при разборе MapAddressPickerScreenArgs: $e');
-    }
-    
-    print('Не удалось обработать аргументы, возвращаю пустые MapAddressPickerScreenArgs');
-    // Return empty args as fallback
-    return MapAddressPickerScreenArgs.empty();
+  @override
+  String toString() {
+    return 'MapAddressPickerScreenArgs{position: $position, placeName: $placeName, fromPosition: $fromPosition}';
   }
 }
 
@@ -185,7 +108,32 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       _showDeleteButton = true;
     }
     
+    // Start a periodic timer to check map position changes
+    _startPeriodicPositionCheck();
+    
+    // First initialize the map - use a flag to defer address lookups until map is ready
     initializeMap();
+    
+    // Check if this is destination selection with fromPosition available
+    if (widget.args.fromPosition != null) {
+      print('Destination selection mode detected with fromPosition: ${widget.args.fromPosition!.lat}, ${widget.args.fromPosition!.lng}');
+      _isRouteNeedsUpdate = true;
+      
+      // Schedule drawing the route after the map is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Use a delayed future to ensure the map is fully initialized
+        Future.delayed(Duration(milliseconds: 1500), () {
+          if (_isMapReady && currentPosition != null && mounted) {
+            print('Map is ready, drawing route between points...');
+            _drawRouteBetweenPoints();
+          } else {
+            print('Cannot draw route yet: mapReady=$_isMapReady, currentPosition=$currentPosition');
+            // Set a flag to try again when the map becomes ready
+            _isRouteNeedsUpdate = true;
+          }
+        });
+      });
+    }
   }
 
   @override
@@ -203,61 +151,59 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       body: FutureBuilder<geoLocator.Position?>(
           future: inject<LocationInteractor>().getCurrentLocation(),
           builder: (context, snapshot) {
+            // Store user location separately from marker position
             userLocation = snapshot.data != null 
                 ? geotypes.Position(snapshot.data!.longitude, snapshot.data!.latitude)
                 : null;
 
-            currentPosition = widget.args.position ??
-                userLocation ??
-                geotypes.Position(76.893156, 43.239337);
+            // Initialize marker position if not already set
+            if (currentPosition == null) {
+              // Приоритеты для начальной позиции:
+              // 1. Используем ранее выбранную точку (widget.args.position), если она передана
+              // 2. Используем текущее местоположение пользователя (userLocation)
+              // 3. Только если ничего из этого недоступно, используем координаты по умолчанию
+              currentPosition = widget.args.position ?? 
+                  userLocation ?? 
+                  geotypes.Position(76.893156, 43.239337);
+              
+              print('Setting initial marker position: ${currentPosition!.lat}, ${currentPosition!.lng}');
+              
+              // Если у нас уже есть текст для placeName, используем его
+              if (widget.args.placeName != null && widget.args.placeName!.isNotEmpty) {
+                _addressName = widget.args.placeName!;
+                _textFieldController.text = widget.args.placeName!;
+                _showDeleteButton = true;
+              } else if (currentPosition != null) {
+                // Если у нас есть позиция, но нет адреса, запросим его
+                // Но делаем это через setState, чтобы точно сработало после построения виджета
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && _isMapReady) {
+                    _fetchAddress(currentPosition!);
+                  }
+                });
+              }
+            }
 
             return Stack(
               children: [
                 Positioned.fill(
-                  child: Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    child: MapWidget(
-                      key: ValueKey("mapWidget"),
-                      cameraOptions: CameraOptions(
-                        center: Point(coordinates: currentPosition!),
-                        zoom: _defaultZoom,
+                  child: Listener(
+                    onPointerUp: (_) {
+                      // When user lifts finger from screen, update address and route
+                      print('Pointer up detected, checking map position');
+                      _handleMapMovementStopped();
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: double.infinity,
+                      child: MapWidget(
+                        key: ValueKey("mapWidget"),
+                        cameraOptions: CameraOptions(
+                          center: Point(coordinates: currentPosition!),
+                          zoom: _defaultZoom,
+                        ),
+                        onMapCreated: onMapCreated,
                       ),
-                      onMapCreated: (mapboxController) async {
-                        setState(() {
-                          mapboxMapController = mapboxController;
-                        });
-                        
-                        try {
-                          // Add markers for route points - make them smaller
-                          await addImageFromAsset('point_a', 'assets/images/point_a.png', scale: 0.5);
-                          await addImageFromAsset('point_b', 'assets/images/point_b.png', scale: 0.5);
-                          
-                          // Enable location display
-                          await mapboxMapController?.location.updateSettings(
-                            LocationComponentSettings(
-                              enabled: true,
-                              pulsingEnabled: true,
-                              showAccuracyRing: true,
-                              puckBearingEnabled: false,
-                            ),
-                          );
-                          setState(() {
-                            _locationComponentEnabled = true;
-                            _isMapReady = true;
-                          });
-                          
-                          // Draw route if fromPosition is available
-                          if (widget.args.fromPosition != null && currentPosition != null) {
-                            _drawRouteBetweenPoints();
-                          }
-                          
-                          // Start address update timer
-                          _startMapInteractionListener();
-                        } catch (e) {
-                          print('Error enabling location component: $e');
-                        }
-                      },
                     ),
                   ),
                 ),
@@ -430,7 +376,9 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                             },
                             onSubmitted: (String json) async {
                               try {
+                                print('Place selected from autocomplete: $json');
                                 if (json.isEmpty || suggestions.isEmpty) {
+                                  print('JSON is empty or no suggestions available');
                                   return;
                                 }
                                 
@@ -456,6 +404,8 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                   return;
                                 }
 
+                                print('Selected location coordinates: lat=${feature.lat}, lon=${feature.lon}');
+                                
                                 // Создаем позицию с координатами места
                                 final newPosition = geotypes.Position(
                                   feature.lon!.toDouble(), 
@@ -464,6 +414,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                 
                                 if (mapboxMapController != null) {
                                   // Animate camera with bouncing effect for better UX
+                                  print('Flying to selected location');
                                   await mapboxMapController?.flyTo(
                                     CameraOptions(
                                       center: Point(coordinates: newPosition),
@@ -473,10 +424,10 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                   );
                                   
                                   // Обновляем UI и переменные
-                                setState(() {
-                                  _addressName = feature.name ?? '';
-                                  _selectedGooglePredictions = feature.name;
-                                  currentPosition = newPosition;
+                                  setState(() {
+                                    _addressName = feature.name ?? '';
+                                    _selectedGooglePredictions = feature.name;
+                                    currentPosition = newPosition;
                                     _lastFetchedPosition = newPosition; // Обновляем последнюю полученную позицию
                                     
                                     // Обновляем текстовое поле
@@ -486,13 +437,16 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                     }
                                   });
                                   
+                                  print('Updated address to: $_addressName');
+                                  
                                   // Show bounce animation for pin
                                   _showPinDropAnimation();
                                 
-                                // Draw route if fromPosition is available
-                                if (widget.args.fromPosition != null) {
+                                  // Draw route if fromPosition is available
+                                  if (widget.args.fromPosition != null) {
+                                    print('fromPosition is available, updating route...');
                                     _isRouteNeedsUpdate = true;
-                                  _drawRouteBetweenPoints();
+                                    _drawRouteBetweenPoints();
                                   }
                                 }
                               } catch (e) {
@@ -748,65 +702,16 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     }
   }
 
-  // Start listening to map interactions to update address
-  void _startMapInteractionListener() {
-    if (mapboxMapController == null) return;
+  // Fetch address data for a specific position (the marker position)
+  Future<void> _fetchAddress(geotypes.Position position) async {
+    if (!mounted) return;
     
-    // Setup periodic check for camera position changes
-    timer = Timer.periodic(Duration(milliseconds: 300), (_) async {
-      if (mapboxMapController == null || !_isMapReady) return;
-      
-      try {
-        // Get current camera position
-        final cameraState = await mapboxMapController!.getCameraState();
-        final newPosition = geotypes.Position(
-          cameraState.center.coordinates.lng,
-          cameraState.center.coordinates.lat,
-        );
-        
-        // Check if the position has changed significantly
-        if (_lastFetchedPosition != null &&
-            _calculateDistance(_lastFetchedPosition!, newPosition) < 5) {
-          // Skip if position hasn't changed much
-          return;
-        }
-        
-        setState(() {
-          _isDragging = true;
-          currentPosition = newPosition;
-          _isRouteNeedsUpdate = true;
-        });
-        
-        // Cancel previous debounce if it exists
-        _debounceTimer?.cancel();
-        
-        // Create a new debounce timer - only update address when movement stops
-        _debounceTimer = Timer(Duration(milliseconds: 500), () async {
-          setState(() {
-            _isDragging = false;
-          });
-          
-          // Update address name
-          _updateAddressName(newPosition);
-          
-          // Update route if needed
-          if (_isRouteNeedsUpdate && widget.args.fromPosition != null) {
-            _isRouteNeedsUpdate = false;
-            _drawRouteBetweenPoints();
-          }
-        });
-      } catch (e) {
-        print('Error in map interaction listener: $e');
-      }
-    });
-  }
-
-  // Fetch address data
-  void _fetchAddress(geotypes.Position position) async {
     try {
       setState(() {
         _isAddressLoading = true;
       });
+      
+      print('Fetching address for position: ${position.lat}, ${position.lng}');
       
       final client = inject<RestClient>();
       final placeName = await client.getPlaceDetail(
@@ -814,112 +719,122 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
         longitude: position.lng.toDouble(),
       );
       
+      if (!mounted) return;
+      
+      final addressText = placeName ?? "Адрес не найден";
+      print('Address fetched: $addressText');
+      
+      // Force UI update with the new address
       setState(() {
-        _addressName = placeName ?? "Адрес не найден";
+        _addressName = addressText;
+        _textFieldController.text = addressText;
         _isAddressLoading = false;
-        _showDeleteButton = placeName != null && placeName.isNotEmpty;
+        _showDeleteButton = addressText != "Адрес не найден" && addressText.isNotEmpty;
+        _lastFetchedPosition = position;
       });
       
-      print('Address fetched: $_addressName');
-      
-      // Update route if needed
-      if (widget.args.fromPosition != null && _isRouteNeedsUpdate) {
-        _drawRouteBetweenPoints();
-        _isRouteNeedsUpdate = false;
-      }
+      // Verify the text update took effect
+      print('UI updated with address: $_addressName, text field: ${_textFieldController.text}');
     } catch (e) {
+      if (!mounted) return;
+      
+      print('Error fetching address: $e');
       setState(() {
         _isAddressLoading = false;
         _addressName = "Ошибка получения адреса";
+        _textFieldController.text = "Ошибка получения адреса";
       });
-      print('Error fetching address: $e');
     }
   }
 
-  // Get location suggestions
-  Future<List<String>> getSuggestions(String query) async {
-    try {
-      if (query.isEmpty) {
-        return [];
-      }
-      
-      // Получаем координаты для поиска ближайших мест
-      final latitude = inject<SharedPreferences>().getDouble('latitude') ?? 
-                      (currentPosition?.lat.toDouble() ?? 43.239337);
-      final longitude = inject<SharedPreferences>().getDouble('longitude') ?? 
-                       (currentPosition?.lng.toDouble() ?? 76.893156);
-      
-      final response = await inject<RestClient>().getPlacesQuery(
-        query: query,
-        latitude: latitude, 
-        longitude: longitude,
-      );
-
-      // Безопасно присваиваем значение suggestions
-      suggestions = response != null ? [...response] : [];
-      
-      // Преобразуем ответ в список строк
-      final resultList = suggestions.map((e) => e.name ?? '').where((name) => name.isNotEmpty).toList();
-      print('Found ${resultList.length} suggestions for query: $query');
-      
-      return resultList;
-    } on Exception catch (e) {
-      print('Error getting suggestions: $e');
-      // Возвращаем пустой список в случае ошибки
-    return [];
-    }
-  }
-
-  // Search field change handler
-  onPlaceSearchChanged(String searchValue) {
-    if (searchValue.isEmpty) {
+  void onMapCreated(MapboxMap mapboxController) async {
     setState(() {
-        _showDeleteButton = false;
-      });
-    } else {
-      setState(() {
-        _showDeleteButton = true;
+      mapboxMapController = mapboxController;
     });
-    }
-  }
-
-  // Initialize map and get current location
-  Future<void> initializeMap() async {
-    await inject<LocationInteractor>().requestLocation();
-    final location = await inject<LocationInteractor>().getCurrentLocation();
-    if (location != null) {
-      userLocation = geotypes.Position(location.longitude, location.latitude);
-      await inject<SharedPreferences>().setDouble('latitude', location.latitude);
-      await inject<SharedPreferences>().setDouble('longitude', location.longitude);
+    
+    try {
+      // Add markers for route points - make them smaller
+      await addImageFromAsset('point_a', 'assets/images/point_a.png', scale: 0.3);
+      await addImageFromAsset('point_b', 'assets/images/point_b.png', scale: 0.3);
       
-      if (widget.args.position == null) {
-        currentPosition = userLocation;
-        if (mapboxMapController != null) {
-          await mapboxMapController!.flyTo(
-            CameraOptions(
-              center: Point(coordinates: currentPosition!),
-              zoom: 19.0,
-            ),
-            MapAnimationOptions(duration: 1000),
-          );
-        }
+      // Enable location display
+      await mapboxMapController?.location.updateSettings(
+        LocationComponentSettings(
+          enabled: true,
+          pulsingEnabled: true,
+          showAccuracyRing: true,
+          puckBearingEnabled: false,
+        ),
+      );
+      setState(() {
+        _locationComponentEnabled = true;
+        _isMapReady = true;
+      });
+      
+      print('Map is ready, locationComponentEnabled: $_locationComponentEnabled');
+      
+      // Important: fetch address for the CURRENT MARKER POSITION (not user location)
+      _fetchAddress(currentPosition!);
+      
+      // Draw route if fromPosition is available
+      if (widget.args.fromPosition != null && currentPosition != null) {
+        print('fromPosition is available, drawing route...');
+        // Add a small delay to ensure the map is fully loaded
+        Future.delayed(Duration(milliseconds: 500), () {
+          _drawRouteBetweenPoints();
+        });
       }
-      
-      _updateAddressName(currentPosition!);
+    } catch (e) {
+      print('Error in onMapCreated: $e');
     }
   }
 
+  // Called when the user stops moving the map
+  Future<void> _handleMapMovementStopped() async {
+    if (!_isMapReady || mapboxMapController == null) return;
+    
+    try {
+      print('Map movement stopped, updating map state');
+      
+      // Get current map center position
+      final cameraState = await mapboxMapController!.getCameraState();
+      final newPosition = geotypes.Position(
+        cameraState.center.coordinates.lng,
+        cameraState.center.coordinates.lat
+      );
+      
+      // Update marker position
+      setState(() {
+        currentPosition = newPosition;
+        _isDragging = false;
+      });
+      
+      // Immediately fetch address for the new position
+      await _fetchAddress(newPosition);
+      
+      // Update route if needed
+      if (widget.args.fromPosition != null) {
+        print('Redrawing route after map movement stopped');
+        await _drawRouteBetweenPoints();
+      }
+    } catch (e) {
+      print('Error handling map movement: $e');
+    }
+  }
+  
   // Draw route between two points with improved visualization and error handling
   Future<void> _drawRouteBetweenPoints() async {
     if (widget.args.fromPosition != null && currentPosition != null) {
       try {
-        // Don't show loading if already showing
-        if (!_isRouteLoading) {
+        // Show loading indicator
         setState(() {
           _isRouteLoading = true;
           _hasRoute = false;
         });
-        }
+        
+        print('Drawing route in map picker...');
+        print('From position: ${widget.args.fromPosition!.lat}, ${widget.args.fromPosition!.lng}');
+        print('To position: ${currentPosition!.lat}, ${currentPosition!.lng}');
         
         final fromLat = widget.args.fromPosition!.lat.toDouble();
         final fromLng = widget.args.fromPosition!.lng.toDouble();
@@ -947,35 +862,41 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
           toLng: toLng,
         );
         
-        if (mounted) {
+        if (!mounted) return;
+        
         setState(() {
           _route = directions ?? {};
           _isRouteLoading = false;
           _hasRoute = directions != null && directions.isNotEmpty;
         });
         
+        print('Route data received, hasRoute: $_hasRoute');
+        
         // Add route to map
         if (mapboxMapController != null && _route.isNotEmpty) {
           await _addRouteToMap();
           await _addRouteMarkersToMap();
           
-            // Zoom camera to show entire route with better padding
+          // Zoom camera to show entire route with better padding
           if (_route.containsKey('routes') && 
               _route['routes'] != null && 
               _route['routes'].isNotEmpty &&
               _route['routes'][0].containsKey('bounds')) {
             _fitCameraToBounds(_route['routes'][0]['bounds']);
           }
-          }
         }
       } catch (e) {
         if (mounted) {
-        setState(() {
-          _isRouteLoading = false;
-        });
+          setState(() {
+            _isRouteLoading = false;
+          });
         }
         print('Error drawing route: $e');
       }
+    } else {
+      print('Cannot draw route: fromPosition or currentPosition is null');
+      print('fromPosition: ${widget.args.fromPosition}');
+      print('currentPosition: $currentPosition');
     }
   }
   
@@ -1162,12 +1083,24 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       if (await mapboxMapController!.style.styleLayerExists('markers-layer')) {
         await mapboxMapController!.style.removeStyleLayer('markers-layer');
       }
+      if (await mapboxMapController!.style.styleLayerExists('markers-layer-a')) {
+        await mapboxMapController!.style.removeStyleLayer('markers-layer-a');
+      }
+      if (await mapboxMapController!.style.styleLayerExists('markers-layer-b')) {
+        await mapboxMapController!.style.removeStyleLayer('markers-layer-b');
+      }
       if (await mapboxMapController!.style.styleSourceExists('markers-source')) {
         await mapboxMapController!.style.removeStyleSource('markers-source');
       }
+      if (await mapboxMapController!.style.styleSourceExists('markers-source-a')) {
+        await mapboxMapController!.style.removeStyleSource('markers-source-a');
+      }
+      if (await mapboxMapController!.style.styleSourceExists('markers-source-b')) {
+        await mapboxMapController!.style.removeStyleSource('markers-source-b');
+      }
 
-      // Create GeoJSON for markers
-      final markersJson = {
+      // Create separate GeoJSON for point A (origin)
+      final markersJsonA = {
         "type": "FeatureCollection",
         "features": [
           {
@@ -1180,7 +1113,14 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
               "icon": "point_a",
               "title": "Откуда"
             }
-          },
+          }
+        ]
+      };
+      
+      // Create separate GeoJSON for point B (destination)
+      final markersJsonB = {
+        "type": "FeatureCollection",
+        "features": [
           {
             "type": "Feature",
             "geometry": {
@@ -1195,22 +1135,42 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
         ]
       };
       
-      // Add data source for markers
+      // Add data sources for markers
       await mapboxMapController!.style.addSource(GeoJsonSource(
-        id: 'markers-source',
-        data: json.encode(markersJson),
+        id: 'markers-source-a',
+        data: json.encode(markersJsonA),
       ));
       
-      // Add symbol layer for markers with smaller size
+      await mapboxMapController!.style.addSource(GeoJsonSource(
+        id: 'markers-source-b',
+        data: json.encode(markersJsonB),
+      ));
+      
+      // Add symbol layer for point A with smaller size
       await mapboxMapController!.style.addLayer(SymbolLayer(
-        id: 'markers-layer',
-        sourceId: 'markers-source',
-        iconImage: "{icon}",
-        iconSize: 0.7, // Smaller size for more professional look
+        id: 'markers-layer-a',
+        sourceId: 'markers-source-a',
+        iconImage: "point_a",
+        iconSize: 0.5, // Маленький размер для маркера А
         iconAnchor: IconAnchor.BOTTOM,
+        minZoom: 0, // Видно на любом масштабе
+        maxZoom: 22, // Максимальный зум
+        iconAllowOverlap: true, // Разрешаем перекрытие иконок
       ));
       
-      print('Route markers added successfully');
+      // Add symbol layer for point B with normal size
+      await mapboxMapController!.style.addLayer(SymbolLayer(
+        id: 'markers-layer-b',
+        sourceId: 'markers-source-b',
+        iconImage: "point_b",
+        iconSize: 0.5, // Такой же размер как у маркера А
+        iconAnchor: IconAnchor.BOTTOM,
+        minZoom: 0, // Видно на любом масштабе
+        maxZoom: 22, // Максимальный зум
+        iconAllowOverlap: true, // Разрешаем перекрытие иконок
+      ));
+      
+      print('Route markers added successfully with different sizes');
     } catch (e) {
       print('Ошибка при добавлении маркеров: $e');
     }
@@ -1219,6 +1179,8 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   // Add image to map style with proper scaling
   Future<void> addImageFromAsset(String name, String assetName, {double scale = 1.0}) async {
     try {
+      print('Adding image $name from asset $assetName with scale $scale');
+      
       final ByteData bytes = await rootBundle.load(assetName);
       final Uint8List list = bytes.buffer.asUint8List();
       
@@ -1226,21 +1188,18 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       final ui.FrameInfo frameInfo = await codec.getNextFrame();
       final ui.Image originalImage = frameInfo.image;
       
-      // Calculate the desired size (make point_a notably smaller)
-        int scaledWidth = (originalImage.width * scale).round();
-        int scaledHeight = (originalImage.height * scale).round();
-        
-      // Extra reduction for point_a marker
-      if (name == 'point_a') {
-        scaledWidth = (scaledWidth * 0.6).round();
-        scaledHeight = (scaledHeight * 0.6).round();
-      }
+      // Apply same scaling for both markers for consistency
+      double finalScale = scale;
+      
+      // Calculate the final dimensions
+      int scaledWidth = (originalImage.width * finalScale).round();
+      int scaledHeight = (originalImage.height * finalScale).round();
       
       // Ensure minimum size
-      if (scaledWidth < 16) scaledWidth = 16;
-      if (scaledHeight < 16) scaledHeight = 16;
-        
-        print('Adding style image: $name with dimensions $scaledWidth x $scaledHeight (scale: $scale)');
+      if (scaledWidth < 10) scaledWidth = 10;
+      if (scaledHeight < 10) scaledHeight = 10;
+      
+      print('Creating scaled image: $name with dimensions $scaledWidth x $scaledHeight');
       
       // Create a scaled image
       final ui.PictureRecorder recorder = ui.PictureRecorder();
@@ -1261,7 +1220,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
         
         await mapboxMapController!.style.addStyleImage(
           name,
-          1.0, // scale factor for the icon itself
+          1.0, // Use scale factor of 1.0 since we've already pre-scaled the image
           MbxImage(
             width: scaledWidth,
             height: scaledHeight,
@@ -1273,14 +1232,14 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
           null, // content
         );
         
-        print('Image $name added successfully with custom scaling');
+        print('Successfully added scaled image: $name');
       } else {
-        print('Failed to get scaled image data');
+        print('Failed to get scaled image data, using original image as fallback');
         
         // Fallback to original image if scaling fails
         await mapboxMapController!.style.addStyleImage(
           name,
-          1.0,
+          scale * 0.5, // Use a smaller scale for fallback
           MbxImage(
             width: originalImage.width,
             height: originalImage.height,
@@ -1293,7 +1252,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
         );
       }
     } catch (e) {
-      print('Ошибка при добавлении изображения: $e');
+      print('Error adding image: $e');
     }
   }
 
@@ -1312,12 +1271,51 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   // Confirm button handler
   void _onConfirmPressed() {
     if (currentPosition != null) {
-      widget.args.onSubmit(currentPosition!, _addressName);
-      Navigator.of(context).pop({
-        'position': currentPosition,
-        'placeName': _addressName,
-        'shouldShowRoute': widget.args.fromPosition != null
-      });
+      try {
+        print('Confirming location with address: $_addressName');
+        
+        // Check if we have a valid address
+        if (_addressName.isEmpty || _addressName == "Адрес не найден") {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Не удалось определить адрес, попробуйте переместить маркер')),
+          );
+          return;
+        }
+        
+        // Get the final address to submit - prefer text field content if manually edited
+        String finalAddress = _textFieldController.text.isNotEmpty ? 
+            _textFieldController.text : _addressName;
+            
+        // Trim the address to avoid whitespace issues
+        finalAddress = finalAddress.trim();
+        
+        // Make sure we don't pass empty addresses
+        if (finalAddress.isEmpty) {
+          finalAddress = "Выбранная точка";
+        }
+            
+        print('Final address to submit: $finalAddress');
+        
+        // Make sure the widget args onSubmit handler is actually called
+        try {
+          widget.args.onSubmit(currentPosition!, finalAddress);
+          print('Called onSubmit with position ${currentPosition!.lat},${currentPosition!.lng} and address: $finalAddress');
+        } catch (e) {
+          print('Error in onSubmit callback: $e');
+        }
+        
+        // Navigate back with result
+        Navigator.of(context).pop({
+          'position': currentPosition,
+          'placeName': finalAddress,
+          'shouldShowRoute': widget.args.fromPosition != null
+        });
+      } catch (e) {
+        print('Error in _onConfirmPressed: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Произошла ошибка: $e')),
+        );
+      }
     }
   }
 
@@ -1394,44 +1392,15 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   }
 
   // Update address name based on the current position
-  Future<void> _updateAddressName(geotypes.Position position) async {
+  void _updateAddressName(geotypes.Position position) {
     if (_lastFetchedPosition != null &&
         _calculateDistance(_lastFetchedPosition!, position) < 10) {
       // Skip if the position hasn't changed significantly
       return;
     }
     
-    setState(() {
-      _isAddressLoading = true;
-    });
-    
-    try {
-      _lastFetchedPosition = position;
-      final result = await inject<RestClient>().getPlaceDetail(
-        latitude: position.lat.toDouble(),
-        longitude: position.lng.toDouble(),
-      );
-      
-      if (mounted && result != null) {
-        setState(() {
-          _addressName = result;
-          _textFieldController.text = _addressName;
-          _showDeleteButton = _addressName.isNotEmpty;
-          _isAddressLoading = false;
-        });
-      } else if (mounted) {
-        setState(() {
-          _isAddressLoading = false;
-        });
-      }
-    } catch (e) {
-      print('Error getting address from coordinates: $e');
-      if (mounted) {
-        setState(() {
-          _isAddressLoading = false;
-        });
-      }
-    }
+    // Call _fetchAddress instead of implementing the same logic twice
+    _fetchAddress(position);
   }
 
   // Calculate distance between two positions in meters
@@ -1462,5 +1431,110 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   // Convert degrees to radians
   double _toRadians(double degree) {
     return degree * (pi / 180);
+  }
+
+  // Get location suggestions
+  Future<List<String>> getSuggestions(String query) async {
+    try {
+      if (query.isEmpty) {
+        return [];
+      }
+      
+      // Получаем координаты для поиска ближайших мест
+      final latitude = inject<SharedPreferences>().getDouble('latitude') ?? 
+                      (currentPosition?.lat.toDouble() ?? 43.239337);
+      final longitude = inject<SharedPreferences>().getDouble('longitude') ?? 
+                       (currentPosition?.lng.toDouble() ?? 76.893156);
+      
+      final response = await inject<RestClient>().getPlacesQuery(
+        query: query,
+        latitude: latitude, 
+        longitude: longitude,
+      );
+
+      // Безопасно присваиваем значение suggestions
+      suggestions = response != null ? [...response] : [];
+      
+      // Преобразуем ответ в список строк
+      final resultList = suggestions.map((e) => e.name ?? '').where((name) => name.isNotEmpty).toList();
+      print('Found ${resultList.length} suggestions for query: $query');
+      
+      return resultList;
+    } on Exception catch (e) {
+      print('Error getting suggestions: $e');
+      // Возвращаем пустой список в случае ошибки
+    return [];
+    }
+  }
+
+  // Search field change handler
+  onPlaceSearchChanged(String searchValue) {
+    if (searchValue.isEmpty) {
+    setState(() {
+        _showDeleteButton = false;
+      });
+    } else {
+      setState(() {
+        _showDeleteButton = true;
+    });
+    }
+  }
+
+  // Initialize map and load initial position
+  Future<void> initializeMap() async {
+    try {
+      print('Initializing map...');
+      
+      // Request location permission if needed
+      await inject<LocationInteractor>().requestLocation();
+      
+      // Get current location - IMPORTANT: We'll only use this for initializing the map view,
+      // not for setting the marker position unless explicitly requested
+      final location = await inject<LocationInteractor>().getCurrentLocation();
+      if (location != null) {
+        userLocation = geotypes.Position(location.longitude, location.latitude);
+        await inject<SharedPreferences>().setDouble('latitude', location.latitude);
+        await inject<SharedPreferences>().setDouble('longitude', location.longitude);
+        
+        print('Got user location: ${location.latitude}, ${location.longitude}');
+        
+        // Only set current position from user location if no position was provided
+        if (widget.args.position == null) {
+          currentPosition = userLocation;
+          print('Setting initial marker position to user location');
+        }
+      }
+    } catch (e) {
+      print('Error initializing map: $e');
+    }
+  }
+
+  // Start a periodic check for map position changes
+  void _startPeriodicPositionCheck() {
+    // Poll the camera position periodically as a backup to gesture detection
+    timer = Timer.periodic(Duration(milliseconds: 500), (_) async {
+      if (mapboxMapController == null || !_isMapReady || !mounted) return;
+      
+      try {
+        // Only check if we're not already in the middle of a drag operation
+        if (!_isDragging) {
+          // Get current camera position
+          final cameraState = await mapboxMapController!.getCameraState();
+          final mapCenter = geotypes.Position(
+            cameraState.center.coordinates.lng,
+            cameraState.center.coordinates.lat
+          );
+          
+          // If position has changed significantly since last fetch
+          if (_lastFetchedPosition != null &&
+              _calculateDistance(_lastFetchedPosition!, mapCenter) > 10) {
+            print('Detected significant position change from timer: ${mapCenter.lat}, ${mapCenter.lng}');
+            _handleMapMovementStopped();
+          }
+        }
+      } catch (e) {
+        print('Error in periodic position check: $e');
+      }
+    });
   }
 } 

@@ -53,6 +53,17 @@ post_install do |installer|
    framework_paths.each do |framework_relative_path|
      strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
    end
+   
+   # Generate dSYM files for Mapbox frameworks
+   system('mkdir -p "${BUILT_PRODUCTS_DIR}"')
+   system('echo "Generating dSYM files for Mapbox frameworks..."')
+   system('find "${PODS_ROOT}" -name "Mapbox*.framework" -type d | while read -r FRAMEWORK; do
+     FRAMEWORK_EXECUTABLE_NAME=$(defaults read "$FRAMEWORK/Info.plist" CFBundleExecutable)
+     FRAMEWORK_EXECUTABLE_PATH="$FRAMEWORK/$FRAMEWORK_EXECUTABLE_NAME"
+     echo "Generating dSYM for $FRAMEWORK_EXECUTABLE_PATH"
+     xcrun dsymutil -o "${BUILT_PRODUCTS_DIR}/${FRAMEWORK_EXECUTABLE_NAME}.framework.dSYM" "$FRAMEWORK_EXECUTABLE_PATH"
+   done')
+   
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
