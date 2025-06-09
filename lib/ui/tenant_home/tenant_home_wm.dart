@@ -8,19 +8,21 @@ import 'package:aktau_go/interactors/profile_interactor.dart';
 import 'package:flutter/material.dart';
 import 'package:elementary/elementary.dart';
 import 'package:elementary_helper/elementary_helper.dart';
+import 'package:flutter_rating_stars/flutter_rating_stars.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:geolocator/geolocator.dart' as geoLocator;
 import 'package:geolocator/geolocator.dart';
 import 'package:geotypes/geotypes.dart' as geotypes;
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
+import '../../core/colors.dart';
+import '../../core/images.dart';
 import '../../core/text_styles.dart';
 import '../../interactors/order_requests_interactor.dart';
 import '../../interactors/common/mapbox_api/mapbox_api.dart';
 import '../../interactors/main_navigation_interactor.dart';
-import 'package:aktau_go/ui/basket/forms/food_order_form.dart';
 import '../../utils/text_editing_controller.dart';
-import '../../core/colors.dart';
 import '../../domains/food/food_category_domain.dart';
 import '../../domains/food/food_domain.dart';
 import '../../domains/user/user_domain.dart';
@@ -29,9 +31,10 @@ import '../../interactors/food_interactor.dart';
 import '../../models/active_client_request/active_client_request_model.dart';
 import '../../utils/logger.dart';
 import '../../utils/utils.dart';
+import '../widgets/primary_bottom_sheet.dart';
+import '../widgets/primary_button.dart';
 import '../widgets/rounded_text_field.dart';
 import './forms/driver_order_form.dart';
-
 import './tenant_home_model.dart';
 import './tenant_home_screen.dart';
 import '../../interactors/location_interactor.dart';
@@ -331,18 +334,14 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       }
       
       // Затем получаем текущие координаты с коротким таймаутом
-      final current = await Geolocator.getCurrentPosition(
-        locationSettings: geoLocator.LocationSettings(
-          accuracy: geoLocator.LocationAccuracy.high,
-          timeLimit: Duration(seconds: 3),
-        ),
-      ).catchError((e) {
-        print('⚠️ Не удалось получить текущие координаты за 3 сек: $e');
-        // Возвращаем null как geoLocator.Position?
-        return null as geoLocator.Position?;
-      });
-      
-      if (current != null) {
+      try {
+        final current = await Geolocator.getCurrentPosition(
+          locationSettings: geoLocator.LocationSettings(
+            accuracy: geoLocator.LocationAccuracy.high,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
+        
         userLocation.accept(geotypes.Position(current.longitude, current.latitude));
         print('✅ Актуальные координаты: ${current.latitude}, ${current.longitude}');
         
@@ -350,12 +349,13 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         final prefs = inject<SharedPreferences>();
         await prefs.setDouble('latitude', current.latitude);
         await prefs.setDouble('longitude', current.longitude);
+      } catch (e) {
+        print('⚠️ Не удалось получить текущие координаты за 3 сек: $e');
+        // Используем координаты из кэша если они есть
       }
       
-      // Обновляем камеру карты если контроллер готов
-      if (_mapboxMapController != null && userLocation.value != null) {
-        _updateMapCamera();
-      }
+      // УБИРАЕМ: Автоматическое обновление камеры
+      // Пользователь сам решит когда нужно обновить вид карты
       
     } catch (e) {
       print('❌ Ошибка получения координат: $e');
@@ -576,21 +576,9 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         
         // print('✅ Успешно получены и сохранены координаты: ${location.latitude}, ${location.longitude}');
         
-        // ИСПРАВЛЯЕМ: Обновляем камеру карты только если маршрут НЕ отображается
-        if (isRouteDisplayed.value != true && isMapFixed.value != true) {
-          await _updateMapCamera();
-        }
+        // УБИРАЕМ: Автоматическое обновление камеры
+        // Пользователь сам решит когда нужно центрировать карту на себе
         
-        // Убираем сообщение об успешном определении местоположения
-        /*
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Местоположение определено успешно'),
-            duration: Duration(seconds: 2),
-            backgroundColor: Colors.green,
-          ),
-        );
-        */
       } else {
         // print('⚠️ Не удалось получить координаты');
         // Попробуем использовать сохраненные координаты
@@ -1092,7 +1080,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     _mapboxMapController = controller;
   }
   
-  // Метод для обновления камеры карты
+  // Метод для обновления камеры карты (ТОЛЬКО по явному запросу пользователя)
   Future<void> _updateMapCamera() async {
     // ИСПРАВЛЯЕМ: НЕ обновляем камеру если маршрут отображается или карта зафиксирована
     if (isRouteDisplayed.value == true || isMapFixed.value == true) {
@@ -1109,7 +1097,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
           ),
           MapAnimationOptions(duration: 1000),
         );
-        print('Камера карты обновлена на текущее местоположение');
+        print('Камера карты обновлена на текущее местоположение по запросу пользователя');
       } catch (e) {
         print('Ошибка при обновлении камеры: $e');
       }
@@ -1412,8 +1400,8 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       // Применяем настройки взаимодействия с картой (разблокируем)
       await _applyMapGestureSettings();
       
-      // ДОБАВЛЯЕМ: Возвращаемся к текущему местоположению пользователя
-      await _updateMapCamera();
+      // УБИРАЕМ: Автоматический возврат к текущему местоположению
+      // Пользователь сам решит куда посмотреть на карте после очистки маршрута
       
       print('Route cleared successfully and map unlocked');
     } catch (e) {
@@ -1547,20 +1535,11 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
            address != "Определение местоположения...";
   }
 
-  // РЕФАКТОР: Мгновенное обновление UI
+  // UI теперь использует StateNotifierBuilder и обновляется автоматически
+  // Метод forceUpdateAddresses больше не нужен
   @override
   void forceUpdateAddresses() {
-    // Принудительно уведомляем UI об обновлении без задержек
-    if (savedFromAddress.value != null) {
-      final currentFrom = savedFromAddress.value!;
-      savedFromAddress.accept(currentFrom);
-    }
-    
-    if (savedToAddress.value != null) {
-      final currentTo = savedToAddress.value!;
-      savedToAddress.accept(currentTo);
-    }
-    
-    print('⚡ UI мгновенно обновлен');
+    // Оставляем пустым - UI обновляется автоматически через StateNotifierBuilder
+    print('⚡ UI обновляется автоматически через StateNotifierBuilder');
   }
 }

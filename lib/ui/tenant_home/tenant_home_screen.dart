@@ -329,110 +329,114 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 // Откуда
-                                _buildAddressField(
-                                  context: context,
-                                  icon: Icons.radio_button_checked,
-                                  iconColor: Colors.green,
-                                  hint: 'Откуда',
-                                  value: wm.savedFromAddress.value ?? '',
-                                  onTap: () async {
-                                    try {
-                                      print('Открываю экран выбора адреса "Откуда"');
-                                      
-                                      // Создаем экземпляр MapAddressPickerScreenArgs для точки А
-                                      final args = MapAddressPickerScreenArgs(
-                                        placeName: wm.savedFromAddress.value,
-                                        position: wm.savedFromMapboxId.value != null ? 
-                                            _parseMapboxId(wm.savedFromMapboxId.value!) : null,
-                                        onSubmit: (position, placeName) {
-                                          print('Выбран адрес отправления: $placeName в позиции ${position.lat}, ${position.lng}');
+                                StateNotifierBuilder(
+                                  listenableState: wm.savedFromAddress,
+                                  builder: (context, String? fromAddress) {
+                                    return _buildAddressField(
+                                      context: context,
+                                      icon: Icons.radio_button_checked,
+                                      iconColor: Colors.green,
+                                      hint: 'Откуда',
+                                      value: fromAddress ?? '',
+                                      onTap: () async {
+                                        try {
+                                          print('Открываю экран выбора адреса "Откуда"');
                                           
-                                          // Убедимся, что имя места не пустое
-                                          final actualPlaceName = placeName.isNotEmpty ? placeName : "Адрес не найден";
-                                          print('Сохраняем адрес отправления: $actualPlaceName');
-                                          
-                                          // НЕМЕДЛЕННО сохраняем адреса
-                                          wm.saveOrderAddresses(
-                                            fromAddress: actualPlaceName,
-                                            toAddress: wm.savedToAddress.value ?? '',
-                                            fromMapboxId: '${position.lat};${position.lng}',
-                                            toMapboxId: wm.savedToMapboxId.value ?? '',
+                                          // Создаем экземпляр MapAddressPickerScreenArgs для точки А
+                                          final args = MapAddressPickerScreenArgs(
+                                            placeName: wm.savedFromAddress.value,
+                                            position: wm.savedFromMapboxId.value != null ? 
+                                                _parseMapboxId(wm.savedFromMapboxId.value!) : null,
+                                            onSubmit: (position, placeName) {
+                                              print('Выбран адрес отправления: $placeName в позиции ${position.lat}, ${position.lng}');
+                                              
+                                              // Убедимся, что имя места не пустое
+                                              final actualPlaceName = placeName.isNotEmpty ? placeName : "Адрес не найден";
+                                              print('Сохраняем адрес отправления: $actualPlaceName');
+                                              
+                                              // НЕМЕДЛЕННО сохраняем адреса
+                                              wm.saveOrderAddresses(
+                                                fromAddress: actualPlaceName,
+                                                toAddress: wm.savedToAddress.value ?? '',
+                                                fromMapboxId: '${position.lat};${position.lng}',
+                                                toMapboxId: wm.savedToMapboxId.value ?? '',
+                                              );
+                                              wm.setRouteDisplayed(false);
+                                              
+                                              print('Адрес отправления обновлен на: ${wm.savedFromAddress.value}');
+                                            },
                                           );
-                                          wm.setRouteDisplayed(false);
                                           
-                                          // Принудительно обновляем состояние UI
-                                          wm.forceUpdateAddresses();
-                                          
-                                          print('Адрес отправления обновлен на: ${wm.savedFromAddress.value}');
-                                        },
-                                      );
-                                      
-                                      // Используем Seafarer вместо Navigator
-                                      Routes.router.navigate(
-                                        Routes.selectMapPicker,
-                                        args: args,
-                                      );
-                                    } catch (e) {
-                                      print('Ошибка при навигации к экрану выбора адреса: $e');
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Ошибка: $e')),
-                                      );
-                                    }
+                                          // Используем Seafarer вместо Navigator
+                                          Routes.router.navigate(
+                                            Routes.selectMapPicker,
+                                            args: args,
+                                          );
+                                        } catch (e) {
+                                          print('Ошибка при навигации к экрану выбора адреса: $e');
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Ошибка: $e')),
+                                          );
+                                        }
+                                      },
+                                    );
                                   },
                                 ),
                                 
                                 // Куда
-                                _buildAddressField(
-                                  context: context,
-                                  icon: Icons.location_on,
-                                  iconColor: Colors.red,
-                                  hint: 'Куда',
-                                  value: wm.savedToAddress.value ?? '',
-                                  onTap: () async {
-                                    try {
-                                      print('Открываю экран выбора адреса "Куда"');
-                                      
-                                      // Создаем экземпляр MapAddressPickerScreenArgs для точки Б
-                                      final args = MapAddressPickerScreenArgs(
-                                        placeName: wm.savedToAddress.value,
-                                        position: wm.savedToMapboxId.value != null ? 
-                                            _parseMapboxId(wm.savedToMapboxId.value!) : null,
-                                        fromPosition: wm.savedFromMapboxId.value != null ? 
-                                            _parseMapboxId(wm.savedFromMapboxId.value!) : null,
-                                        onSubmit: (position, placeName) {
-                                          print('Выбран адрес назначения: $placeName в позиции ${position.lat}, ${position.lng}');
+                                StateNotifierBuilder(
+                                  listenableState: wm.savedToAddress,
+                                  builder: (context, String? toAddress) {
+                                    return _buildAddressField(
+                                      context: context,
+                                      icon: Icons.location_on,
+                                      iconColor: Colors.red,
+                                      hint: 'Куда',
+                                      value: toAddress ?? '',
+                                      onTap: () async {
+                                        try {
+                                          print('Открываю экран выбора адреса "Куда"');
                                           
-                                          // Убедимся, что имя места не пустое
-                                          final actualPlaceName = placeName.isNotEmpty ? placeName : "Адрес не найден";
-                                          print('Сохраняем адрес назначения: $actualPlaceName');
-                                          
-                                          // НЕМЕДЛЕННО сохраняем адреса
-                                          wm.saveOrderAddresses(
-                                            fromAddress: wm.savedFromAddress.value ?? '',
-                                            toAddress: actualPlaceName,
-                                            fromMapboxId: wm.savedFromMapboxId.value ?? '',
-                                            toMapboxId: '${position.lat};${position.lng}',
+                                          // Создаем экземпляр MapAddressPickerScreenArgs для точки Б
+                                          final args = MapAddressPickerScreenArgs(
+                                            placeName: wm.savedToAddress.value,
+                                            position: wm.savedToMapboxId.value != null ? 
+                                                _parseMapboxId(wm.savedToMapboxId.value!) : null,
+                                            fromPosition: wm.savedFromMapboxId.value != null ? 
+                                                _parseMapboxId(wm.savedFromMapboxId.value!) : null,
+                                            onSubmit: (position, placeName) {
+                                              print('Выбран адрес назначения: $placeName в позиции ${position.lat}, ${position.lng}');
+                                              
+                                              // Убедимся, что имя места не пустое
+                                              final actualPlaceName = placeName.isNotEmpty ? placeName : "Адрес не найден";
+                                              print('Сохраняем адрес назначения: $actualPlaceName');
+                                              
+                                              // НЕМЕДЛЕННО сохраняем адреса
+                                              wm.saveOrderAddresses(
+                                                fromAddress: wm.savedFromAddress.value ?? '',
+                                                toAddress: actualPlaceName,
+                                                fromMapboxId: wm.savedFromMapboxId.value ?? '',
+                                                toMapboxId: '${position.lat};${position.lng}',
+                                              );
+                                              wm.setRouteDisplayed(false);
+                                              
+                                              print('Адрес назначения обновлен на: ${wm.savedToAddress.value}');
+                                            },
                                           );
-                                          wm.setRouteDisplayed(false);
                                           
-                                          // Принудительно обновляем состояние UI
-                                          wm.forceUpdateAddresses();
-                                          
-                                          print('Адрес назначения обновлен на: ${wm.savedToAddress.value}');
-                                        },
-                                      );
-                                      
-                                      // Используем Seafarer вместо Navigator
-                                      Routes.router.navigate(
-                                        Routes.selectMapPicker,
-                                        args: args,
-                                      );
-                                    } catch (e) {
-                                      print('Ошибка при навигации к экрану выбора адреса: $e');
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Ошибка: $e')),
-                                      );
-                                    }
+                                          // Используем Seafarer вместо Navigator
+                                          Routes.router.navigate(
+                                            Routes.selectMapPicker,
+                                            args: args,
+                                          );
+                                        } catch (e) {
+                                          print('Ошибка при навигации к экрану выбора адреса: $e');
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('Ошибка: $e')),
+                                          );
+                                        }
+                                      },
+                                    );
                                   },
                                 ),
                                 
@@ -511,48 +515,54 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                 // Кнопка вызова такси
                                 Padding(
                                   padding: EdgeInsets.only(top: 8, bottom: 16),
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      // Проверка полей
-                                      if ((wm.savedFromAddress.value ?? '').isEmpty) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Пожалуйста, укажите пункт отправления')),
-                                        );
-                                        return;
-                                      }
-                                      
-                                      if ((wm.savedToAddress.value ?? '').isEmpty) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Пожалуйста, укажите пункт назначения')),
-                                        );
-                                        return;
-                                      }
-                                      
-                                      // Создание формы заказа
-                                      final orderForm = DriverOrderForm(
-                                        fromAddress: Required.dirty(wm.savedFromAddress.value ?? ''),
-                                        toAddress: Required.dirty(wm.savedToAddress.value ?? ''),
-                                        fromMapboxId: Required.dirty(wm.savedFromMapboxId.value ?? ''),
-                                        toMapboxId: Required.dirty(wm.savedToMapboxId.value ?? ''),
-                                        cost: Required.dirty(priceNotifier.value.round()),
-                                        comment: commentController.text, // Используем текст из поля комментария
+                                  child: DoubleSourceBuilder(
+                                    firstSource: wm.savedFromAddress,
+                                    secondSource: wm.savedToAddress,
+                                    builder: (context, String? fromAddress, String? toAddress) {
+                                      return ElevatedButton(
+                                        onPressed: () {
+                                          // Проверка полей
+                                          if ((fromAddress ?? '').isEmpty) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Пожалуйста, укажите пункт отправления')),
+                                            );
+                                            return;
+                                          }
+                                          
+                                          if ((toAddress ?? '').isEmpty) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Пожалуйста, укажите пункт назначения')),
+                                            );
+                                            return;
+                                          }
+                                          
+                                          // Создание формы заказа
+                                          final orderForm = DriverOrderForm(
+                                            fromAddress: Required.dirty(fromAddress ?? ''),
+                                            toAddress: Required.dirty(toAddress ?? ''),
+                                            fromMapboxId: Required.dirty(wm.savedFromMapboxId.value ?? ''),
+                                            toMapboxId: Required.dirty(wm.savedToMapboxId.value ?? ''),
+                                            cost: Required.dirty(priceNotifier.value.round()),
+                                            comment: commentController.text, // Используем текст из поля комментария
+                                          );
+                                          
+                                          // Создание заказа
+                                          wm.createDriverOrder(orderForm);
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: primaryColor,
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          padding: EdgeInsets.symmetric(vertical: 14),
+                                        ),
+                                        child: Text(
+                                          'Вызвать',
+                                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                        ),
                                       );
-                                      
-                                      // Создание заказа
-                                      wm.createDriverOrder(orderForm);
                                     },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: primaryColor,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      padding: EdgeInsets.symmetric(vertical: 14),
-                                    ),
-                                    child: Text(
-                                      'Вызвать',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                    ),
                                   ),
                                 ),
                               ],
