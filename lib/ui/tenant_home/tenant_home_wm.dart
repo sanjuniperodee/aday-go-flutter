@@ -1462,15 +1462,15 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       final position = userLocation.value!;
       print('Определяем адрес для позиции: ${position.lat}, ${position.lng}');
       
-      // Получаем адрес по координатам
-      final mapboxApi = inject<MapboxApi>();
-      final addressData = await mapboxApi.getReverseGeocode(
-        lat: position.lat.toDouble(),
-        lng: position.lng.toDouble(),
+      // Получаем адрес по координатам через ваш собственный API
+      final restClient = inject<RestClient>();
+      final addressData = await restClient.getPlaceDetail(
+        longitude: position.lng.toDouble(),
+        latitude: position.lat.toDouble(),
       );
       
-      if (addressData != null && addressData.containsKey('features') && addressData['features'].isNotEmpty) {
-        final placeName = addressData['features'][0]['place_name'] ?? 'Текущее местоположение';
+      if (addressData != null && addressData.isNotEmpty) {
+        final placeName = addressData;
         
         print('Автоматически определен адрес "откуда": $placeName');
         
@@ -1480,13 +1480,14 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         
         print('Адрес "откуда" автоматически установлен: $placeName');
       } else {
-        print('Не удалось определить адрес, используем "Текущее местоположение"');
+        print('Не удалось получить адрес от API');
+        // Устанавливаем базовый адрес
         savedFromAddress.accept('Текущее местоположение');
         savedFromMapboxId.accept('${position.lat};${position.lng}');
       }
     } catch (e) {
-      print('Ошибка при автоматическом определении адреса: $e');
-      // В случае ошибки устанавливаем общий текст
+      print('Ошибка при определении адреса: $e');
+      // В случае ошибки устанавливаем базовый адрес
       if (userLocation.value != null) {
         savedFromAddress.accept('Текущее местоположение');
         savedFromMapboxId.accept('${userLocation.value!.lat};${userLocation.value!.lng}');
