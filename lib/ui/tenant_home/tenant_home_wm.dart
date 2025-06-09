@@ -259,21 +259,14 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       initializeSocket();
       
       // Проверяем наличие активного заказа
-    fetchActiveOrder();
+      fetchActiveOrder();
     });
     
     // Загружаем категории и еду в параллели
     fetchFoods();
     
-    // ВАЖНО: Запрашиваем разрешения на геолокацию при инициализации
-    determineLocationPermission();
-    
-    // Получаем реальное местоположение
-    _initializeUserLocation();
-    
-    // НЕ ЗАГРУЖАЕМ сохраненные адреса - поля должны быть пустыми при запуске
-    // НО автоматически определяем текущий адрес "откуда" по GPS
-    _initializeCurrentLocationAddress();
+    // ВАЖНО: Запрашиваем разрешения на геолокацию и ЖДЕМ местоположение
+    _initializeLocationAndAddress();
     
     // Настраиваем слушатель для draggableScrollableController
     draggableScrollableController.addListener(() {
@@ -301,6 +294,53 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     });
   }
   
+  // Новый метод: последовательная инициализация местоположения и адреса
+  Future<void> _initializeLocationAndAddress() async {
+    try {
+      print('Начинаем последовательную инициализацию местоположения и адреса...');
+      
+      // 1. Сначала запрашиваем разрешения с timeout
+      await determineLocationPermission().timeout(
+        Duration(seconds: 10),
+        onTimeout: () {
+          print('Timeout при запросе разрешений на геолокацию');
+        },
+      );
+      
+      // 2. Получаем местоположение с timeout
+      await _initializeUserLocation().timeout(
+        Duration(seconds: 8),
+        onTimeout: () {
+          print('Timeout при получении местоположения');
+        },
+      );
+      
+      // 3. ТОЛЬКО ПОСЛЕ получения местоположения определяем адрес с timeout
+      await _initializeCurrentLocationAddress().timeout(
+        Duration(seconds: 10),
+        onTimeout: () {
+          print('Timeout при определении адреса, используем базовый адрес');
+          // В случае timeout устанавливаем базовый адрес
+          savedFromAddress.accept('Текущее местоположение');
+          if (userLocation.value != null) {
+            savedFromMapboxId.accept('${userLocation.value!.lat};${userLocation.value!.lng}');
+          } else {
+            savedFromMapboxId.accept('43.693695;51.260834'); // Координаты Актау
+          }
+          _forceUIUpdate();
+        },
+      );
+      
+      print('Инициализация местоположения и адреса завершена');
+    } catch (e) {
+      print('Ошибка при инициализации местоположения и адреса: $e');
+      // В случае любой ошибки устанавливаем базовый адрес
+      savedFromAddress.accept('Текущее местоположение');
+      savedFromMapboxId.accept('43.693695;51.260834'); // Координаты Актау
+      _forceUIUpdate();
+    }
+  }
+
   // Улучшенная инициализация местоположения пользователя
   Future<void> _initializeUserLocation() async {
     try {
@@ -1412,50 +1452,24 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     });
   }
 
-  // Принудительно обновить адреса в UI
-  void forceUpdateAddresses() {
-    // Принудительно уведомляем UI об изменении адресов с небольшой задержкой
-    Future.delayed(Duration(milliseconds: 50), () {
-      if (savedFromAddress.value != null) {
-        final currentFrom = savedFromAddress.value!;
-        savedFromAddress.accept(currentFrom);
-        print('Принудительно обновляем fromAddress: $currentFrom');
-      }
-      if (savedToAddress.value != null) {
-        final currentTo = savedToAddress.value!;
-        savedToAddress.accept(currentTo);
-        print('Принудительно обновляем toAddress: $currentTo');
-      }
-    });
-    
-    // Дополнительное обновление через 100мс для гарантии
-    Future.delayed(Duration(milliseconds: 100), () {
-      if (savedFromAddress.value != null) {
-        savedFromAddress.accept(savedFromAddress.value!);
-      }
-      if (savedToAddress.value != null) {
-        savedToAddress.accept(savedToAddress.value!);
-      }
-      print('UI принудительно обновлен с текущими адресами (второй раз)');
-    });
-    
-    print('UI принудительно обновлен с текущими адресами');
-  }
-
   // Автоматически определяем текущий адрес "откуда" по GPS
   Future<void> _initializeCurrentLocationAddress() async {
     try {
       print('Начинаем автоматическое определение адреса "откуда"...');
       
-      // Ждем получения местоположения
+      // Ждем получения местоположения с увеличенным количеством попыток
       var attempts = 0;
-      while (userLocation.value == null && attempts < 10) {
-        await Future.delayed(Duration(milliseconds: 500));
+      while (userLocation.value == null && attempts < 20) {
+        print('Ожидание местоположения, попытка $attempts');
+        await Future.delayed(Duration(milliseconds: 250));
         attempts++;
       }
       
       if (userLocation.value == null) {
-        print('Не удалось получить местоположение для определения адреса');
+        print('Не удалось получить местоположение для определения адреса, используем координаты по умолчанию');
+        // Устанавливаем адрес по умолчанию если не удалось получить GPS
+        savedFromAddress.accept('Текущее местоположение');
+        savedFromMapboxId.accept('43.693695;51.260834'); // Координаты Актау
         return;
       }
       
@@ -1465,11 +1479,11 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       // Получаем адрес по координатам через ваш собственный API
       final restClient = inject<RestClient>();
       final addressData = await restClient.getPlaceDetail(
-        longitude: position.lng.toDouble(),
         latitude: position.lat.toDouble(),
+        longitude: position.lng.toDouble(),
       );
       
-      if (addressData != null && addressData.isNotEmpty) {
+      if (addressData != null && addressData.isNotEmpty && addressData != "Адрес не найден") {
         final placeName = addressData;
         
         print('Автоматически определен адрес "откуда": $placeName');
@@ -1479,11 +1493,17 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         savedFromMapboxId.accept('${position.lat};${position.lng}');
         
         print('Адрес "откуда" автоматически установлен: $placeName');
+        
+        // Принудительно обновляем UI
+        _forceUIUpdate();
       } else {
-        print('Не удалось получить адрес от API');
+        print('Не удалось получить адрес от API или получен пустой ответ');
         // Устанавливаем базовый адрес
         savedFromAddress.accept('Текущее местоположение');
         savedFromMapboxId.accept('${position.lat};${position.lng}');
+        
+        // Принудительно обновляем UI
+        _forceUIUpdate();
       }
     } catch (e) {
       print('Ошибка при определении адреса: $e');
@@ -1491,7 +1511,50 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       if (userLocation.value != null) {
         savedFromAddress.accept('Текущее местоположение');
         savedFromMapboxId.accept('${userLocation.value!.lat};${userLocation.value!.lng}');
+      } else {
+        savedFromAddress.accept('Текущее местоположение');
+        savedFromMapboxId.accept('43.693695;51.260834'); // Координаты Актау по умолчанию
       }
+      
+      // Принудительно обновляем UI
+      _forceUIUpdate();
     }
+  }
+  
+  // Принудительное обновление UI
+  void _forceUIUpdate() {
+    // Принудительно уведомляем UI об изменении адресов
+    Future.delayed(Duration(milliseconds: 50), () {
+      if (savedFromAddress.value != null) {
+        final currentFrom = savedFromAddress.value!;
+        savedFromAddress.accept(currentFrom);
+        print('Принудительно обновляем fromAddress в UI: $currentFrom');
+      }
+    });
+    
+    // Дополнительное обновление
+    Future.delayed(Duration(milliseconds: 200), () {
+      if (savedFromAddress.value != null) {
+        savedFromAddress.accept(savedFromAddress.value!);
+        print('UI принудительно обновлен (второй раз)');
+      }
+    });
+  }
+
+  // Принудительно обновить адреса в UI (публичный метод для использования в UI)
+  @override
+  void forceUpdateAddresses() {
+    _forceUIUpdate();
+    
+    // Дополнительно обновляем адрес "куда" если он есть
+    if (savedToAddress.value != null) {
+      Future.delayed(Duration(milliseconds: 50), () {
+        final currentTo = savedToAddress.value!;
+        savedToAddress.accept(currentTo);
+        print('Принудительно обновляем toAddress: $currentTo');
+      });
+    }
+    
+    print('UI принудительно обновлен с текущими адресами');
   }
 }
