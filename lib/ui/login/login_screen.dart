@@ -27,97 +27,231 @@ class LoginScreen extends ElementaryWidget<ILoginWM> {
         PhoneLoginForm? phoneLoginForm,
       ) {
         return Scaffold(
+          backgroundColor: Colors.grey.shade50,
           appBar: AppBar(
             title: Text(
               'Вход',
-              style: text400Size16Black,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
             ),
-            centerTitle: false,
+            backgroundColor: Colors.white,
+            elevation: 0,
+            centerTitle: true,
             bottom: PreferredSize(
               preferredSize: Size.fromHeight(1),
-              child: Divider(
+              child: Container(
                 height: 1,
-                color: greyscale10,
+                color: Colors.grey.shade200,
               ),
             ),
           ),
-          body: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                  clipBehavior: Clip.antiAlias,
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      side: BorderSide(width: 1, color: Color(0xFFE7E1E1)),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height - 
+                    MediaQuery.of(context).padding.top - 
+                    AppBar().preferredSize.height - 100,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
                       children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            'Вход',
-                            style: text500Size24Greyscale90,
+                        SizedBox(height: 60),
+                        
+                        // Логотип или иконка
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(40),
+                          ),
+                          child: Icon(
+                            Icons.phone_android,
+                            size: 40,
+                            color: primaryColor,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            'Введите свой WhatsApp номер',
-                            style: text400Size12Greyscale50,
+                        SizedBox(height: 32),
+                        
+                        // Заголовок
+                        Text(
+                          'Добро пожаловать!',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        RoundedTextField(
-                          controller: wm.phoneTextEditingController,
-                          keyboardType: TextInputType.phone,
-                          inputFormatters: [
-                            wm.phoneFormatter,
-                          ],
+                        SizedBox(height: 8),
+                        
+                        // Подзаголовок
+                        Text(
+                          'Введите номер телефона для входа\nв приложение',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade600,
+                            height: 1.4,
+                          ),
                         ),
-                        const SizedBox(height: 8),
-                        PrimaryButton.primary(
-                          onPressed: phoneLoginForm!.isValid
-                              ? wm.submitPhoneLogin
-                              : null,
-                          text: 'Получить код WhatsApp',
-                          textStyle: text400Size16White,
-                        ),
-                        const SizedBox(height: 16),
-                        InkWell(
-                          onTap: () {
-                            launchUrlString('http://doner24aktau.kz/jjj.html');
-                          },
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                              'Политика конфиденциальности',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.lightBlue,
+                        SizedBox(height: 40),
+                        
+                        // Поле ввода телефона
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: wm.phoneTextEditingController,
+                            keyboardType: TextInputType.phone,
+                            inputFormatters: [wm.phoneFormatter],
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: '+7 (___) ___-__-__',
+                              hintStyle: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 18,
+                              ),
+                              prefixIcon: Container(
+                                padding: EdgeInsets.all(16),
+                                child: Icon(
+                                  Icons.phone,
+                                  color: primaryColor,
+                                  size: 24,
+                                ),
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade200,
+                                  width: 1,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: primaryColor,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 20,
+                                horizontal: 16,
                               ),
                             ),
                           ),
-                        )
+                        ),
+                        SizedBox(height: 24),
+                        
+                        // Кнопка получения кода
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: phoneLoginForm!.isValid
+                                ? wm.submitPhoneLogin
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              disabledBackgroundColor: Colors.grey.shade300,
+                            ),
+                            child: Text(
+                              'Получить код WhatsApp',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        
+                        // Информация о WhatsApp
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.blue.shade200,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue.shade700,
+                                size: 20,
+                              ),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Код подтверждения будет отправлен в WhatsApp',
+                                  style: TextStyle(
+                                    color: Colors.blue.shade700,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
-                  ),
+                    
+                    // Политика конфиденциальности в самом низу
+                    Padding(
+                      padding: EdgeInsets.only(top: 40, bottom: 20),
+                      child: InkWell(
+                        onTap: () {
+                          launchUrlString('http://doner24aktau.kz/jjj.html');
+                        },
+                        child: Text(
+                          'Политика конфиденциальности',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: primaryColor,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              )
-            ],
+              ),
+            ),
           ),
         );
       },

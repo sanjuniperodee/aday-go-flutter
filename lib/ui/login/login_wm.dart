@@ -40,16 +40,15 @@ class LoginWM extends WidgetModel<LoginScreen, LoginModel> implements ILoginWM {
 
   @override
   final MaskTextInputFormatter phoneFormatter = MaskTextInputFormatter(
-    mask: '+#(###) ###-##-##',
+    mask: '+7(###) ###-##-##',
     filter: {"#": RegExp(r'[0-9]')},
     type: MaskAutoCompletionType.lazy,
-    initialText: '+7',
   );
 
   @override
   late final TextEditingController phoneTextEditingController =
       createTextEditingController(
-    initialText: '',
+    initialText: '+7',
     onChanged: _phoneTextChanged,
   );
 
@@ -66,6 +65,21 @@ class LoginWM extends WidgetModel<LoginScreen, LoginModel> implements ILoginWM {
     try {
       String phoneNumber = phoneLoginForm.value!.phone.value;
       String cleanPhoneNumber = phoneFormatter.unmaskText(phoneNumber);
+      
+      // Формируем номер для Казахстана в формате 77088431748 (без плюса)
+      if (cleanPhoneNumber.startsWith('7') && cleanPhoneNumber.length == 10) {
+        // Если номер начинается с 7 и длина 10 символов, это уже правильный формат
+        cleanPhoneNumber = '7' + cleanPhoneNumber;
+      } else if (cleanPhoneNumber.length == 10 && !cleanPhoneNumber.startsWith('7')) {
+        // Если длина 10 символов но не начинается с 7, добавляем 77
+        cleanPhoneNumber = '77' + cleanPhoneNumber;
+      } else if (cleanPhoneNumber.startsWith('+7')) {
+        // Убираем плюс если есть
+        cleanPhoneNumber = cleanPhoneNumber.substring(1);
+      } else if (cleanPhoneNumber.startsWith('87') && cleanPhoneNumber.length == 11) {
+        // Заменяем 8 на 7 для казахстанских номеров
+        cleanPhoneNumber = '7' + cleanPhoneNumber.substring(1);
+      }
       
       logger.i('Starting login process for phone: $cleanPhoneNumber');
       print('🔄 Starting SMS request for phone: $cleanPhoneNumber');

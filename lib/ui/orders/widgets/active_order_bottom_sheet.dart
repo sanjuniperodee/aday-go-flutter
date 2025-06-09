@@ -208,7 +208,7 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
         sourceId: 'markers-source',
         filter: ['==', ['get', 'marker-symbol'], 'start'],
         iconImage: 'point_a',
-        iconSize: 0.6,
+        iconSize: 0.2,
         iconAllowOverlap: true,
       ));
       
@@ -218,7 +218,7 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
         sourceId: 'markers-source',
         filter: ['==', ['get', 'marker-symbol'], 'end'],
         iconImage: 'point_b',
-        iconSize: 0.6,
+        iconSize: 0.2,
         iconAllowOverlap: true,
       ));
     } catch (e) {
@@ -571,573 +571,637 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final orderStatus = activeRequest.orderRequest?.orderStatus ?? '';
+    final statusInfo = _getStatusInfo(orderStatus);
+    
     return PopScope(
       canPop: false,
-      child: PrimaryBottomSheet(
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 8,
-          horizontal: 16,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: Offset(0, -5),
+            ),
+          ],
         ),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.9,
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 38,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: greyscale30,
-                            borderRadius: BorderRadius.circular(1.4),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      if (!isOrderFinished && activeRequest.orderRequest?.orderStatus == 'STARTED')
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            'Вы приняли заказ',
-                            style: TextStyle(
-                              color: Color(0xFF261619),
-                              fontSize: 20,
-                              fontFamily: 'Rubik',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        )
-                      else if (!isOrderFinished &&
-                          activeRequest.orderRequest?.orderStatus == 'WAITING')
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            'Вы ожидаете клиента',
-                            style: TextStyle(
-                              color: Color(0xFF261619),
-                              fontSize: 20,
-                              fontFamily: 'Rubik',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        )
-                      else if (!isOrderFinished &&
-                          activeRequest.orderRequest?.orderStatus == 'ONGOING')
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            'Вы в пути',
-                            style: TextStyle(
-                              color: Color(0xFF261619),
-                              fontSize: 20,
-                              fontFamily: 'Rubik',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        )
-                      else if (isOrderFinished &&
-                          activeRequest.orderRequest?.orderStatus == 'REJECTED')
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            'Заказ отменен',
-                            style: TextStyle(
-                              color: Color(0xFF261619),
-                              fontSize: 20,
-                              fontFamily: 'Rubik',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        )
-                      else if (isOrderFinished)
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            'Заказ завершен',
-                            style: TextStyle(
-                              color: Color(0xFF261619),
-                              fontSize: 20,
-                              fontFamily: 'Rubik',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 24),
-                      Container(
-                        width: double.infinity,
-                        height: 80,
-                        padding: const EdgeInsets.all(16),
-                        decoration: ShapeDecoration(
-                          color: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(width: 1, color: Color(0xFFE7E1E1)),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: ShapeDecoration(
-                                image: DecorationImage(
-                                  image: NetworkImage("https://via.placeholder.com/48x48"),
-                                  fit: BoxFit.cover,
-                                ),
-                                shape: OvalBorder(),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Container(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.activeOrder.whatsappUser?.fullName ?? '',
-                                      textAlign: TextAlign.center,
-                                      style: text400Size16Greyscale90,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Клиент',
-                                      textAlign: TextAlign.center,
-                                      style: text400Size12Greyscale60,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            InkWell(
-                              onTap: () {
-                                launchUrlString(
-                                    'https://wa.me/${(widget.activeOrder.whatsappUser?.phone ?? '').replaceAll('+', '')}');
-                              },
-                              child: Container(
-                                width: 32,
-                                height: 32,
-                                child: SvgPicture.asset(icWhatsapp),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if ((widget.activeOrder.orderRequest?.comment ?? '').isNotEmpty)
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 24),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: ShapeDecoration(
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(width: 1, color: Color(0xFFE7E1E1)),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: SizedBox(
-                                  child: Text(
-                                    widget.activeOrder.orderRequest?.comment ?? '',
-                                    style: text400Size12Greyscale90,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      Container(
-                        width: double.infinity,
-                        clipBehavior: Clip.antiAlias,
-                        decoration: ShapeDecoration(
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(width: 1, color: Color(0xFFE7E1E1)),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: Stack(
-                          children: [
-                            Container(
-                              width: double.infinity,
-                              height: 300,
-                              child: mapbox.MapWidget(
-                                key: ValueKey("mapWidget"),
-                                cameraOptions: mapbox.CameraOptions(
-                                  center: mapbox.Point(coordinates: geotypes.Position(
-                                    activeRequest.orderRequest!.lng.toDouble(),
-                                    activeRequest.orderRequest!.lat.toDouble(),
-                                  )),
-                                  zoom: 14.0,
-                                  bearing: 0,
-                                  pitch: 0,
-                                ),
-                                onMapCreated: (mapboxController) {
-                                  setState(() {
-                                    mapboxMapController = mapboxController;
-                                  });
-                                  addImageFromAsset('point_a', 'assets/images/point_a.png');
-                                  addImageFromAsset('point_b', 'assets/images/point_b.png');
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Container(
-                        width: double.infinity,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Откуда',
-                                              textAlign: TextAlign.center,
-                                              style: text400Size10Greyscale60,
-                                            ),
-                                            Container(
-                                              width: double.infinity,
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                mainAxisAlignment: MainAxisAlignment.start,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  SvgPicture.asset(
-                                                    'assets/icons/placemark.svg',
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Expanded(
-                                                    child: Text(
-                                                      widget.activeOrder.orderRequest?.from ?? '',
-                                                      textAlign: TextAlign.left,
-                                                      style: text400Size16Black,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Куда',
-                                              textAlign: TextAlign.center,
-                                              style: text400Size10Greyscale60,
-                                            ),
-                                            Container(
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                mainAxisAlignment: MainAxisAlignment.start,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  SvgPicture.asset(
-                                                    'assets/icons/placemark.svg',
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Expanded(
-                                                    child: Text(
-                                                      widget.activeOrder.orderRequest?.to ?? '',
-                                                      textAlign: TextAlign.left,
-                                                      style: text400Size16Black,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Container(
-                        width: double.infinity,
-                        height: 36,
-                        padding: const EdgeInsets.all(8),
-                        decoration: ShapeDecoration(
-                          color: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(width: 1, color: Color(0xFFE7E1E1)),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: SizedBox(
-                                child: Text(
-                                  'Цена поездки: ${NumUtils.humanizeNumber(activeRequest.orderRequest?.price)} ₸ ',
-                                  style: text400Size16Greyscale90,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (activeRequest.orderRequest?.orderStatus == 'WAITING')
-                        Container(
-                          width: double.infinity,
-                          height: 36,
-                          padding: const EdgeInsets.all(8),
-                          margin: const EdgeInsets.only(top: 24),
-                          decoration: ShapeDecoration(
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              side: BorderSide(width: 1, color: Color(0xFFE7E1E1)),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: SizedBox(
-                                  child: Text(
-                                    'Ожидание: ${waitingTimerLeft ~/ 60}:${waitingTimerLeft % 60}',
-                                    style: text400Size16Greyscale90,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Полоска для перетаскивания
+            Container(
+              margin: EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            SizedBox(height: 20),
+            
+            // Статус заказа
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: statusInfo['color'].withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: statusInfo['color'].withOpacity(0.3),
+                  width: 1,
                 ),
               ),
-              if (!isOrderFinished && activeRequest.orderRequest?.orderStatus == 'STARTED')
-                SizedBox(
-                  width: double.infinity,
-                  child: PrimaryButton.primary(
-                    onPressed: arrivedDriver,
-                    isLoading: isLoading,
-                    text: 'Включить ожидание',
-                    textStyle: text400Size16White,
+              child: Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: statusInfo['color'],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      statusInfo['icon'],
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
-                )
-              else if (!isOrderFinished && activeRequest.orderRequest?.orderStatus == 'WAITING')
-                SizedBox(
-                  width: double.infinity,
-                  child: PrimaryButton.primary(
-                    onPressed: startDrive,
-                    isLoading: isLoading,
-                    text: 'Начать поездку',
-                    textStyle: text400Size16White,
-                  ),
-                )
-              else if (!isOrderFinished && activeRequest.orderRequest?.orderStatus == 'ONGOING')
-                SizedBox(
-                  width: double.infinity,
-                  child: PrimaryButton.primary(
-                    onPressed: endDrive,
-                    isLoading: isLoading,
-                    text: 'Завершить',
-                    textStyle: text400Size16White,
-                  ),
-                )
-              else if (isOrderFinished || activeRequest.orderRequest?.orderStatus == "REJECTED")
-                SizedBox(
-                  width: double.infinity,
-                  child: PrimaryButton.primary(
-                    onPressed: Navigator.of(context).pop,
-                    text: 'Продолжить',
-                    textStyle: text400Size16White,
-                  ),
-                ),
-              const SizedBox(height: 8),
-              if (!isOrderFinished)
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: PrimaryButton.secondary(
-                          onPressed: () {
-                            launchUrlString(
-                                'tel://${(widget.activeOrder.whatsappUser?.phone ?? '')}');
-                          },
-                          text: 'Отказаться',
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SvgPicture.asset(icCall),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Позвонить',
-                                style: text400Size16Greyscale60,
-                              ),
-                            ],
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          statusInfo['title'],
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
+                        Text(
+                          statusInfo['subtitle'],
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            SizedBox(height: 24),
+            
+            // Детали поездки
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  // Маршрут
+                  _buildRouteSection(),
+                  
+                  SizedBox(height: 20),
+                  
+                  // Информация о клиенте и стоимости
+                  Row(
+                    children: [
                       Expanded(
-                        child: PrimaryButton.secondary(
-                          onPressed: () {
-                            rejectOrder();
-                          },
-                          text: 'Отменить заказ',
-                          textStyle: text400Size16Greyscale60,
+                        child: _buildInfoCard(
+                          icon: Icons.account_circle,
+                          title: 'Клиент',
+                          value: activeRequest.whatsappUser?.fullName ?? 'Неизвестно',
+                          color: Colors.blue,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: _buildInfoCard(
+                          icon: Icons.payments,
+                          title: 'Стоимость',
+                          value: '${NumUtils.humanizeNumber(activeRequest.orderRequest?.price, isCurrency: true) ?? '0'} ₸',
+                          color: Colors.green,
                         ),
                       ),
                     ],
                   ),
-                ),
-              const SizedBox(height: 24),
-            ],
-          ),
+                ],
+              ),
+            ),
+            
+            SizedBox(height: 24),
+            
+            // Кнопки действий
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: _buildActionButtons(),
+            ),
+            
+            SizedBox(height: 32),
+          ],
         ),
       ),
     );
   }
 
-  Future<void> addImageFromAsset(String name, String assetName) async {
-    try {
-      // Create a small colored circle with text
-      final int size = 40; // Slightly larger size
-      
-      // Create a canvas to draw the marker
-      final pictureRecorder = PictureRecorder();
-      final canvas = Canvas(pictureRecorder);
-      
-      // Background with border
-      final bgPaint = Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.fill;
+  Widget _buildRouteSection() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: Colors.green,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Откуда',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    activeRequest.orderRequest?.from ?? 'Не указано',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         
-      final borderPaint = Paint()
-        ..color = name == 'point_a' ? Colors.green : Colors.red
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.0;
-      
-      // Draw circle with border
-      canvas.drawCircle(Offset(size / 2, size / 2), size / 2 - 3, bgPaint);
-      canvas.drawCircle(Offset(size / 2, size / 2), size / 2 - 3, borderPaint);
-      
-      // Add text
-      final textStyle = TextStyle(
-        color: name == 'point_a' ? Colors.green : Colors.red,
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-      );
-      
-      final textSpan = TextSpan(
-        text: name == 'point_a' ? 'A' : 'B',
-        style: textStyle,
-      );
-      
-      final textPainter = TextPainter(
-        text: textSpan,
-        textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
-      );
-      
-      textPainter.layout();
-      textPainter.paint(
-        canvas, 
-        Offset(size / 2 - textPainter.width / 2, size / 2 - textPainter.height / 2)
-      );
-      
-      // Convert to image
-      final picture = pictureRecorder.endRecording();
-      final image = await picture.toImage(size, size);
-      final byteData = await image.toByteData(format: ImageByteFormat.png);
-      final Uint8List imageBytes = byteData!.buffer.asUint8List();
-      
-      // Create Mapbox image
-      final mbxImage = mapbox.MbxImage(
-        data: imageBytes,
-        width: size,
-        height: size,
-      );
-      
-      // Add to map style
-      await mapboxMapController?.style.addStyleImage(
-        name,
-        1.0, // Normal scale
-        mbxImage,
-        false, // sdf
-        [], // stretchX
-        [], // stretchY
-        null, // content
-      );
-      
-      print("Custom marker created: $name");
-    } catch (e) {
-      print("Error creating custom marker: $e");
-      // Fallback to asset loading if custom creation fails
-      try {
-        final ByteData bytes = await rootBundle.load(assetName);
-        final Uint8List list = bytes.buffer.asUint8List();
-        final image = await decodeImageFromList(list);
+        Container(
+          margin: EdgeInsets.only(left: 6, top: 8, bottom: 8),
+          width: 2,
+          height: 20,
+          color: Colors.grey.shade300,
+        ),
         
-        final mbxImage = mapbox.MbxImage(
-          data: list,
-          height: image.height,
-          width: image.width,
-        );
-        
-        await mapboxMapController?.style.addStyleImage(
-          name,
-          0.5, // Normal scale
-          mbxImage,
-          false, // sdf
-          [], // stretchX
-          [], // stretchY
-          null, // content
-        );
-      } catch (e) {
-        print("Error loading marker asset: $e");
-      }
+        Row(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: primaryColor,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Куда',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    activeRequest.orderRequest?.to ?? 'Не указано',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+          SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    final orderStatus = activeRequest.orderRequest?.orderStatus ?? '';
+    
+    if (orderStatus == 'CREATED') {
+      return Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: isLoading ? null : () async {
+                await startDrive();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                disabledBackgroundColor: Colors.grey.shade300,
+              ),
+              child: isLoading
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.play_arrow, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Начать поездку',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+          SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey.shade700,
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    'Назад',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                    await inject<OrderRequestsInteractor>().rejectOrderRequest(
+                      orderRequestId: widget.activeOrder.orderRequest!.id,
+                    );
+                    fetchActiveOrder();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: BorderSide(color: Colors.red.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    'Отменить',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    } else {
+      return Column(
+        children: [
+          if (orderStatus == 'STARTED') ...[
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: isLoading ? null : waitForClient,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.location_on, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Я на месте',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else if (orderStatus == 'WAITING') ...[
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: isLoading ? null : startTrip,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.directions_car, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Начать поездку',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else if (orderStatus == 'ONGOING') ...[
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: isLoading ? null : finishTrip,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Завершить поездку',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          
+          SizedBox(height: 12),
+          
+          // Кнопка звонка клиенту
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => _callClient(activeRequest.whatsappUser?.phone),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: primaryColor,
+                side: BorderSide(color: primaryColor),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.phone, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Позвонить клиенту',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
     }
+  }
+
+  Map<String, dynamic> _getStatusInfo(String status) {
+    switch (status) {
+      case 'CREATED':
+        return {
+          'title': 'Заказ принят',
+          'subtitle': 'Начните движение к клиенту',
+          'icon': Icons.check_circle,
+          'color': Colors.green,
+        };
+      case 'STARTED':
+        return {
+          'title': 'В пути к клиенту',
+          'subtitle': 'Доберитесь до места посадки',
+          'icon': Icons.directions_car,
+          'color': Colors.blue,
+        };
+      case 'WAITING':
+        return {
+          'title': 'Ожидание клиента',
+          'subtitle': 'Клиент должен подойти к автомобилю',
+          'icon': Icons.timer,
+          'color': Colors.orange,
+        };
+      case 'ONGOING':
+        return {
+          'title': 'Поездка началась',
+          'subtitle': 'Везите клиента к месту назначения',
+          'icon': Icons.directions,
+          'color': primaryColor,
+        };
+      default:
+        return {
+          'title': 'Заказ',
+          'subtitle': 'Обработка заказа',
+          'icon': Icons.info,
+          'color': Colors.grey,
+        };
+    }
+  }
+
+  Future<void> _callClient(String? phoneNumber) async {
+    if (phoneNumber == null) return;
+    
+    final url = 'tel:$phoneNumber';
+    try {
+      await launchUrlString(url);
+    } catch (e) {
+      print('Ошибка при попытке позвонить: $e');
+    }
+  }
+
+  // Методы для управления заказом
+  Future<void> waitForClient() async {
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      await inject<OrderRequestsInteractor>().arrivedOrderRequest(
+        driver: widget.me,
+        orderRequest: widget.activeOrder.orderRequest!,
+      );
+
+      waitingTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+        if (waitingTimerLeft > 0) {
+          setState(() {
+            waitingTimerLeft--;
+          });
+        } else {
+          rejectOrder();
+          timer.cancel();
+        }
+      });
+
+      fetchActiveOrder();
+    } on Exception catch (e) {
+      // TODO
+    }
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  Future<void> startTrip() async {
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      await inject<OrderRequestsInteractor>().startOrderRequest(
+        driver: widget.me,
+        orderRequest: widget.activeOrder.orderRequest!,
+      );
+      waitingTimer?.cancel();
+      fetchActiveOrder();
+    } on Exception catch (e) {
+      // TODO
+    }
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  Future<void> finishTrip() async {
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      await inject<OrderRequestsInteractor>().endOrderRequest(
+        driver: widget.me,
+        orderRequest: widget.activeOrder.orderRequest!,
+      );
+      fetchActiveOrder();
+    } on Exception catch (e) {
+      // TODO
+    }
+
+    setState(() {
+      isLoading = false;
+    });
   }
 }
 //

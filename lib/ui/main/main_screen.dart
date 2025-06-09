@@ -27,34 +27,42 @@ class MainScreen extends ElementaryWidget<IMainWM> {
               index: currentPage,
               children: wm.getUserScreenByRole(),
             ),
-            bottomNavigationBar: Theme(
-              data: ThemeData(
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
+            bottomNavigationBar: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: Offset(0, -5),
+                  ),
+                ],
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
               ),
-              child: Container(
-                // decoration: BoxDecoration(
-                //   border: Border(
-                //     top: BorderSide(
-                //       color: greyscale20,
-                //     ),
-                //   ),
-                // ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
                 child: BottomNavigationBar(
-                  backgroundColor: Colors.white.withOpacity(0.85),
+                  backgroundColor: Colors.white,
                   type: BottomNavigationBarType.fixed,
                   showUnselectedLabels: true,
                   showSelectedLabels: true,
                   elevation: 0,
-                  // selectedLabelStyle: text500Size10BottomActiveColor.copyWith(
-                  //   height: 2,
-                  // ),
-                  // unselectedLabelStyle:
-                  // text500Size10BottomInActiveColor.copyWith(
-                  //   height: 2,
-                  // ),
-                  unselectedFontSize: 10,
                   selectedItemColor: primaryColor,
+                  unselectedItemColor: Colors.grey.shade500,
+                  selectedLabelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  unselectedLabelStyle: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
                   onTap: wm.onPageChanged,
                   currentIndex: currentPage ?? 0,
                   items: wm.getUserBottomItemsByRole(),

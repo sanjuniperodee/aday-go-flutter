@@ -36,155 +36,227 @@ class OtpScreen extends ElementaryWidget<IOtpWM> {
           int? resendSecondsLeft,
         ) {
           return Scaffold(
+            backgroundColor: Colors.grey.shade50,
             appBar: AppBar(
               title: Text(
-                'Вход',
-                style: text400Size16Black,
+                'Подтверждение',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
-              centerTitle: false,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              centerTitle: true,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_ios, color: Colors.black87),
+                onPressed: () => Navigator.pop(context),
+              ),
               bottom: PreferredSize(
                 preferredSize: Size.fromHeight(1),
-                child: Divider(
+                child: Container(
                   height: 1,
-                  color: greyscale10,
+                  color: Colors.grey.shade200,
                 ),
               ),
             ),
-            body: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 24),
-                    clipBehavior: Clip.antiAlias,
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: BorderSide(width: 1, color: Color(0xFFE7E1E1)),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            'Подтвердите номер',
-                            style: TextStyle(
-                              color: Color(0xFF261619),
-                              fontSize: 24,
-                              fontFamily: 'Rubik',
-                              fontWeight: FontWeight.w500,
-                              height: 0,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            'На WhatsApp номер ${phoneNumber} был отправлен код',
-                            style: text400Size12Greyscale50,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        OtpCodeTextField(
-                          controller: wm.otpTextEditingController,
-                        ),
-                        // Показываем SMS код для отладки
-                        if (debugSmsCode != null) ...[
-                          const SizedBox(height: 8),
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Иконка с анимацией
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            width: 80,
+                            height: 80,
                             decoration: BoxDecoration(
-                              color: Colors.orange.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.orange),
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(40),
                             ),
-                            child: Text(
-                              '🔑 Код для тестирования: $debugSmsCode',
+                            child: Icon(
+                              Icons.sms,
+                              size: 40,
+                              color: Colors.green,
+                            ),
+                          ),
+                          SizedBox(height: 32),
+                          
+                          // Заголовок
+                          Text(
+                            'Введите код',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          
+                          // Подзаголовок с номером телефона
+                          RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
                               style: TextStyle(
-                                color: Colors.orange.shade800,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                                fontSize: 16,
+                                color: Colors.grey.shade600,
+                                height: 1.4,
                               ),
+                              children: [
+                                TextSpan(text: 'Код отправлен в WhatsApp на номер\n'),
+                                TextSpan(
+                                  text: phoneNumber,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 40),
+                          
+                          // Поле ввода кода
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: OtpCodeTextField(
+                              controller: wm.otpTextEditingController,
+                            ),
+                          ),
+                          
+                          // Показываем SMS код для отладки
+                          if (debugSmsCode != null) ...[
+                            SizedBox(height: 16),
+                            Container(
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.orange.shade200),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.bug_report,
+                                    color: Colors.orange.shade700,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Код для тестирования: $debugSmsCode',
+                                      style: TextStyle(
+                                        color: Colors.orange.shade700,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          
+                          SizedBox(height: 32),
+                          
+                          // Кнопка входа
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: otpConfirmForm!.isValid
+                                  ? wm.submitOtpConfirm
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                disabledBackgroundColor: Colors.grey.shade300,
+                              ),
+                              child: Text(
+                                'Войти',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          
+                          SizedBox(height: 24),
+                          
+                          // Блок повторной отправки
+                          Container(
+                            padding: EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.grey.shade200,
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Не получили код?',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                if (resendSecondsLeft == 0)
+                                  InkWell(
+                                    onTap: () {
+                                      // TODO: Добавить функционал повторной отправки
+                                    },
+                                    child: Text(
+                                      'Отправить ещё раз',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: primaryColor,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    'Повторная отправка через ${resendSecondsLeft}с',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade500,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
-                        const SizedBox(height: 16),
-                        PrimaryButton.primary(
-                          onPressed: otpConfirmForm!.isValid
-                              ? wm.submitOtpConfirm
-                              : null,
-                          text: 'Войти',
-                          textStyle: text400Size16White,
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              'Не получили код?',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Color(0xFF261619),
-                                fontSize: 12,
-                                fontFamily: 'Rubik',
-                                fontWeight: FontWeight.w400,
-                                height: 0.11,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '•',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Color(0xFF261619),
-                                fontSize: 12,
-                                fontFamily: 'Rubik',
-                                fontWeight: FontWeight.w400,
-                                height: 0.11,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            if (resendSecondsLeft == 0)
-                              Text(
-                                'Отправить ещё раз',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Color(0xFF261619),
-                                  fontSize: 12,
-                                  fontFamily: 'Rubik',
-                                  fontWeight: FontWeight.w500,
-                                  height: 0.11,
-                                ),
-                              )
-                            else
-                              Text(
-                                'через ${resendSecondsLeft}',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Color(0xFF261619),
-                                  fontSize: 12,
-                                  fontFamily: 'Rubik',
-                                  fontWeight: FontWeight.w500,
-                                  height: 0.11,
-                                ),
-                              )
-                          ],
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                )
-              ],
+                  ],
+                ),
+              ),
             ),
           );
         });

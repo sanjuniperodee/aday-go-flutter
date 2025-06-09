@@ -1151,7 +1151,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
         id: 'markers-layer-a',
         sourceId: 'markers-source-a',
         iconImage: "point_a",
-        iconSize: 0.5, // Маленький размер для маркера А
+        iconSize: 0.5, // Размер маркера А
         iconAnchor: IconAnchor.BOTTOM,
         minZoom: 0, // Видно на любом масштабе
         maxZoom: 22, // Максимальный зум
@@ -1163,7 +1163,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
         id: 'markers-layer-b',
         sourceId: 'markers-source-b',
         iconImage: "point_b",
-        iconSize: 0.5, // Такой же размер как у маркера А
+        iconSize: 0.5, // Размер маркера В
         iconAnchor: IconAnchor.BOTTOM,
         minZoom: 0, // Видно на любом масштабе
         maxZoom: 22, // Максимальный зум

@@ -28,13 +28,11 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
 
   @override
   Widget build(IOrdersWM wm) {
-    return TripleSourceBuilder(
-        firstSource: wm.tabIndex,
-        secondSource: wm.showNewOrders,
-        thirdSource: wm.orderType,
+    return DoubleSourceBuilder(
+        firstSource: wm.showNewOrders,
+        secondSource: wm.orderType,
         builder: (
           context,
-          int? tabIndex,
           bool? showNewOrders,
           DriverType? orderType,
         ) {
@@ -101,66 +99,67 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                               child: ListView(
                                 children: [
                                   const SizedBox(height: 24),
-                                  SizedBox(
-                                    height: 40,
-                                    child: ListView(
-                                      scrollDirection: Axis.horizontal,
-                                      children: [
-                                        const SizedBox(width: 16),
-                                        ...DriverType.values
-                                            .asMap()
-                                            .entries
-                                            .map(
-                                              (e) => InkWell(
-                                                onTap: () =>
-                                                    wm.tabIndexChanged(e.key),
-                                                child: Container(
-                                                  margin: const EdgeInsets.only(
-                                                      right: 8),
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 16),
-                                                  decoration: ShapeDecoration(
-                                                    color: tabIndex == e.key
-                                                        ? Color(0xFFF73C4E)
-                                                        : Colors.white,
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      side: tabIndex != e.key
-                                                          ? BorderSide(
-                                                              width: 1,
-                                                              color: Color(
-                                                                  0xFFB4AAA9))
-                                                          : BorderSide.none,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              102),
-                                                    ),
-                                                  ),
-                                                  child: Row(
-                                                    children: [
-                                                      SvgPicture.asset(
-                                                        e.value.asset!,
-                                                        color: tabIndex == e.key
-                                                            ? Colors.white
-                                                            : Colors.grey,
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      TextLocale(
-                                                        e.value.value!,
-                                                        style: tabIndex == e.key
-                                                            ? text400Size16White
-                                                            : text400Size16Greyscale30,
-                                                      )
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            )
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
+                                  // УБИРАЕМ выбор категорий - оставляем только TAXI
+                                  // SizedBox(
+                                  //   height: 40,
+                                  //   child: ListView(
+                                  //     scrollDirection: Axis.horizontal,
+                                  //     children: [
+                                  //       const SizedBox(width: 16),
+                                  //       ...DriverType.values
+                                  //           .asMap()
+                                  //           .entries
+                                  //           .map(
+                                  //             (e) => InkWell(
+                                  //               onTap: () =>
+                                  //                   wm.tabIndexChanged(e.key),
+                                  //               child: Container(
+                                  //                 margin: const EdgeInsets.only(
+                                  //                     right: 8),
+                                  //                 padding: const EdgeInsets
+                                  //                     .symmetric(
+                                  //                     horizontal: 16),
+                                  //                 decoration: ShapeDecoration(
+                                  //                   color: tabIndex == e.key
+                                  //                       ? Color(0xFFF73C4E)
+                                  //                       : Colors.white,
+                                  //                   shape:
+                                  //                       RoundedRectangleBorder(
+                                  //                     side: tabIndex != e.key
+                                  //                         ? BorderSide(
+                                  //                             width: 1,
+                                  //                             color: Color(
+                                  //                                 0xFFB4AAA9))
+                                  //                         : BorderSide.none,
+                                  //                     borderRadius:
+                                  //                         BorderRadius.circular(
+                                  //                             102),
+                                  //                   ),
+                                  //                 ),
+                                  //                 child: Row(
+                                  //                   children: [
+                                  //                     SvgPicture.asset(
+                                  //                       e.value.asset!,
+                                  //                       color: tabIndex == e.key
+                                  //                           ? Colors.white
+                                  //                           : Colors.grey,
+                                  //                     ),
+                                  //                     const SizedBox(width: 8),
+                                  //                     TextLocale(
+                                  //                       e.value.value!,
+                                  //                       style: tabIndex == e.key
+                                  //                           ? text400Size16White
+                                  //                           : text400Size16Greyscale30,
+                                  //                     )
+                                  //                   ],
+                                  //                 ),
+                                  //               ),
+                                  //             ),
+                                  //           )
+                                  //     ],
+                                  //   ),
+                                  // ),
+                                  // const SizedBox(height: 16),
                                   DoubleSourceBuilder(
                                     firstSource: wm.isWebsocketConnected,
                                     secondSource: wm.locationPermission,

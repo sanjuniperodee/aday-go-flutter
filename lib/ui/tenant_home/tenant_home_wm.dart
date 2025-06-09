@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:async';
 
 import 'package:aktau_go/core/images.dart';
 import 'package:aktau_go/interactors/common/mapbox_api/mapbox_api.dart';
@@ -142,6 +143,9 @@ abstract class ITenantHomeWM implements IWidgetModel {
     required String fromMapboxId,
     required String toMapboxId,
   });
+
+  // Принудительно обновить адреса в UI
+  void forceUpdateAddresses();
 }
 
 class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
@@ -267,8 +271,9 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     // Получаем реальное местоположение
     _initializeUserLocation();
     
-    // Загружаем сохраненные адреса из SharedPreferences
-    _loadSavedAddresses();
+    // НЕ ЗАГРУЖАЕМ сохраненные адреса - поля должны быть пустыми при запуске
+    // НО автоматически определяем текущий адрес "откуда" по GPS
+    _initializeCurrentLocationAddress();
     
     // Настраиваем слушатель для draggableScrollableController
     draggableScrollableController.addListener(() {
@@ -1135,7 +1140,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
           id: 'main-markers-layer-a',
           sourceId: 'main-markers-source-a',
           iconImage: "point_a",
-          iconSize: 0.7, // Размер маркера A
+          iconSize: 0.3, // Уменьшаем размер маркера A
           iconAnchor: IconAnchor.BOTTOM,
           minZoom: 0, // Видно на любом масштабе
           maxZoom: 22, // Максимальный зум
@@ -1148,7 +1153,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
           id: 'main-markers-layer-b',
           sourceId: 'main-markers-source-b',
           iconImage: "point_b",
-          iconSize: 0.7, // Размер маркера B
+          iconSize: 0.3, // Уменьшаем размер маркера B
           iconAnchor: IconAnchor.BOTTOM,
           minZoom: 0, // Видно на любом масштабе
           maxZoom: 22, // Максимальный зум
@@ -1278,22 +1283,17 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     final validFromAddress = fromAddress.isNotEmpty ? fromAddress : "Выберите адрес отправления";
     final validToAddress = toAddress.isNotEmpty ? toAddress : "Выберите адрес прибытия";
     
-    // Сохраняем в StateNotifier для использования в UI
+    // ТОЛЬКО сохраняем в StateNotifier для использования в текущей сессии
     savedFromAddress.accept(validFromAddress);
     savedToAddress.accept(validToAddress);
     savedFromMapboxId.accept(fromMapboxId);
     savedToMapboxId.accept(toMapboxId);
     
-    // Также сохраняем в SharedPreferences для восстановления после перезапуска
-    try {
-      final prefs = inject<SharedPreferences>();
-      prefs.setString('saved_from_address', validFromAddress);
-      prefs.setString('saved_to_address', validToAddress);
-      prefs.setString('saved_from_mapbox_id', fromMapboxId);
-      prefs.setString('saved_to_mapbox_id', toMapboxId);
-    } catch (e) {
-      print('Ошибка при сохранении адресов в SharedPreferences: $e');
-    }
+    print('Адреса обновлены в StateNotifier (только для текущей сессии):');
+    print('savedFromAddress: ${savedFromAddress.value}');
+    print('savedToAddress: ${savedToAddress.value}');
+    
+    // НЕ СОХРАНЯЕМ в SharedPreferences - поля должны быть пустыми после перезапуска
     
     // Если есть оба адреса и координаты - отображаем маршрут на главной карте
     if (fromMapboxId.isNotEmpty && toMapboxId.isNotEmpty && _mapboxMapController != null) {
@@ -1329,26 +1329,40 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
   // Загрузка сохраненных адресов из SharedPreferences
   Future<void> _loadSavedAddresses() async {
     try {
+      // Проверяем, не установлены ли уже адреса (например, из map picker)
+      final hasFromAddress = savedFromAddress.value != null && savedFromAddress.value!.isNotEmpty;
+      final hasToAddress = savedToAddress.value != null && savedToAddress.value!.isNotEmpty;
+      
+      if (hasFromAddress && hasToAddress) {
+        print('Адреса уже установлены, пропускаем загрузку из SharedPreferences');
+        return;
+      }
+      
       final prefs = inject<SharedPreferences>();
       final fromAddress = prefs.getString('saved_from_address');
       final toAddress = prefs.getString('saved_to_address');
       final fromMapboxId = prefs.getString('saved_from_mapbox_id');
       final toMapboxId = prefs.getString('saved_to_mapbox_id');
       
-      if (fromAddress != null && fromAddress.isNotEmpty) {
+      // Загружаем адреса только если они еще не установлены
+      if (!hasFromAddress && fromAddress != null && fromAddress.isNotEmpty) {
         savedFromAddress.accept(fromAddress);
+        print('Загружен fromAddress: $fromAddress');
       }
       
-      if (toAddress != null && toAddress.isNotEmpty) {
+      if (!hasToAddress && toAddress != null && toAddress.isNotEmpty) {
         savedToAddress.accept(toAddress);
+        print('Загружен toAddress: $toAddress');
       }
       
       if (fromMapboxId != null && fromMapboxId.isNotEmpty) {
         savedFromMapboxId.accept(fromMapboxId);
+        print('Загружен fromMapboxId: $fromMapboxId');
       }
       
       if (toMapboxId != null && toMapboxId.isNotEmpty) {
         savedToMapboxId.accept(toMapboxId);
+        print('Загружен toMapboxId: $toMapboxId');
       }
       
       print('Загружены сохраненные адреса:');
@@ -1357,7 +1371,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       print('fromMapboxId: $fromMapboxId');
       print('toMapboxId: $toMapboxId');
       
-      // Если оба адреса и координаты загружены успешно, можно отобразить маршрут
+      // Если оба адреса и координаты загружены успешно, отображаем маршрут
       if (fromMapboxId != null && toMapboxId != null && 
           fromMapboxId.isNotEmpty && toMapboxId.isNotEmpty) {
         final fromParts = fromMapboxId.split(';');
@@ -1370,20 +1384,113 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
           final toLng = double.tryParse(toParts[1]);
           
           if (fromLat != null && fromLng != null && toLat != null && toLng != null) {
-            // Отображаем маршрут с небольшой задержкой, чтобы карта успела инициализироваться
-            Future.delayed(Duration(seconds: 1), () {
-              if (_mapboxMapController != null) {
-                displayRouteOnMainMap(
-                  geotypes.Position(fromLng, fromLat),
-                  geotypes.Position(toLng, toLat),
-                );
-              }
-            });
+            print('Планируем отображение маршрута между сохраненными точками');
+            // Планируем отображение маршрута, но только после инициализации карты
+            _scheduleRouteDisplay(
+              geotypes.Position(fromLng, fromLat),
+              geotypes.Position(toLng, toLat),
+            );
           }
         }
       }
     } catch (e) {
       print('Ошибка при загрузке сохраненных адресов: $e');
+    }
+  }
+  
+  // Планирует отображение маршрута после инициализации карты
+  void _scheduleRouteDisplay(geotypes.Position fromPos, geotypes.Position toPos) {
+    // Проверяем каждые 100мс, инициализирована ли карта
+    Timer.periodic(Duration(milliseconds: 100), (timer) {
+      if (_mapboxMapController != null) {
+        timer.cancel(); // Останавливаем проверку
+        print('Карта инициализирована, отображаем маршрут');
+        displayRouteOnMainMap(fromPos, toPos);
+      } else {
+        print('Ожидаем инициализации карты...');
+      }
+    });
+  }
+
+  // Принудительно обновить адреса в UI
+  void forceUpdateAddresses() {
+    // Принудительно уведомляем UI об изменении адресов с небольшой задержкой
+    Future.delayed(Duration(milliseconds: 50), () {
+      if (savedFromAddress.value != null) {
+        final currentFrom = savedFromAddress.value!;
+        savedFromAddress.accept(currentFrom);
+        print('Принудительно обновляем fromAddress: $currentFrom');
+      }
+      if (savedToAddress.value != null) {
+        final currentTo = savedToAddress.value!;
+        savedToAddress.accept(currentTo);
+        print('Принудительно обновляем toAddress: $currentTo');
+      }
+    });
+    
+    // Дополнительное обновление через 100мс для гарантии
+    Future.delayed(Duration(milliseconds: 100), () {
+      if (savedFromAddress.value != null) {
+        savedFromAddress.accept(savedFromAddress.value!);
+      }
+      if (savedToAddress.value != null) {
+        savedToAddress.accept(savedToAddress.value!);
+      }
+      print('UI принудительно обновлен с текущими адресами (второй раз)');
+    });
+    
+    print('UI принудительно обновлен с текущими адресами');
+  }
+
+  // Автоматически определяем текущий адрес "откуда" по GPS
+  Future<void> _initializeCurrentLocationAddress() async {
+    try {
+      print('Начинаем автоматическое определение адреса "откуда"...');
+      
+      // Ждем получения местоположения
+      var attempts = 0;
+      while (userLocation.value == null && attempts < 10) {
+        await Future.delayed(Duration(milliseconds: 500));
+        attempts++;
+      }
+      
+      if (userLocation.value == null) {
+        print('Не удалось получить местоположение для определения адреса');
+        return;
+      }
+      
+      final position = userLocation.value!;
+      print('Определяем адрес для позиции: ${position.lat}, ${position.lng}');
+      
+      // Получаем адрес по координатам
+      final mapboxApi = inject<MapboxApi>();
+      final addressData = await mapboxApi.getReverseGeocode(
+        lat: position.lat.toDouble(),
+        lng: position.lng.toDouble(),
+      );
+      
+      if (addressData != null && addressData.containsKey('features') && addressData['features'].isNotEmpty) {
+        final placeName = addressData['features'][0]['place_name'] ?? 'Текущее местоположение';
+        
+        print('Автоматически определен адрес "откуда": $placeName');
+        
+        // Устанавливаем адрес "откуда" и его координаты
+        savedFromAddress.accept(placeName);
+        savedFromMapboxId.accept('${position.lat};${position.lng}');
+        
+        print('Адрес "откуда" автоматически установлен: $placeName');
+      } else {
+        print('Не удалось определить адрес, используем "Текущее местоположение"');
+        savedFromAddress.accept('Текущее местоположение');
+        savedFromMapboxId.accept('${position.lat};${position.lng}');
+      }
+    } catch (e) {
+      print('Ошибка при автоматическом определении адреса: $e');
+      // В случае ошибки устанавливаем общий текст
+      if (userLocation.value != null) {
+        savedFromAddress.accept('Текущее местоположение');
+        savedFromMapboxId.accept('${userLocation.value!.lat};${userLocation.value!.lng}');
+      }
     }
   }
 }

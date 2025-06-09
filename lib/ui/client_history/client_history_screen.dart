@@ -20,87 +20,93 @@ class ClientHistoryScreen extends ElementaryWidget<IClientHistoryWM> {
 
   @override
   Widget build(IClientHistoryWM wm) {
-    return DoubleSourceBuilder(
-        firstSource: wm.tabIndex,
-        secondSource: wm.orderHistoryRequests,
+    return StateNotifierBuilder(
+        listenableState: wm.orderHistoryRequests,
         builder: (
           context,
-          int? tabIndex,
           List<ActiveRequestDomain>? orderHistoryRequests,
         ) {
           return Scaffold(
+            backgroundColor: Colors.grey.shade50,
             appBar: AppBar(
-              title: SizedBox(
-                width: double.infinity,
-                child: Text(
-                  'История заказов',
-                  style: text500Size24Black,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              title: Text(
+                'История поездок',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
               centerTitle: false,
               bottom: PreferredSize(
                 preferredSize: Size.fromHeight(1),
-                child: Divider(
+                child: Container(
                   height: 1,
-                  color: greyscale10,
+                  color: Colors.grey.shade200,
                 ),
               ),
             ),
-            body: ListView(
-              children: [
-                const SizedBox(height: 24),
-                SizedBox(
-                  height: 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      const SizedBox(width: 16),
-                      ...DriverType.values.asMap().entries.map(
-                            (e) => InkWell(
-                              onTap: () => wm.tabIndexChanged(e.key),
-                              child: Container(
-                                margin: const EdgeInsets.only(right: 8),
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                decoration: ShapeDecoration(
-                                  color: tabIndex == e.key
-                                      ? Color(0xFFF73C4E)
-                                      : Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    side: tabIndex != e.key
-                                        ? BorderSide(
-                                            width: 1, color: Color(0xFFB4AAA9))
-                                        : BorderSide.none,
-                                    borderRadius: BorderRadius.circular(102),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    SvgPicture.asset(
-                                      e.value.asset!,
-                                      color: tabIndex == e.key
-                                          ? Colors.white
-                                          : Colors.grey,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    TextLocale(
-                                      e.value.value!,
-                                      style: tabIndex == e.key
-                                          ? text400Size16White
-                                          : text400Size16Greyscale30,
-                                    )
-                                  ],
-                                ),
-                              ),
+            body: RefreshIndicator(
+              onRefresh: wm.fetchOrderClientHistoryRequests,
+              child: ListView(
+                padding: EdgeInsets.all(16),
+                children: [
+                  // Убираем выбор категорий - автоматически показываем только такси
+                  
+                  // Список заказов
+                  if ((orderHistoryRequests ?? []).isEmpty)
+                    Container(
+                      padding: EdgeInsets.all(40),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.history,
+                            size: 64,
+                            color: Colors.grey.shade400,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'История пуста',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
                             ),
-                          )
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                for (ActiveRequestDomain order in (orderHistoryRequests ?? []))
-                  HistoryOrderCard(orderRequest: order)
-              ],
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Завершенные поездки появятся здесь',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...orderHistoryRequests!.map(
+                      (order) => Container(
+                        margin: EdgeInsets.only(bottom: 12),
+                        child: HistoryOrderCard(orderRequest: order),
+                      ),
+                    ),
+                ],
+              ),
             ),
           );
         });

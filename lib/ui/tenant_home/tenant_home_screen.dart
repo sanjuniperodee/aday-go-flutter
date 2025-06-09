@@ -287,7 +287,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                   iconColor: Colors.green,
                                   hint: 'Откуда',
                                   value: wm.savedFromAddress.value ?? '',
-                                  onTap: () {
+                                  onTap: () async {
                                     try {
                                       print('Открываю экран выбора адреса "Откуда"');
                                       
@@ -303,6 +303,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                           final actualPlaceName = placeName.isNotEmpty ? placeName : "Адрес не найден";
                                           print('Сохраняем адрес отправления: $actualPlaceName');
                                           
+                                          // НЕМЕДЛЕННО сохраняем адреса
                                           wm.saveOrderAddresses(
                                             fromAddress: actualPlaceName,
                                             toAddress: wm.savedToAddress.value ?? '',
@@ -310,6 +311,11 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                             toMapboxId: wm.savedToMapboxId.value ?? '',
                                           );
                                           wm.setRouteDisplayed(false);
+                                          
+                                          // Принудительно обновляем состояние UI
+                                          wm.forceUpdateAddresses();
+                                          
+                                          print('Адрес отправления обновлен на: ${wm.savedFromAddress.value}');
                                         },
                                       );
                                       
@@ -334,7 +340,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                   iconColor: Colors.red,
                                   hint: 'Куда',
                                   value: wm.savedToAddress.value ?? '',
-                                  onTap: () {
+                                  onTap: () async {
                                     try {
                                       print('Открываю экран выбора адреса "Куда"');
                                       
@@ -352,6 +358,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                           final actualPlaceName = placeName.isNotEmpty ? placeName : "Адрес не найден";
                                           print('Сохраняем адрес назначения: $actualPlaceName');
                                           
+                                          // НЕМЕДЛЕННО сохраняем адреса
                                           wm.saveOrderAddresses(
                                             fromAddress: wm.savedFromAddress.value ?? '',
                                             toAddress: actualPlaceName,
@@ -359,6 +366,11 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                             toMapboxId: '${position.lat};${position.lng}',
                                           );
                                           wm.setRouteDisplayed(false);
+                                          
+                                          // Принудительно обновляем состояние UI
+                                          wm.forceUpdateAddresses();
+                                          
+                                          print('Адрес назначения обновлен на: ${wm.savedToAddress.value}');
                                         },
                                       );
                                       
@@ -758,7 +770,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
           id: 'main-markers-layer',
           sourceId: 'main-markers-source',
           iconImage: "{icon}",
-          iconSize: 1.0,
+          iconSize: 0.3,
           iconAnchor: IconAnchor.BOTTOM,
         ));
         print('Добавлен слой символов для маркеров');
