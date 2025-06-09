@@ -757,17 +757,17 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       await addImageFromAsset('point_a', 'assets/images/point_a.png', scale: 0.3);
       await addImageFromAsset('point_b', 'assets/images/point_b.png', scale: 0.3);
       
-      // Enable location display
+      // ИСПРАВЛЕНО: Отключаем Location Component чтобы предотвратить автоматическое центрирование на GPS
       await mapboxMapController?.location.updateSettings(
         LocationComponentSettings(
-          enabled: true,
-          pulsingEnabled: true,
-          showAccuracyRing: true,
+          enabled: false,           // ← ОТКЛЮЧЕНО! Теперь маркер не будет магнититься
+          pulsingEnabled: false,
+          showAccuracyRing: false,
           puckBearingEnabled: false,
         ),
       );
       setState(() {
-        _locationComponentEnabled = true;
+        _locationComponentEnabled = false; // Обновляем состояние
         _isMapReady = true;
       });
       
