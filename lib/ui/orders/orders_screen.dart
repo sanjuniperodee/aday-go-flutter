@@ -355,7 +355,7 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                                                         }
                                                       },
                                                       text: 'Повторить',
-                                                      textStyle: text400Size14White,
+                                                      textStyle: text400Size16White,
                                                     ),
                                                   ],
                                                 ],
