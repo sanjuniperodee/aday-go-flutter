@@ -88,7 +88,7 @@ class _ActiveClientOrderBottomSheetState
     );
   }
 
-  // Новый дизайн экрана поиска водителя
+  // Обновленный современный дизайн экрана поиска водителя
   Widget _buildSearchingForDriverView() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -104,150 +104,448 @@ class _ActiveClientOrderBottomSheetState
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         
-        // Анимация и текст
+        // Заголовок с градиентом
         Container(
-          padding: EdgeInsets.symmetric(vertical: 16),
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(vertical: 20, horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
+            gradient: LinearGradient(
+              colors: [
+                primaryColor.withOpacity(0.1),
+                primaryColor.withOpacity(0.05),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
             children: [
+              // Пульсирующая анимация поиска
               SizedBox(
-                width: 120,
-                height: 120,
-                child: Lottie.asset(
-                  'assets/lottie/location.json',
-                  fit: BoxFit.contain,
+                width: 100,
+                height: 100,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Внешний круг с пульсацией
+                    AnimatedContainer(
+                      duration: Duration(seconds: 2),
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: primaryColor.withOpacity(0.3),
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    // Средний круг
+                    AnimatedContainer(
+                      duration: Duration(milliseconds: 1500),
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: primaryColor.withOpacity(0.5),
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    // Внутренний круг с иконкой
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: primaryColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: primaryColor.withOpacity(0.3),
+                            blurRadius: 10,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.search,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               
+              SizedBox(height: 20),
+              
+              // Заголовок
               Text(
                 'Поиск водителя',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: primaryColor,
+                  color: Colors.black87,
                 ),
               ),
               
               SizedBox(height: 8),
               
-              Text(
-                'Ожидайте, мы ищем подходящего водителя',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey.shade700,
-                ),
+              // Подзаголовок с анимированными точками
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Ищем ближайшего водителя',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  // Анимированные точки
+                  _buildAnimatedDots(),
+                ],
               ),
             ],
           ),
         ),
         
-        SizedBox(height: 16),
+        SizedBox(height: 20),
         
-        // Информация о поездке
+        // Карточка с информацией о поездке
         Container(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.grey.shade200,
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.shade100,
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Откуда
+              // Заголовок карточки
               Row(
                 children: [
-                  Icon(Icons.radio_button_checked, color: Colors.green, size: 20),
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.route,
+                      color: primaryColor,
+                      size: 20,
+                    ),
+                  ),
                   SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      activeRequest.order?.from ?? '',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              
-              // Вертикальная линия
-              Padding(
-                padding: EdgeInsets.only(left: 10),
-                child: Container(
-                  height: 20,
-                  width: 1,
-                  color: Colors.grey.shade300,
-                ),
-              ),
-              
-              // Куда
-              Row(
-                children: [
-                  Icon(Icons.location_on, color: Colors.red, size: 20),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      activeRequest.order?.to ?? '',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              
-              Divider(height: 24),
-              
-              // Цена
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
                   Text(
-                    'Стоимость',
+                    'Детали поездки',
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                  Text(
-                    '${activeRequest.order?.price} ₸',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
                       color: Colors.black87,
                     ),
                   ),
                 ],
               ),
+              
+              SizedBox(height: 16),
+              
+              // Маршрут
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Иконки маршрута
+                  Column(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      Container(
+                        width: 2,
+                        height: 30,
+                        color: Colors.grey.shade300,
+                      ),
+                      Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                  
+                  SizedBox(width: 16),
+                  
+                  // Адреса
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Откуда
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.green.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                'Откуда:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  activeRequest.order?.from ?? 'Не указано',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        SizedBox(height: 12),
+                        
+                        // Куда
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.red.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                'Куда:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.red.shade700,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  activeRequest.order?.to ?? 'Не указано',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              
+              SizedBox(height: 16),
+              
+              // Разделитель
+              Container(
+                height: 1,
+                color: Colors.grey.shade200,
+              ),
+              
+              SizedBox(height: 16),
+              
+              // Цена с выделением
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Icons.attach_money,
+                          color: Colors.amber.shade700,
+                          size: 16,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Стоимость поездки',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: primaryColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      '${activeRequest.order?.price} ₸',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
         
-        SizedBox(height: 16),
+        SizedBox(height: 20),
         
-        // Кнопка отмены
-        PrimaryButton.secondary(
-          onPressed: widget.onCancel,
-          text: 'Отменить поиск',
-          textStyle: TextStyle(
-            color: Colors.red,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
+        // Информационная подсказка
+        Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.blue.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: Colors.blue.shade600,
+                size: 20,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Обычно поиск водителя занимает 1-3 минуты',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        SizedBox(height: 20),
+        
+        // Кнопка отмены с улучшенным дизайном
+        Container(
+          width: double.infinity,
+          height: 50,
+          child: OutlinedButton(
+            onPressed: widget.onCancel,
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(
+                color: Colors.red.shade300,
+                width: 1.5,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              backgroundColor: Colors.red.withOpacity(0.05),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.close,
+                  color: Colors.red.shade600,
+                  size: 20,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Отменить поиск',
+                  style: TextStyle(
+                    color: Colors.red.shade600,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         
         SizedBox(height: 16),
       ],
+    );
+  }
+
+  // Виджет анимированных точек
+  Widget _buildAnimatedDots() {
+    return Row(
+      children: List.generate(3, (index) {
+        return AnimatedContainer(
+          duration: Duration(milliseconds: 600 + (index * 200)),
+          margin: EdgeInsets.only(left: 2),
+          child: Text(
+            '.',
+            style: TextStyle(
+              fontSize: 20,
+              color: primaryColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      }),
     );
   }
 
@@ -621,26 +919,59 @@ class _ActiveClientOrderBottomSheetState
   String _getStatusDescription(String? status) {
     switch (status) {
       case 'STARTED':
-        return 'Водитель уже едет к вам';
+        return 'Водитель едет к вам';
       case 'WAITING':
-        return 'Водитель ожидает вас на месте посадки';
+        return 'Водитель ждет вас на месте';
       case 'ONGOING':
-        return 'Вы в пути к месту назначения';
+        return 'Поездка в процессе';
       case 'COMPLETED':
-        return 'Спасибо за поездку!';
+        return 'Поездка завершена';
       default:
-        return 'Водитель скоро будет назначен';
+        return 'Водитель принял заказ';
     }
   }
   
-  Color _getCarColor(String? colorString) {
-    if (colorString == null) return Colors.grey;
-    
-    try {
-      final colorValue = int.parse(colorString.replaceFirst('#', '0xFF'));
-      return Color(colorValue);
-    } catch (e) {
-      return Colors.grey;
+  Color _getCarColor(String? colorName) {
+    switch (colorName?.toLowerCase()) {
+      case 'белый':
+      case 'white':
+        return Colors.grey.shade100;
+      case 'черный':
+      case 'black':
+        return Colors.grey.shade800;
+      case 'красный':
+      case 'red':
+        return Colors.red;
+      case 'синий':
+      case 'blue':
+        return Colors.blue;
+      case 'зеленый':
+      case 'green':
+        return Colors.green;
+      case 'желтый':
+      case 'yellow':
+        return Colors.yellow.shade600;
+      case 'серый':
+      case 'grey':
+      case 'gray':
+        return Colors.grey;
+      case 'коричневый':
+      case 'brown':
+        return Colors.brown;
+      case 'оранжевый':
+      case 'orange':
+        return Colors.orange;
+      case 'фиолетовый':
+      case 'purple':
+        return Colors.purple;
+      case 'розовый':
+      case 'pink':
+        return Colors.pink;
+      case 'серебряный':
+      case 'silver':
+        return Colors.grey.shade300;
+      default:
+        return Colors.grey.shade400;
     }
   }
 }
