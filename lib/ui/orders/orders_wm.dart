@@ -85,6 +85,8 @@ abstract class IOrdersWM implements IWidgetModel {
   void requestLocationPermission();
 
   void registerOrderType();
+
+  Future<void> initializeSocket();
 }
 
 class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
