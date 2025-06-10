@@ -254,6 +254,9 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     
     print('Инициализация TenantHomeWM...');
     
+    // ДОБАВЛЕНО: Очищаем сохраненные адреса при старте приложения
+    _clearSavedAddressesOnStartup();
+    
     // Важно: сначала получаем профиль пользователя
     fetchUserProfile().then((_) {
       // После получения профиля - инициализируем сокет
@@ -304,19 +307,25 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     try {
       print('🚀 Инициализация местоположения и адреса...');
       
-      // ЭТАП 1: Сначала загружаем сохраненные адреса для мгновенного отображения
-      await _loadSavedAddresses();
+      // ИЗМЕНЕНО: НЕ загружаем сохраненные адреса при старте
+      // Поле "куда" всегда должно быть пустым, а "откуда" - текущее местоположение
+      // await _loadSavedAddresses(); // УБРАНО
       
-      // ЭТАП 2: Параллельно получаем координаты и определяем адрес
+      // ЭТАП 1: Очищаем поле "куда" и оставляем только "откуда"
+      savedToAddress.accept(''); // Поле "куда" всегда пустое при старте
+      savedToMapboxId.accept('');
+      print('🗑️ Поле "куда" очищено при старте приложения');
+      
+      // ЭТАП 2: Параллельно получаем координаты и определяем адрес "откуда"
       await Future.wait([
         _getCurrentLocationQuickly(), // Быстрое получение координат (3 сек макс)
         _determineAddressFromLocation(), // Определение адреса по координатам (5 сек макс)
       ]);
       
-      print('✅ Инициализация завершена');
+      print('✅ Инициализация завершена - откуда: ${savedFromAddress.value}, куда: пусто');
     } catch (e) {
       print('❌ Ошибка инициализации: $e');
-      // Устанавливаем fallback адрес
+      // Устанавливаем fallback адрес только для "откуда"
       _setFallbackAddress();
     }
   }
@@ -381,14 +390,9 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         return;
       }
       
-      // Если уже есть сохраненный адрес "откуда" - не перезаписываем
-      if (savedFromAddress.value != null && 
-          savedFromAddress.value!.isNotEmpty && 
-          savedFromAddress.value != "Определение местоположения..." &&
-          savedFromAddress.value != "Адрес не найден") {
-        print('✅ Используем существующий адрес: ${savedFromAddress.value}');
-        return;
-      }
+      // ИЗМЕНЕНО: Всегда определяем адрес по текущему местоположению
+      // Убираем проверку на существующий сохраненный адрес
+      print('📍 Определяем адрес по текущему местоположению');
       
       final position = userLocation.value!;
       
@@ -409,10 +413,12 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         savedFromAddress.accept(addressData);
         savedFromMapboxId.accept('${position.lat};${position.lng}');
         
-        // Сохраняем для будущих запусков
+        // ВОССТАНОВЛЕНО: Сохраняем адрес для текущей сессии
+        // Будет очищен при следующем запуске приложения
         final prefs = inject<SharedPreferences>();
         await prefs.setString('saved_from_address', addressData);
         await prefs.setString('saved_from_coords', '${position.lat};${position.lng}');
+        print('💾 Адрес сохранен для текущей сессии (будет очищен при перезапуске)');
         
       } else {
         print('⚠️ Адрес не найден');
@@ -1525,10 +1531,13 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     }
   }
 
-  // РЕФАКТОР: Упрощенное сохранение в SharedPreferences
+  // РЕФАКТОР: Сохранение в SharedPreferences во время сессии
   Future<void> _saveAddressesToPreferences(String fromAddress, String toAddress, String fromMapboxId, String toMapboxId) async {
     try {
       final prefs = inject<SharedPreferences>();
+      
+      // ВОССТАНОВЛЕНО: Сохраняем адреса во время сессии
+      // Они будут очищены только при следующем запуске приложения
       
       // Сохраняем только валидные адреса
       if (_isValidAddress(fromAddress)) {
@@ -1536,7 +1545,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         if (fromMapboxId.isNotEmpty) {
           await prefs.setString('saved_from_coords', fromMapboxId);
         }
-        print('💾 Сохранен адрес "откуда": $fromAddress');
+        print('💾 Адрес "откуда" сохранен для текущей сессии: $fromAddress');
       }
       
       if (_isValidAddress(toAddress)) {
@@ -1544,10 +1553,13 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         if (toMapboxId.isNotEmpty) {
           await prefs.setString('saved_to_coords', toMapboxId);
         }
-        print('💾 Сохранен адрес "куда": $toAddress');
+        print('💾 Адрес "куда" сохранен для текущей сессии: $toAddress');
       }
+      
+      print('ℹ️ Адреса будут очищены при следующем запуске приложения');
+      
     } catch (e) {
-      print('❌ Ошибка сохранения: $e');
+      print('❌ Ошибка сохранения адресов: $e');
     }
   }
 
@@ -1714,6 +1726,24 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         return Colors.red; // Красный - сильные пробки
       default:
         return primaryColor; // Базовый цвет как fallback
+    }
+  }
+
+  // НОВЫЙ МЕТОД: Очистка сохраненных адресов только при старте приложения
+  Future<void> _clearSavedAddressesOnStartup() async {
+    try {
+      final prefs = inject<SharedPreferences>();
+      
+      // Очищаем сохраненные адреса
+      await prefs.remove('saved_from_address');
+      await prefs.remove('saved_to_address');
+      await prefs.remove('saved_from_coords');
+      await prefs.remove('saved_to_coords');
+      
+      print('🗑️ Сохраненные адреса очищены при старте приложения');
+      print('💡 Поле "откуда" будет определено по текущему местоположению, поле "куда" будет пустым');
+    } catch (e) {
+      print('❌ Ошибка при очистке сохраненных адресов: $e');
     }
   }
 }
