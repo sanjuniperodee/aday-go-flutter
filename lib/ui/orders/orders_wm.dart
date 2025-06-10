@@ -64,6 +64,18 @@ abstract class IOrdersWM implements IWidgetModel {
 
   StateNotifier<bool> get isOrderRejected;
 
+  StateNotifier<bool> get isWebSocketConnecting;
+
+  StateNotifier<String?> get webSocketConnectionError;
+
+  StateNotifier<int> get tabIndexController;
+
+  StateNotifier<Position?> get driverPositionController;
+
+  StateNotifier<bool> get showNewOrdersController;
+
+  StateNotifier<bool?> get isWebsocketConnectedController;
+
   Future<void> fetchOrderRequests();
 
   Future<void> onOrderRequestTap(OrderRequestDomain e);
@@ -134,6 +146,27 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
   final StateNotifier<List<OrderRequestDomain>> orderRequests = StateNotifier(
     initValue: const [],
   );
+
+  @override
+  final StateNotifier<bool> isWebSocketConnecting = StateNotifier(initValue: false);
+  
+  @override
+  final StateNotifier<String?> webSocketConnectionError = StateNotifier();
+
+  @override
+  final StateNotifier<int> tabIndexController = StateNotifier(initValue: 0);
+
+  @override
+  final StateNotifier<Position?> driverPositionController = StateNotifier();
+
+  @override
+  final StateNotifier<bool?> isWebsocketConnectedController = StateNotifier();
+
+  @override
+  final StateNotifier<bool> showNewOrdersController = StateNotifier();
+
+  @override
+  final StateNotifier<LocationPermission> locationPermission = StateNotifier();
 
   @override
   void initWidgetModel() {
@@ -344,21 +377,31 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
   @override
   Future<void> initializeSocket() async {
     try {
+      // ДОБАВЛЕНО: Показываем состояние загрузки
+      isWebSocketConnecting.accept(true);
+      webSocketConnectionError.accept(null);
+      
       // Проверяем данные для подключения
       if (me.value == null) {
         logger.e('❌ Профиль водителя не найден');
+        isWebSocketConnecting.accept(false);
+        webSocketConnectionError.accept('Профиль водителя не найден');
         return;
       }
       
       // Проверяем разрешения на геолокацию
       if (![LocationPermission.always, LocationPermission.whileInUse].contains(locationPermission.value)) {
         logger.e('❌ Нет разрешений на геолокацию');
+        isWebSocketConnecting.accept(false);
+        webSocketConnectionError.accept('Нет разрешений на геолокацию');
         return;
       }
       
       // Проверяем наличие координат
       if (driverPosition.value == null) {
         logger.e('❌ Местоположение водителя недоступно');
+        isWebSocketConnecting.accept(false);
+        webSocketConnectionError.accept('Местоположение недоступно');
         return;
       }
       
@@ -409,6 +452,8 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
     } catch (e) {
       logger.e('❌ Ошибка инициализации сокета: $e');
       isWebsocketConnected.accept(false);
+      isWebSocketConnecting.accept(false);
+      webSocketConnectionError.accept('Ошибка подключения: ${e.toString()}');
     }
   }
   
@@ -423,6 +468,8 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
     newOrderSocket!.onConnect((_) {
       logger.i('✅ Сокет успешно подключен');
       isWebsocketConnected.accept(true);
+      isWebSocketConnecting.accept(false);  // ДОБАВЛЕНО: Убираем индикатор загрузки
+      webSocketConnectionError.accept(null); // ДОБАВЛЕНО: Очищаем ошибки
       
       // ИСПРАВЛЯЕМ: Отправляем корректные данные водителя при подключении
       if (me.value != null && driverPosition.value != null) {
@@ -460,6 +507,7 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
     newOrderSocket!.onDisconnect((reason) {
       logger.w('🔌 Сокет отключен: $reason');
       isWebsocketConnected.accept(false);
+      isWebSocketConnecting.accept(false);  // ДОБАВЛЕНО: Убираем индикатор загрузки
       
       // УЛУЧШЕННАЯ логика переподключения
       if (statusController.value && reason != 'io client disconnect') {
@@ -481,6 +529,8 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
     newOrderSocket!.onConnectError((error) {
       logger.e('❌ Ошибка подключения сокета: $error');
       isWebsocketConnected.accept(false);
+      isWebSocketConnecting.accept(false);  // ДОБАВЛЕНО: Убираем индикатор загрузки
+      webSocketConnectionError.accept('Ошибка подключения: ${error.toString()}'); // ДОБАВЛЕНО: Показываем ошибку
       
       // ДОБАВЛЯЕМ: Retry с увеличенной задержкой при ошибке
       if (statusController.value) {
@@ -755,9 +805,6 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       isWebsocketConnected.accept(false);
     }
   }
-
-  @override
-  final StateNotifier<LocationPermission> locationPermission = StateNotifier();
 
   @override
   Future<void> requestLocationPermission() async {

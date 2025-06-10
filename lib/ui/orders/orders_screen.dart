@@ -250,71 +250,118 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                                             LocationPermission.whileInUse,
                                           ].contains(locationPermission) &&
                                           !isWebsocketConnected!) {
-                                        return Container(
-                                          margin: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                          ),
-                                          padding: const EdgeInsets.all(16),
-                                          decoration: ShapeDecoration(
-                                            color: Colors.white,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                            ),
-                                            shadows: [
-                                              BoxShadow(
-                                                color: Color(0x26261619),
-                                                blurRadius: 15,
-                                                offset: Offset(0, 4),
-                                                spreadRadius: 0,
-                                              )
-                                            ],
-                                          ),
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.start,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                width: double.infinity,
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.center,
-                                                  children: [
-                                                    Text(
-                                                      'Вы оффлайн',
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      style: text400Size16Black,
+                                        return DoubleSourceBuilder(
+                                          firstSource: wm.isWebSocketConnecting,
+                                          secondSource: wm.webSocketConnectionError,  
+                                          builder: (context, bool? isConnecting, String? connectionError) {
+                                            return Container(
+                                              margin: const EdgeInsets.symmetric(
+                                                horizontal: 16,
+                                              ),
+                                              padding: const EdgeInsets.all(16),
+                                              decoration: ShapeDecoration(
+                                                color: Colors.white,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                ),
+                                                shadows: [
+                                                  BoxShadow(
+                                                    color: Color(0x26261619),
+                                                    blurRadius: 15,
+                                                    offset: Offset(0, 4),
+                                                    spreadRadius: 0,
+                                                  )
+                                                ],
+                                              ),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Container(
+                                                    width: double.infinity,
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment.center,
+                                                      children: [
+                                                        // Показываем разные заголовки в зависимости от состояния
+                                                        Text(
+                                                          isConnecting == true 
+                                                            ? 'Подключение...' 
+                                                            : connectionError != null 
+                                                              ? 'Ошибка подключения'
+                                                              : 'Вы оффлайн',
+                                                          textAlign: TextAlign.center,
+                                                          style: text400Size16Black,
+                                                        ),
+                                                        const SizedBox(width: 10),
+                                                        // Показываем индикатор загрузки или иконку
+                                                        if (isConnecting == true)
+                                                          SizedBox(
+                                                            width: 12,
+                                                            height: 12,
+                                                            child: CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                                primaryColor,
+                                                              ),
+                                                            ),
+                                                          )
+                                                        else
+                                                          Container(
+                                                            width: 12,
+                                                            height: 12,
+                                                            child: SvgPicture.asset(
+                                                              connectionError != null 
+                                                                ? 'assets/icons/close.svg' // Используем существующую иконку
+                                                                : 'assets/icons/close.svg'
+                                                            ),
+                                                          ),
+                                                      ],
                                                     ),
-                                                    const SizedBox(width: 10),
-                                                    Container(
-                                                      width: 12,
-                                                      height: 12,
-                                                      child: SvgPicture.asset(
-                                                          'assets/icons/close.svg'),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Container(
+                                                    width: double.infinity,
+                                                    child: Text(
+                                                      // Показываем разные сообщения в зависимости от состояния
+                                                      isConnecting == true 
+                                                        ? 'Подключаемся к серверу...'
+                                                        : connectionError != null 
+                                                          ? connectionError
+                                                          : 'Переключите режим в онлайн',
+                                                      style: text400Size12Greyscale50,
+                                                    ),
+                                                  ),
+                                                  // Показываем кнопку повтора при ошибке
+                                                  if (connectionError != null && isConnecting != true) ...[
+                                                    const SizedBox(height: 12),
+                                                    PrimaryButton.secondary(
+                                                      onPressed: () {
+                                                        // Включаем переключатель чтобы инициировать повторное подключение
+                                                        if (wm.statusController.value == false) {
+                                                          wm.statusController.value = true;
+                                                        } else {
+                                                          // Если переключатель уже включен, принудительно переподключаемся
+                                                          wm.initializeSocket();
+                                                        }
+                                                      },
+                                                      text: 'Повторить',
+                                                      textStyle: text400Size14White,
                                                     ),
                                                   ],
-                                                ),
+                                                ],
                                               ),
-                                              const SizedBox(height: 4),
-                                              Container(
-                                                width: double.infinity,
-                                                child: Text(
-                                                  'Переключите режим в онлайн',
-                                                  style:
-                                                      text400Size12Greyscale50,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                            );
+                                          },
                                         );
                                       }
 
