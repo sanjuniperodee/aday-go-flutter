@@ -1117,8 +1117,14 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
   
   @override
   void setMapFixed(bool fixed) async {
+    final wasFixed = isMapFixed.value ?? false;
     isMapFixed.accept(fixed);
-    await _applyMapGestureSettings();
+    
+    // Применяем настройки только если состояние изменилось
+    if (wasFixed != fixed) {
+      await _applyMapGestureSettings();
+      print(fixed ? '🔒 Карта заблокирована для просмотра маршрута' : '🔓 Карта разблокирована для свободного использования');
+    }
   }
   
   // Apply map gesture settings based on fixed state
@@ -1157,6 +1163,9 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       print('Координаты from: ${fromPosition.lat}, ${fromPosition.lng}');
       print('Координаты to: ${toPosition.lat}, ${toPosition.lng}');
       
+      // АВТОМАТИЧЕСКИ блокируем карту при построении маршрута
+      setMapFixed(true);
+      
       // Создаем уникальный ключ для маршрута
       final routeKey = '${fromPosition.lat.toStringAsFixed(6)},${fromPosition.lng.toStringAsFixed(6)}-${toPosition.lat.toStringAsFixed(6)},${toPosition.lng.toStringAsFixed(6)}';
       
@@ -1192,6 +1201,8 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       
       if (directions == null) {
         print('Не удалось получить маршрут от API: directions is null');
+        // Разблокируем карту если маршрут не удалось построить
+        setMapFixed(false);
         return;
       }
       
@@ -1206,50 +1217,43 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       // Удаляем существующие слои и источники маршрута
       await clearRoute();
       
-      // Создаем GeoJSON LineString из геометрии маршрута
+      // Проверяем наличие маршрутов в ответе API
       if (!directions.containsKey('routes') || directions['routes'] == null || directions['routes'].isEmpty) {
         print('В ответе API нет маршрутов');
+        setMapFixed(false);
         return;
       }
       
-      final routeGeometry = directions['routes'][0]['geometry'];
+      // НОВАЯ ЛОГИКА: Отображаем маршрут с цветами пробок
+      final routeData = directions['routes'][0];
+      final routeGeometry = routeData['geometry'];
+      final legs = routeData['legs'] as List?;
+      
       print('Геометрия маршрута: ${routeGeometry.toString().substring(0, min(routeGeometry.toString().length, 100))}...');
-      
-      final lineString = {
-        "type": "Feature",
-        "geometry": routeGeometry,
-        "properties": {}
-      };
-      
-      // Конвертируем в JSON
-      final jsonData = json.encode({
-        "type": "FeatureCollection",
-        "features": [lineString]
-      });
       
       // Добавляем источник данных для маршрута
       await _mapboxMapController!.style.addSource(GeoJsonSource(
         id: 'main-route-source',
-        data: jsonData,
+        data: json.encode({
+          "type": "FeatureCollection",
+          "features": [{
+            "type": "Feature",
+            "geometry": routeGeometry,
+            "properties": {}
+          }]
+        }),
       ));
       
-      // Добавляем слой контура (белая граница для лучшей видимости)
-      await _mapboxMapController!.style.addLayer(LineLayer(
-        id: 'main-route-outline-layer',
-        sourceId: 'main-route-source',
-        lineColor: Colors.white.value,
-        lineWidth: 8.0,
-        lineOpacity: 0.9,
-      ));
+      // Создаем слои для разных уровней пробок
+      await _addTrafficAwareLayers();
       
-      // Добавляем основной слой линии маршрута
-      await _mapboxMapController!.style.addLayer(LineLayer(
-        id: 'main-route-layer',
-        sourceId: 'main-route-source',
-        lineColor: primaryColor.value,
-        lineWidth: 5.0,
-        lineOpacity: 0.9,
-      ));
+      // Если есть детализированная информация о сегментах, используем её
+      if (legs != null && legs.isNotEmpty) {
+        await _addTrafficSegments(legs);
+      } else {
+        // Базовое отображение маршрута с цветом по умолчанию (зеленый - без пробок)
+        await _addBasicRouteLayers();
+      }
       
       // Добавляем маркеры для начальной и конечной точек
       try {
@@ -1326,19 +1330,25 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         print('Ошибка при добавлении маркеров: $e');
       }
       
-      // Подстраиваем камеру для отображения всего маршрута
+      // ИДЕАЛЬНОЕ отображение маршрута: подстраиваем камеру с оптимальными отступами
       final bounds = directions['routes'][0]['bounds'];
       if (bounds != null) {
         final southwest = bounds[0];
         final northeast = bounds[1];
         
+        // Увеличенные отступы для лучшего отображения маршрута
         final camera = await _mapboxMapController!.cameraForCoordinateBounds(
           CoordinateBounds(
             southwest: Point(coordinates: geotypes.Position(southwest[0], southwest[1])),
             northeast: Point(coordinates: geotypes.Position(northeast[0], northeast[1])),
             infiniteBounds: false
           ),
-          MbxEdgeInsets(top: 150, left: 50, bottom: 350, right: 50),
+          MbxEdgeInsets(
+            top: 100,    // Отступ сверху (меньше чтобы видеть больше маршрута)
+            left: 60,    // Отступ слева
+            bottom: 400, // Отступ снизу (больше чтобы учесть панель)
+            right: 60,   // Отступ справа
+          ),
           null, // bearing
           null, // pitch
           null, // maxZoom
@@ -1347,20 +1357,24 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         
         await _mapboxMapController!.flyTo(
           camera,
-          MapAnimationOptions(duration: 1000),
+          MapAnimationOptions(duration: 1200), // Плавная анимация 1.2 сек
         );
+        
+        print('📷 Камера идеально настроена для отображения маршрута');
       }
       
-      // Блокируем взаимодействие с картой, если включен режим фиксации
-      if (isMapFixed.value == true) {
-        await _applyMapGestureSettings();
-      }
+      // БЛОКИРУЕМ карту для лучшего UX при просмотре маршрута
+      await _applyMapGestureSettings();
       
       // Обновляем состояние отображения маршрута
       setRouteDisplayed(true);
       
+      print('✅ Маршрут отображен с заблокированной картой для идеального просмотра');
+      
     } catch (e) {
       print('Ошибка при отображении маршрута: $e');
+      // В случае ошибки разблокируем карту
+      setMapFixed(false);
     }
   }
 
@@ -1379,31 +1393,45 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       print('🧹 Очищен кэш текущего маршрута');
       
       // Remove existing route layers and sources
-      for (final layerId in ['main-route-layer', 'main-route-outline-layer', 'main-markers-layer', 'main-markers-layer-a', 'main-markers-layer-b']) {
-        if (await _mapboxMapController!.style.styleLayerExists(layerId)) {
-          await _mapboxMapController!.style.removeStyleLayer(layerId);
-          print('Removed layer $layerId');
+      final layersToRemove = ['main-route-layer', 'main-route-outline-layer', 'main-markers-layer', 'main-markers-layer-a', 'main-markers-layer-b'];
+      final sourcesToRemove = ['main-route-source', 'main-markers-source', 'main-markers-source-a', 'main-markers-source-b'];
+      
+      // Также удаляем слои сегментов пробок (проверяем популярные индексы)
+      for (int legIndex = 0; legIndex < 5; legIndex++) {
+        for (int stepIndex = 0; stepIndex < 20; stepIndex++) {
+          final segmentId = 'route-segment-$legIndex-$stepIndex';
+          layersToRemove.add(segmentId);
+          sourcesToRemove.add('$segmentId-source');
         }
       }
       
-      for (final sourceId in ['main-route-source', 'main-markers-source', 'main-markers-source-a', 'main-markers-source-b']) {
-        if (await _mapboxMapController!.style.styleSourceExists(sourceId)) {
-          await _mapboxMapController!.style.removeStyleSource(sourceId);
-          print('Removed source $sourceId');
+      for (final layerId in layersToRemove) {
+        try {
+          if (await _mapboxMapController!.style.styleLayerExists(layerId)) {
+            await _mapboxMapController!.style.removeStyleLayer(layerId);
+            print('Removed layer $layerId');
+          }
+        } catch (e) {
+          // Игнорируем ошибки - слой может не существовать
         }
       }
       
-      // ИСПРАВЛЯЕМ: Разблокируем карту и сбрасываем состояния
+      for (final sourceId in sourcesToRemove) {
+        try {
+          if (await _mapboxMapController!.style.styleSourceExists(sourceId)) {
+            await _mapboxMapController!.style.removeStyleSource(sourceId);
+            print('Removed source $sourceId');
+          }
+        } catch (e) {
+          // Игнорируем ошибки - источник может не существовать
+        }
+      }
+      
+      // АВТОМАТИЧЕСКИ разблокируем карту и сбрасываем состояния
       isRouteDisplayed.accept(false);
-      isMapFixed.accept(false);
+      setMapFixed(false); // Это автоматически применит настройки через _applyMapGestureSettings
       
-      // Применяем настройки взаимодействия с картой (разблокируем)
-      await _applyMapGestureSettings();
-      
-      // УБИРАЕМ: Автоматический возврат к текущему местоположению
-      // Пользователь сам решит куда посмотреть на карте после очистки маршрута
-      
-      print('Route cleared successfully and map unlocked');
+      print('✅ Маршрут очищен и карта разблокирована для свободного использования');
     } catch (e) {
       print('Error clearing route: $e');
     }
@@ -1483,12 +1511,9 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         final toLng = double.tryParse(toParts[1]);
         
         if (fromLat != null && fromLng != null && toLat != null && toLng != null) {
-          print('🗺️ Отображаем маршрут на карте');
+          print('🗺️ Отображаем маршрут на карте с автоматической блокировкой');
           
-          // Фиксируем карту для показа маршрута
-          setMapFixed(true);
-          
-          // Отображаем маршрут
+          // Отображаем маршрут (блокировка карты происходит автоматически)
           displayRouteOnMainMap(
             geotypes.Position(fromLng, fromLat),
             geotypes.Position(toLng, toLat),
@@ -1541,5 +1566,154 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
   void forceUpdateAddresses() {
     // Оставляем пустым - UI обновляется автоматически через StateNotifierBuilder
     print('⚡ UI обновляется автоматически через StateNotifierBuilder');
+  }
+
+  // НОВЫЕ МЕТОДЫ: Создание слоев маршрута с цветами пробок
+  
+  // Создает базовые слои для отображения маршрута с учетом пробок
+  Future<void> _addTrafficAwareLayers() async {
+    try {
+      // Слой контура (белая граница для лучшей видимости)
+      await _mapboxMapController!.style.addLayer(LineLayer(
+        id: 'main-route-outline-layer',
+        sourceId: 'main-route-source',
+        lineColor: Colors.white.value,
+        lineWidth: 8.0,
+        lineOpacity: 0.9,
+      ));
+      
+      print('✅ Базовые слои маршрута созданы');
+    } catch (e) {
+      print('❌ Ошибка создания базовых слоев: $e');
+    }
+  }
+  
+  // Добавляет детализированные сегменты с информацией о пробках
+  Future<void> _addTrafficSegments(List legs) async {
+    try {
+      print('🚦 Анализируем данные о пробках...');
+      int segmentCount = 0;
+      int freeSegments = 0;
+      int moderateSegments = 0;
+      int heavySegments = 0;
+      
+      for (int legIndex = 0; legIndex < legs.length; legIndex++) {
+        final leg = legs[legIndex];
+        final steps = leg['steps'] as List?;
+        
+        if (steps != null) {
+          for (int stepIndex = 0; stepIndex < steps.length; stepIndex++) {
+            final step = steps[stepIndex];
+            final duration = step['duration'] as double?;
+            final distance = step['distance'] as double?;
+            final geometry = step['geometry'];
+            
+            if (duration != null && distance != null && geometry != null) {
+              // Вычисляем уровень пробок на основе скорости
+              final speed = distance / duration; // м/с
+              final speedKmh = speed * 3.6; // км/ч
+              
+              final trafficLevel = _calculateTrafficLevel(speedKmh);
+              final color = _getTrafficColor(trafficLevel);
+              
+              // Счетчики для статистики
+              segmentCount++;
+              switch (trafficLevel) {
+                case 'free':
+                  freeSegments++;
+                  break;
+                case 'moderate':
+                  moderateSegments++;
+                  break;
+                case 'heavy':
+                  heavySegments++;
+                  break;
+              }
+              
+              // Создаем отдельный слой для каждого сегмента
+              final segmentId = 'route-segment-${legIndex}-${stepIndex}';
+              
+              await _mapboxMapController!.style.addSource(GeoJsonSource(
+                id: '${segmentId}-source',
+                data: json.encode({
+                  "type": "FeatureCollection",
+                  "features": [{
+                    "type": "Feature",
+                    "geometry": geometry,
+                    "properties": {
+                      "traffic_level": trafficLevel,
+                      "speed_kmh": speedKmh.round(),
+                      "distance_m": distance.round()
+                    }
+                  }]
+                }),
+              ));
+              
+              await _mapboxMapController!.style.addLayer(LineLayer(
+                id: segmentId,
+                sourceId: '${segmentId}-source',
+                lineColor: color.value,
+                lineWidth: 5.0,
+                lineOpacity: 0.9,
+              ));
+            }
+          }
+        }
+      }
+      
+      print('🚦 Статистика пробок:');
+      print('  📊 Всего сегментов: $segmentCount');
+      print('  🟢 Свободная дорога: $freeSegments');
+      print('  🟠 Средние пробки: $moderateSegments');
+      print('  🔴 Сильные пробки: $heavySegments');
+      print('✅ Сегменты с пробками добавлены');
+    } catch (e) {
+      print('❌ Ошибка добавления сегментов пробок: $e');
+      // В случае ошибки используем базовое отображение
+      await _addBasicRouteLayers();
+    }
+  }
+  
+  // Добавляет базовые слои маршрута без детализации пробок
+  Future<void> _addBasicRouteLayers() async {
+    try {
+      // Основной слой маршрута (зеленый - предполагаем свободную дорогу)
+      await _mapboxMapController!.style.addLayer(LineLayer(
+        id: 'main-route-layer',
+        sourceId: 'main-route-source',
+        lineColor: Colors.green.value, // Зеленый для свободной дороги
+        lineWidth: 5.0,
+        lineOpacity: 0.9,
+      ));
+      
+      print('✅ Базовый маршрут отображен зеленым цветом');
+    } catch (e) {
+      print('❌ Ошибка добавления базового маршрута: $e');
+    }
+  }
+  
+  // Вычисляет уровень пробок на основе скорости
+  String _calculateTrafficLevel(double speedKmh) {
+    if (speedKmh >= 50) {
+      return 'free'; // Свободная дорога
+    } else if (speedKmh >= 25) {
+      return 'moderate'; // Средние пробки
+    } else {
+      return 'heavy'; // Сильные пробки
+    }
+  }
+  
+  // Возвращает цвет в зависимости от уровня пробок
+  Color _getTrafficColor(String trafficLevel) {
+    switch (trafficLevel) {
+      case 'free':
+        return Colors.green; // Зеленый - свободная дорога
+      case 'moderate':
+        return Colors.orange; // Оранжевый - средние пробки
+      case 'heavy':
+        return Colors.red; // Красный - сильные пробки
+      default:
+        return primaryColor; // Базовый цвет как fallback
+    }
   }
 }

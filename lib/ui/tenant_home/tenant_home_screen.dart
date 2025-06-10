@@ -79,6 +79,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
         final bool isMapFixed = wm.isMapFixed.value ?? false;
         
         return Scaffold(
+          backgroundColor: Colors.white,
           resizeToAvoidBottomInset: true,
           body: Stack(
             children: [
@@ -246,12 +247,24 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                                 ),
                               ],
                             ),
-                            child: Text(
-                              'Маршрут построен',
-                              style: TextStyle(
-                                color: primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.lock,
+                                  color: primaryColor,
+                                  size: 16,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Режим просмотра маршрута',
+                                  style: TextStyle(
+                                    color: primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
