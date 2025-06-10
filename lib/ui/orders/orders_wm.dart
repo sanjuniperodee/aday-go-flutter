@@ -420,31 +420,35 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       
       // ИСПРАВЛЯЕМ: Используем правильную конфигурацию сокета для продакшна
       newOrderSocket = IO.io(
-        'https://taxi.aktau-go.kz',  // УБИРАЕМ слэш в конце для стабильности
-        IO.OptionBuilder()
-            .setTransports(['websocket'])
-            .enableForceNew()  // Принудительно создаем новое соединение
-            .setReconnectionAttempts(5)  // Ограничиваем попытки переподключения
-            .setReconnectionDelay(3000)  // 3 секунды между попытками
-            .setTimeout(10000)  // 10 секунд таймаут
-            .setQuery({
-              'userType': 'driver',        // ← Тип пользователя
-              'userId': driverId,          // ← ID водителя как userId
-              'driverId': driverId,        // ← ДОБАВЛЯЕМ driverId отдельно
-              'sessionId': sessionId,      // ← sessionId для аутентификации
-              'lat': position?.latitude?.toString() ?? '0',
-              'lng': position?.longitude?.toString() ?? '0',
-              // ДОБАВЛЯЕМ дополнительные параметры для продакшна
-              'version': '1.0.16',         // Версия приложения
-              'platform': Platform.isIOS ? 'ios' : 'android',
-            })
-            .build(),
+        'ws://taxi.aktau-go.kz',
+        <String, dynamic>{
+          'transports': ['websocket'],
+          'autoConnect': false,
+          'forceNew': true,
+          'timeout': 30000,
+          'reconnection': true,
+          'reconnectionAttempts': 5,
+          'reconnectionDelay': 3000,
+          'query': {
+            'userType': 'driver',
+            'userId': driverId,
+            'driverId': driverId,
+            'sessionId': sessionId,
+            'lat': position?.latitude?.toString() ?? '0',
+            'lng': position?.longitude?.toString() ?? '0',
+            'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+          },
+        },
       );
 
       // Настройка обработчиков событий
       _setupSocketEventHandlers();
       
+      // ВАЖНО: Подключаемся после настройки обработчиков
+      newOrderSocket!.connect();
+      
       logger.i('🔌 Сокет создан и подключается...');
+      logger.i('📍 Параметры подключения: userType=driver, userId=$driverId, sessionId=$sessionId');
       
       // Сохраняем sessionId если его не было
       if (!(await inject<SharedPreferences>().containsKey('session_id'))) {
