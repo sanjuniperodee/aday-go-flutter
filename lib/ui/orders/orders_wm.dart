@@ -612,6 +612,27 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       }
     });
     
+    // Заказ принят мной (текущим водителем)
+    newOrderSocket!.on('orderAcceptedByMe', (data) {
+      logger.i('✅ Я успешно принял заказ: $data');
+      
+      // Немедленно обновляем список заказов
+      if (statusController.value) {
+        Future.delayed(Duration(milliseconds: 100), () {
+          if (context.mounted) {
+            fetchOrderRequests();
+          }
+        });
+      }
+      
+      // Получаем активный заказ для отображения
+      Future.delayed(Duration(milliseconds: 200), () {
+        if (context.mounted) {
+          fetchActiveOrder();
+        }
+      });
+    });
+    
     // Заказ отклонен клиентом
     newOrderSocket!.on('orderRejected', (data) async {
       logger.i('❌ Получено событие orderRejected: $data');
@@ -752,6 +773,34 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
             fetchOrderRequests();
           }
         });
+      }
+    });
+    
+    // ДОБАВЛЯЕМ: Обработчик завершения поездки
+    newOrderSocket!.on('rideEnded', (data) {
+      logger.i('🏁 Поездка завершена: $data');
+      
+      // Очищаем активный заказ
+      activeOrder.accept(ActiveRequestDomain());
+      
+      // Обновляем список заказов если водитель онлайн
+      if (statusController.value) {
+        Future.delayed(Duration(milliseconds: 100), () {
+          if (context.mounted) {
+            fetchOrderRequests();
+          }
+        });
+      }
+      
+      // Показываем уведомление об успешном завершении
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Поездка успешно завершена'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
     });
     

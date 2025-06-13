@@ -77,13 +77,34 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
       activeRequest = response;
 
       String? sessionId = inject<SharedPreferences>().getString('sessionId');
+      
+      // Проверяем статус заказа
+      if (activeRequest.orderRequest?.orderStatus == 'COMPLETED') {
+        // Заказ завершен - закрываем окно
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        return;
+      }
+      
       setState(() {});
 
       await fetchActiveOrderRoute();
     } on Exception catch (e) {
-      setState(() {
-        isOrderFinished = true;
-      });
+      print('Ошибка получения активного заказа: $e');
+      // ИСПРАВЛЕНИЕ: Если нет активного заказа, закрываем окно
+      if (mounted) {
+        setState(() {
+          isOrderFinished = true;
+        });
+        
+        // Закрываем окно через небольшую задержку
+        Future.delayed(Duration(milliseconds: 500), () {
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+        });
+      }
     }
   }
 
@@ -1194,14 +1215,42 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
         driver: widget.me,
         orderRequest: widget.activeOrder.orderRequest!,
       );
-      fetchActiveOrder();
+      
+      // ИСПРАВЛЕНИЕ: После завершения заказа закрываем окно
+      if (mounted) {
+        // Показываем уведомление об успешном завершении
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Поездка успешно завершена'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Закрываем окно активного заказа
+        Navigator.of(context).pop();
+        
+        // Обновляем список заказов в главном экране
+        // Это вызовет fetchActiveOrder в orders_wm.dart
+      }
     } on Exception catch (e) {
-      // TODO
+      print('Ошибка при завершении поездки: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка при завершении поездки'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
 
-    setState(() {
-      isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 }
 //

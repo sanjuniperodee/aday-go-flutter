@@ -21,6 +21,7 @@ enum SocketEventType {
   // Driver events
   newOrder,
   orderTaken,
+  orderAcceptedByMe,
   orderUpdated,
   orderCancelled,
   orderDeleted,
@@ -272,6 +273,11 @@ class WebSocketService {
     _driverSocket!.on('orderTaken', (data) {
       _logger.i('📦 Driver: orderTaken');
       _notifyEventCallbacks(SocketEventType.orderTaken, data);
+    });
+    
+    _driverSocket!.on('orderAcceptedByMe', (data) {
+      _logger.i('📦 Driver: orderAcceptedByMe');
+      _notifyEventCallbacks(SocketEventType.orderAcceptedByMe, data);
     });
     
     _driverSocket!.on('orderUpdated', (data) {

@@ -727,6 +727,11 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       }
 
       // print('Создаем новое соединение сокета для пользователя ${me.value!.id}');
+      
+      // Получаем sessionId из SharedPreferences
+      final prefs = inject<SharedPreferences>();
+      final sessionId = prefs.getString('sessionId') ?? 'client_session_${me.value!.id}';
+      
       newOrderSocket = IO.io(
         'https://taxi.aktau-go.kz',
         <String, dynamic>{
@@ -734,12 +739,26 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
           'autoConnect': false,
           'force new connection': true,
           'query': {
-            'userId': me.value!.id,
+            'userType': 'client',        // ИСПРАВЛЕНИЕ: Добавляем тип пользователя
+            'userId': me.value!.id,      // ID клиента
+            'sessionId': sessionId,      // ИСПРАВЛЕНИЕ: Добавляем sessionId
           },
         },
       );
 
       // Настраиваем обработчики событий
+      
+      // Обработчики подключения для отладки
+      newOrderSocket?.onConnect((_) {
+        print('✅ КЛИЕНТ: Сокет успешно подключен');
+        logger.i('✅ КЛИЕНТ: WebSocket подключение установлено');
+      });
+      
+      newOrderSocket?.onConnectError((error) {
+        print('❌ КЛИЕНТ: Ошибка подключения сокета: $error');
+        logger.e('❌ КЛИЕНТ: Ошибка WebSocket подключения: $error');
+      });
+      
       newOrderSocket?.on(
         'orderRejected',
         (data) async {
@@ -816,7 +835,8 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       });
 
       newOrderSocket?.on('orderAccepted', (data) {
-        // print('Получено событие orderAccepted: $data');
+        print('✅ КЛИЕНТ: Получено событие orderAccepted: $data');
+        logger.i('✅ КЛИЕНТ: Заказ принят водителем, обновляем активный заказ');
         fetchActiveOrder();
       });
 

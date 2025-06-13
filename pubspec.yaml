@@ -121,7 +121,7 @@ dev_dependencies:
   injectable: ^2.5.0
   injectable_generator: ^2.6.2
   logger: ^2.4.0
-  flutter_native_splash: ^2.2.16
+  # flutter_native_splash: ^2.2.16  # Temporarily disabled due to AGP 8.x compatibility
   rename: ^3.0.2
 
 # For information on the generic Dart part of this file, see the

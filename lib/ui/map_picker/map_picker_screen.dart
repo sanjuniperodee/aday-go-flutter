@@ -259,36 +259,54 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                     ),
                   ),
                 
-                // Back button with improved shadow
+                // Back button with improved modern shadow
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 16,
                   left: 16,
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          offset: Offset(0, 6),
+                          spreadRadius: 0,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                          spreadRadius: 0,
                         ),
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       child: Material(
                         color: Colors.white,
-                        child: IconButton(
-                          icon: Icon(Icons.arrow_back, color: Colors.black87),
-                          onPressed: () => Navigator.of(context).pop(),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Container(
+                            width: 52,
+                            height: 52,
+                            child: Center(
+                              child: Icon(
+                                Icons.arrow_back,
+                                color: Colors.black87,
+                                size: 24,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
                 
-                // Address search field with improved UI
+                // Address search field with improved modern UI
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 16,
                   left: 70,
@@ -300,12 +318,19 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                           width: double.infinity,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.15),
-                                blurRadius: 8,
-                                offset: Offset(0, 4),
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 20,
+                                offset: Offset(0, 6),
+                                spreadRadius: 0,
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                                spreadRadius: 0,
                               ),
                             ],
                           ),
@@ -313,149 +338,256 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                             controller: _textFieldController,
                             asyncSuggestions: getSuggestions,
                             decoration: InputDecoration(
-                              hintText: 'Введите адрес',
+                              hintText: 'Поиск адреса или места',
                               hintStyle: TextStyle(
-                                color: Colors.grey[500],
+                                color: Colors.grey[400],
                                 fontWeight: FontWeight.w400,
+                                fontSize: 16,
                               ),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(16),
                                 borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide(
+                                  color: primaryColor.withOpacity(0.3),
+                                  width: 2,
+                                ),
                               ),
                               filled: true,
                               fillColor: Colors.white,
                               contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
+                                horizontal: 20,
+                                vertical: 16,
                               ),
-                              prefixIcon: Icon(
-                                Icons.search,
-                                color: primaryColor,
+                              prefixIcon: Container(
+                                margin: EdgeInsets.only(left: 4, right: 8),
+                                child: Icon(
+                                  Icons.search,
+                                  color: primaryColor,
+                                  size: 22,
+                                ),
                               ),
                               suffixIcon: _showDeleteButton
-                                  ? IconButton(
-                                      icon: Icon(Icons.clear),
-                                      onPressed: () {
-                                        _textFieldController.clear();
-                                        setState(() {
-                                          _showDeleteButton = false;
-                                          _addressName = '';
-                                        });
-                                      },
+                                  ? AnimatedSwitcher(
+                                      duration: Duration(milliseconds: 200),
+                                      child: IconButton(
+                                        key: ValueKey('delete_button'),
+                                        icon: Container(
+                                          padding: EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[100],
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.clear,
+                                            size: 16,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        onPressed: () {
+                                          _textFieldController.clear();
+                                          setState(() {
+                                            _showDeleteButton = false;
+                                            _addressName = '';
+                                          });
+                                        },
+                                      ),
                                     )
                                   : null,
                             ),
                             onChanged: onPlaceSearchChanged,
-                            suggestionBuilder: (String json) {
+                            suggestionBuilder: (String suggestion) {
                               return Container(
+                                margin: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(
-                                      color: Colors.grey[200]!,
-                                      width: 1,
-                                    ),
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey[100]!,
+                                    width: 1,
                                   ),
                                 ),
-                                child: ListTile(
-                                  leading: Icon(
-                                    Icons.place,
-                                    color: primaryColor,
-                                  ),
-                                  title: Text(
-                                    json,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () async {
+                                      // Handle tap immediately
+                                      print('🎯 Suggestion tapped: $suggestion');
+                                      
+                                      // Update text field and trigger submission
+                                      _textFieldController.text = suggestion;
+                                      
+                                      // Hide keyboard
+                                      FocusScope.of(context).unfocus();
+                                      
+                                      // Trigger the same logic as onSubmitted
+                                      await Future.delayed(Duration(milliseconds: 100));
+                                      
+                                      // Find the tapped suggestion and move immediately
+                                      if (suggestions.isNotEmpty) {
+                                        final selectedFeature = suggestions.firstWhereOrNull(
+                                          (element) => element.name?.trim() == suggestion.trim()
+                                        );
+                                        
+                                        if (selectedFeature?.lat != null && selectedFeature?.lon != null) {
+                                          final newPosition = geotypes.Position(
+                                            selectedFeature!.lon!.toDouble(), 
+                                            selectedFeature.lat!.toDouble()
+                                          );
+                                          
+                                          await _moveToSelectedLocationImmediate(
+                                            newPosition, 
+                                            selectedFeature.name ?? suggestion
+                                          );
+                                        }
+                                      }
+                                    },
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: primaryColor.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Icon(
+                                              Icons.place,
+                                              color: primaryColor,
+                                              size: 18,
+                                            ),
+                                          ),
+                                          SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  suggestion,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 15,
+                                                    color: Colors.black87,
+                                                  ),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.arrow_outward,
+                                            color: Colors.grey[400],
+                                            size: 16,
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 4,
                                   ),
                                 ),
                               );
                             },
-                            onSubmitted: (String json) async {
+                            onSubmitted: (String selectedPlace) async {
                               try {
-                                print('Place selected from autocomplete: $json');
-                                if (json.isEmpty || suggestions.isEmpty) {
-                                  print('JSON is empty or no suggestions available');
+                                print('🎯 Place selected from autocomplete: $selectedPlace');
+                                
+                                if (selectedPlace.trim().isEmpty) {
+                                  print('❌ Selected place is empty');
                                   return;
                                 }
                                 
-                                // Найти соответствующее местоположение в списке подсказок
-                                OpenStreetMapPlaceModel? feature = suggestions.firstWhereOrNull(
-                                  (element) => element.name == json
-                                );
+                                // Show immediate loading feedback
+                                setState(() {
+                                  _isAddressLoading = true;
+                                });
                                 
-                                if (feature == null) {
-                                  print('Выбранное место не найдено в подсказках: $json');
-                                  return;
-                                }
-
-                                // Проверяем, что координаты не нулевые
-                                if (feature.lat == null || feature.lon == null) {
-                                  print('Для выбранного места нет координат: $json');
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Не удалось определить координаты для этого места'),
-                                      backgroundColor: Colors.red,
-                                    ),
+                                // First try to find in current suggestions
+                                OpenStreetMapPlaceModel? selectedFeature;
+                                
+                                if (suggestions.isNotEmpty) {
+                                  selectedFeature = suggestions.firstWhereOrNull(
+                                    (element) => element.name?.trim() == selectedPlace.trim()
                                   );
-                                  return;
                                 }
-
-                                print('Selected location coordinates: lat=${feature.lat}, lon=${feature.lon}');
                                 
-                                // Создаем позицию с координатами места
-                                final newPosition = geotypes.Position(
-                                  feature.lon!.toDouble(), 
-                                  feature.lat!.toDouble()
-                                );
-                                
-                                if (mapboxMapController != null) {
-                                  // Animate camera with bouncing effect for better UX
-                                  print('Flying to selected location');
-                                  await mapboxMapController?.flyTo(
-                                    CameraOptions(
-                                      center: Point(coordinates: newPosition),
-                                      zoom: 16,
-                                    ),
-                                    MapAnimationOptions(duration: 1000),
+                                // If not found in suggestions, perform immediate search
+                                if (selectedFeature == null) {
+                                  print('🔍 Feature not found in suggestions, searching immediately...');
+                                  
+                                  // Get coordinates for search context
+                                  final latitude = currentPosition?.lat.toDouble() ?? 43.239337;
+                                  final longitude = currentPosition?.lng.toDouble() ?? 76.893156;
+                                  
+                                  // Perform immediate search
+                                  final searchResults = await inject<RestClient>().getPlacesQuery(
+                                    query: selectedPlace.trim(),
+                                    latitude: latitude, 
+                                    longitude: longitude,
                                   );
-                                  
-                                  // Обновляем UI и переменные
-                                  setState(() {
-                                    _addressName = feature.name ?? '';
-                                    _selectedGooglePredictions = feature.name;
-                                    currentPosition = newPosition;
-                                    _lastFetchedPosition = newPosition; // Обновляем последнюю полученную позицию
-                                    
-                                    // Обновляем текстовое поле
-                                    if (_addressName.isNotEmpty && _textFieldController.text != _addressName) {
-                                      _textFieldController.text = _addressName;
-                                      _showDeleteButton = true;
-                                    }
-                                  });
-                                  
-                                  print('Updated address to: $_addressName');
-                                  
-                                  // Show bounce animation for pin
-                                  _showPinDropAnimation();
-                                
-                                  // Draw route if fromPosition is available
-                                  if (widget.args.fromPosition != null) {
-                                    print('fromPosition is available, updating route...');
-                                    _isRouteNeedsUpdate = true;
-                                    _drawRouteBetweenPoints();
+
+                                  if (searchResults != null && searchResults.isNotEmpty) {
+                                    selectedFeature = searchResults.first;
+                                    print('✅ Found in immediate search: ${selectedFeature.name}');
                                   }
                                 }
+
+                                // Check if we have valid coordinates
+                                if (selectedFeature?.lat == null || selectedFeature?.lon == null) {
+                                  print('❌ No valid coordinates found');
+                                  setState(() {
+                                    _isAddressLoading = false;
+                                  });
+                                  
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Не удалось найти координаты для: $selectedPlace'),
+                                      backgroundColor: Colors.orange,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                print('✅ Moving to coordinates: lat=${selectedFeature!.lat}, lon=${selectedFeature.lon}');
+                                
+                                // Create position with place coordinates
+                                final newPosition = geotypes.Position(
+                                  selectedFeature.lon!.toDouble(), 
+                                  selectedFeature.lat!.toDouble()
+                                );
+                                
+                                // Immediately move to location
+                                await _moveToSelectedLocationImmediate(newPosition, selectedFeature.name ?? selectedPlace);
+                                
                               } catch (e) {
-                                print('Ошибка при обработке выбора адреса: $e');
-                                // Показываем сообщение об ошибке
+                                print('❌ Error handling address selection: $e');
+                                setState(() {
+                                  _isAddressLoading = false;
+                                });
+                                
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Ошибка при выборе адреса: ${e.toString()}'),
+                                    content: Text('Ошибка: ${e.toString()}'),
                                     backgroundColor: Colors.red,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                 );
                               }
@@ -467,29 +599,47 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                   ),
                 ),
                 
-                // Location button with improved UI
+                // Location button with improved modern UI
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 80,
                   right: 16,
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          offset: Offset(0, 6),
+                          spreadRadius: 0,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                          spreadRadius: 0,
                         ),
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       child: Material(
                         color: Colors.white,
-                        child: IconButton(
-                          icon: Icon(Icons.my_location, color: primaryColor),
-                          onPressed: _goToMyLocation,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: _goToMyLocation,
+                          child: Container(
+                            width: 52,
+                            height: 52,
+                            child: Center(
+                              child: Icon(
+                                Icons.my_location,
+                                color: primaryColor,
+                                size: 24,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -659,14 +809,6 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     );
   }
   
-  // Show animation when pin drops on map
-  void _showPinDropAnimation() {
-    if (!_locationComponentEnabled) {
-      // Animation will be handled by AnimatedContainer in the widget tree
-      setState(() {});
-    }
-  }
-
   // Location button handler
   Future<void> _goToMyLocation() async {
     if (userLocation != null && mapboxMapController != null) {
@@ -699,51 +841,6 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
           ),
         );
       }
-    }
-  }
-
-  // Fetch address data for a specific position (the marker position)
-  Future<void> _fetchAddress(geotypes.Position position) async {
-    if (!mounted) return;
-    
-    try {
-      setState(() {
-        _isAddressLoading = true;
-      });
-      
-      print('Fetching address for position: ${position.lat}, ${position.lng}');
-      
-      final client = inject<RestClient>();
-      final placeName = await client.getPlaceDetail(
-        latitude: position.lat.toDouble(),
-        longitude: position.lng.toDouble(),
-      );
-      
-      if (!mounted) return;
-      
-      final addressText = placeName ?? "Адрес не найден";
-      print('Address fetched: $addressText');
-      
-      // Force UI update with the new address
-      setState(() {
-        _addressName = addressText;
-        _textFieldController.text = addressText;
-        _isAddressLoading = false;
-        _showDeleteButton = addressText != "Адрес не найден" && addressText.isNotEmpty;
-        _lastFetchedPosition = position;
-      });
-      
-      // Verify the text update took effect
-      print('UI updated with address: $_addressName, text field: ${_textFieldController.text}');
-    } catch (e) {
-      if (!mounted) return;
-      
-      print('Error fetching address: $e');
-      setState(() {
-        _isAddressLoading = false;
-        _addressName = "Ошибка получения адреса";
-        _textFieldController.text = "Ошибка получения адреса";
-      });
     }
   }
 
@@ -1433,37 +1530,58 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     return degree * (pi / 180);
   }
 
-  // Get location suggestions
+  // Get location suggestions (optimized version)
   Future<List<String>> getSuggestions(String query) async {
     try {
-      if (query.isEmpty) {
+      // Clear suggestions immediately for empty query
+      if (query.trim().isEmpty) {
+        suggestions.clear();
         return [];
       }
       
-      // Получаем координаты для поиска ближайших мест
+      // Don't search for very short queries to avoid too many results
+      if (query.trim().length < 2) {
+        return [];
+      }
+      
+      print('🔍 Searching for: "$query"');
+      
+      // Get coordinates for contextual search
       final latitude = inject<SharedPreferences>().getDouble('latitude') ?? 
                       (currentPosition?.lat.toDouble() ?? 43.239337);
       final longitude = inject<SharedPreferences>().getDouble('longitude') ?? 
                        (currentPosition?.lng.toDouble() ?? 76.893156);
       
+      // Perform search with timeout
       final response = await inject<RestClient>().getPlacesQuery(
-        query: query,
+        query: query.trim(),
         latitude: latitude, 
         longitude: longitude,
+      ).timeout(
+        Duration(seconds: 5),
+        onTimeout: () {
+          print('⏰ Search timeout for query: $query');
+          return <OpenStreetMapPlaceModel>[]; // Return empty list instead of null
+        },
       );
 
-      // Безопасно присваиваем значение suggestions
+      // Update suggestions safely
       suggestions = response != null ? [...response] : [];
       
-      // Преобразуем ответ в список строк
-      final resultList = suggestions.map((e) => e.name ?? '').where((name) => name.isNotEmpty).toList();
-      print('Found ${resultList.length} suggestions for query: $query');
+      // Convert to string list and filter empty names
+      final resultList = suggestions
+        .where((place) => place.name != null && place.name!.trim().isNotEmpty)
+        .map((place) => place.name!)
+        .toList();
+      
+      print('✅ Found ${resultList.length} suggestions for: "$query"');
       
       return resultList;
-    } on Exception catch (e) {
-      print('Error getting suggestions: $e');
-      // Возвращаем пустой список в случае ошибки
-    return [];
+      
+    } catch (e) {
+      print('❌ Error getting suggestions: $e');
+      suggestions.clear();
+      return [];
     }
   }
 
@@ -1536,5 +1654,271 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
         print('Error in periodic position check: $e');
       }
     });
+  }
+
+  // Move to selected location immediately (faster version for autocomplete)
+  Future<void> _moveToSelectedLocationImmediate(geotypes.Position newPosition, String placeName) async {
+    try {
+      if (mapboxMapController == null) {
+        print('❌ Map controller is null');
+        setState(() {
+          _isAddressLoading = false;
+        });
+        return;
+      }
+
+      print('🚀 Immediately moving to: ${newPosition.lat}, ${newPosition.lng}');
+      
+      // Update state immediately for instant feedback
+      setState(() {
+        _addressName = placeName;
+        _selectedGooglePredictions = placeName;
+        currentPosition = newPosition;
+        _lastFetchedPosition = newPosition;
+        _textFieldController.text = placeName;
+        _showDeleteButton = true;
+        _isAddressLoading = false; // Hide loading immediately
+      });
+      
+      // Provide instant haptic feedback
+      HapticFeedback.selectionClick();
+      
+      // Start camera animation (don't await to make it feel instant)
+      mapboxMapController!.flyTo(
+        CameraOptions(
+          center: Point(coordinates: newPosition),
+          zoom: 16.0,
+        ),
+        MapAnimationOptions(
+          duration: 800, // Shorter duration for quicker response
+          startDelay: 0,
+        ),
+      ).then((_) {
+        // After camera movement, show pin animation
+        _showPinDropAnimation();
+      }).catchError((e) {
+        print('Camera animation error: $e');
+      });
+    
+      // Update route in background if needed
+      if (widget.args.fromPosition != null) {
+        print('🛣️ Updating route in background...');
+        Future.delayed(Duration(milliseconds: 200), () {
+          _drawRouteBetweenPoints();
+        });
+      }
+      
+      print('✅ Immediate update completed for: $placeName');
+      
+    } catch (e) {
+      print('❌ Error in immediate move: $e');
+      setState(() {
+        _isAddressLoading = false;
+      });
+    }
+  }
+
+  // Move to selected location with smooth animation and proper state updates
+  Future<void> _moveToSelectedLocation(geotypes.Position newPosition, String placeName) async {
+    try {
+      if (mapboxMapController == null) {
+        print('❌ Map controller is null, cannot move to location');
+        return;
+      }
+
+      print('🚀 Moving to selected location: ${newPosition.lat}, ${newPosition.lng}');
+      
+      // Show loading state
+      setState(() {
+        _isAddressLoading = true;
+      });
+
+      // Animate camera to new position with smooth movement
+      await mapboxMapController!.flyTo(
+        CameraOptions(
+          center: Point(coordinates: newPosition),
+          zoom: 16.0,
+        ),
+        MapAnimationOptions(
+          duration: 1200,
+          startDelay: 0,
+        ),
+      );
+      
+      // Update all state variables
+      setState(() {
+        _addressName = placeName;
+        _selectedGooglePredictions = placeName;
+        currentPosition = newPosition;
+        _lastFetchedPosition = newPosition;
+        _isAddressLoading = false;
+        
+        // Update text field if needed
+        if (_addressName.isNotEmpty && _textFieldController.text != _addressName) {
+          _textFieldController.text = _addressName;
+          _showDeleteButton = true;
+        }
+      });
+      
+      print('✅ Successfully moved to location: $placeName');
+      
+      // Show visual feedback with pin drop animation
+      await _showPinDropAnimation();
+    
+      // Update route if fromPosition is available
+      if (widget.args.fromPosition != null) {
+        print('🛣️ Updating route for new destination...');
+        _isRouteNeedsUpdate = true;
+        await _drawRouteBetweenPoints();
+      }
+
+      // Provide haptic feedback
+      HapticFeedback.lightImpact();
+      
+    } catch (e) {
+      print('❌ Error moving to selected location: $e');
+      setState(() {
+        _isAddressLoading = false;
+      });
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Не удалось переместиться к выбранному месту'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+  }
+
+  // Fallback search when selected place is not found in suggestions
+  Future<void> _performFallbackSearch(String selectedPlace) async {
+    try {
+      print('🔍 Performing fallback search for: $selectedPlace');
+      
+      setState(() {
+        _isAddressLoading = true;
+      });
+
+      // Get coordinates for search context
+      final latitude = inject<SharedPreferences>().getDouble('latitude') ?? 
+                      (currentPosition?.lat.toDouble() ?? 43.239337);
+      final longitude = inject<SharedPreferences>().getDouble('longitude') ?? 
+                       (currentPosition?.lng.toDouble() ?? 76.893156);
+      
+      // Perform new search
+      final searchResults = await inject<RestClient>().getPlacesQuery(
+        query: selectedPlace,
+        latitude: latitude, 
+        longitude: longitude,
+      );
+
+      if (searchResults != null && searchResults.isNotEmpty) {
+        final firstResult = searchResults.first;
+        
+        if (firstResult.lat != null && firstResult.lon != null) {
+          final newPosition = geotypes.Position(
+            firstResult.lon!.toDouble(), 
+            firstResult.lat!.toDouble()
+          );
+          
+          await _moveToSelectedLocation(newPosition, firstResult.name ?? selectedPlace);
+          return;
+        }
+      }
+      
+      // If no results found
+      setState(() {
+        _isAddressLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Место не найдено: $selectedPlace'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      
+    } catch (e) {
+      print('❌ Error in fallback search: $e');
+      setState(() {
+        _isAddressLoading = false;
+      });
+    }
+  }
+
+  // Enhanced pin drop animation
+  Future<void> _showPinDropAnimation() async {
+    try {
+      // Trigger a brief drag state to show animation
+      setState(() {
+        _isDragging = true;
+      });
+      
+      await Future.delayed(Duration(milliseconds: 150));
+      
+      setState(() {
+        _isDragging = false;
+      });
+      
+      // Wait for animation to complete
+      await Future.delayed(Duration(milliseconds: 300));
+      
+    } catch (e) {
+      print('Error in pin drop animation: $e');
+    }
+  }
+
+  // Fetch address data for a specific position (the marker position)
+  Future<void> _fetchAddress(geotypes.Position position) async {
+    if (!mounted) return;
+    
+    try {
+      setState(() {
+        _isAddressLoading = true;
+      });
+      
+      print('Fetching address for position: ${position.lat}, ${position.lng}');
+      
+      final client = inject<RestClient>();
+      final placeName = await client.getPlaceDetail(
+        latitude: position.lat.toDouble(),
+        longitude: position.lng.toDouble(),
+      );
+      
+      if (!mounted) return;
+      
+      final addressText = placeName ?? "Адрес не найден";
+      print('Address fetched: $addressText');
+      
+      // Force UI update with the new address
+      setState(() {
+        _addressName = addressText;
+        _textFieldController.text = addressText;
+        _isAddressLoading = false;
+        _showDeleteButton = addressText != "Адрес не найден" && addressText.isNotEmpty;
+        _lastFetchedPosition = position;
+      });
+      
+      // Verify the text update took effect
+      print('UI updated with address: $_addressName, text field: ${_textFieldController.text}');
+    } catch (e) {
+      if (!mounted) return;
+      
+      print('Error fetching address: $e');
+      setState(() {
+        _isAddressLoading = false;
+        _addressName = "Ошибка получения адреса";
+        _textFieldController.text = "Ошибка получения адреса";
+      });
+    }
   }
 } 

@@ -250,7 +250,7 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                                             LocationPermission.whileInUse,
                                           ].contains(locationPermission) &&
                                           !isWebsocketConnected!) {
-                                        return DoubleSourceBuilder(
+                                        return DoubleSourceBuilder<bool?, String?>(
                                           firstSource: wm.isWebSocketConnecting,
                                           secondSource: wm.webSocketConnectionError,  
                                           builder: (context, bool? isConnecting, String? connectionError) {
