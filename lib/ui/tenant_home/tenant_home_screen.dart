@@ -98,8 +98,8 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                         key: ValueKey("mainMapWidget"),
                         cameraOptions: CameraOptions(
                           center: Point(coordinates: geotypes.Position(
-                            userLocation?.lng ?? 76.893156,
-                            userLocation?.lat ?? 43.239337,
+                            userLocation?.lng ?? 51.1973,
+                            userLocation?.lat ?? 43.6532,
                           )),
                           zoom: 18.0,
                         ),
@@ -196,7 +196,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                     LocationPermission.always,
                     LocationPermission.whileInUse
                   ].contains(locationPermission)) {
-                    return _buildLocationPermissionBottomSheet(wm);
+                    return _buildLocationPermissionBottomSheet(context, wm);
                   }
                   
                   // Check for active order
@@ -811,27 +811,14 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
   }
 
   // Панель запроса разрешений на геолокацию
-  Widget _buildLocationPermissionBottomSheet(ITenantHomeWM wm) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 15,
-            offset: Offset(0, -2),
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      padding: EdgeInsets.all(16),
+  Widget _buildLocationPermissionBottomSheet(BuildContext context, ITenantHomeWM wm) {
+    return PrimaryBottomSheet(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Drag indicator
           Center(
             child: Container(
               width: 38,
@@ -843,25 +830,72 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
             ),
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: Text(
-              'Для заказа пожалуйста поделитесь геолокацией',
-              style: text400Size24Greyscale60,
+
+          // Location icon
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.my_location,
+              color: primaryColor,
+              size: 32,
             ),
           ),
+
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: PrimaryButton.primary(
-              onPressed: () => wm.determineLocationPermission(
-                force: true,
-              ),
-              text: 'Включить геолокацию',
-              textStyle: text400Size16White,
+
+          // Title
+          Text(
+            'Включите геолокацию',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
             ),
           ),
-          SizedBox(height: 16),
+
+          const SizedBox(height: 8),
+
+          // Description
+          Text(
+            'Чтобы показать ближайших водителей и корректно рассчитать стоимость поездки, приложению нужен доступ к вашей геолокации.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: greyscale60,
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Allow location button
+          PrimaryButton.primary(
+            onPressed: () => wm.determineLocationPermission(force: true),
+            text: 'Разрешить доступ',
+            textStyle: text400Size16White,
+          ),
+
+          const SizedBox(height: 12),
+
+          // Skip button
+          PrimaryButton.secondary(
+            onPressed: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            },
+            text: 'Не сейчас',
+            textStyle: TextStyle(
+              fontSize: 16,
+              color: greyscale60,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );

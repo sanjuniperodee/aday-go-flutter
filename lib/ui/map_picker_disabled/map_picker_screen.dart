@@ -183,7 +183,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                             )
                           : userLocation != null
                               ? latlong2.LatLng(userLocation.latitude, userLocation.longitude)
-                              : latlng ?? latlong2.LatLng(43.239337, 76.893156),
+                              : latlng ?? latlong2.LatLng(43.6532, 51.1973),
                       initialZoom: 16,
                     ),
                     mapController: _mapController,
@@ -212,7 +212,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                         _mapController.move(
                           userLocation != null
                               ? latlong2.LatLng(userLocation!.latitude, userLocation!.longitude)
-                              : latlng ?? latlong2.LatLng(43.239337, 76.893156),
+                              : latlng ?? latlong2.LatLng(43.6532, 51.1973),
                           14,
                         );
                         inject<LocationInteractor>().requestLocation();

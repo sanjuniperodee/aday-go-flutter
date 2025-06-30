@@ -314,8 +314,21 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
 
     // Делаем отложенную инициализацию UI с увеличенным размером draggableMaxChildSize
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Устанавливаем максимальный размер
       draggableMaxChildSize.accept(1.0);
+
+      // Не читаем size до тех пор, пока контроллер не будет привязан к листу —
+      // иначе выбрасывается AssertionError «DraggableScrollableController is not attached».
+      try {
+        // Метод size безопасен, только если контроллер уже привязан
+        // (после первой отрисовки DraggableScrollableSheet).
+        if ((draggableScrollableController as dynamic).attached == true ||
+            (draggableScrollableController as dynamic).hasClients == true) {
       draggableScrolledSize.accept(draggableScrollableController.size);
+        }
+      } catch (_) {
+        // Игнорируем: контроллер ещё не привязан, значение обновится через listener
+      }
     });
   }
   
@@ -346,11 +359,11 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         
         // ТОЛЬКО ПОСЛЕ получения реальных координат определяем адрес
         await _determineAddressFromRealLocation(location.latitude, location.longitude);
-      } else {
+          } else {
         print('⚠️ Не удалось получить реальное местоположение пользователя');
         // НЕ устанавливаем дефолтный адрес - оставляем пустым
         print('💡 Адрес "откуда" останется пустым до получения геолокации');
-      }
+          }
       
       print('✅ Инициализация завершена');
     } catch (e) {
@@ -386,15 +399,15 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     savedFromAddress.accept('Текущее местоположение');
     if (userLocation.value != null) {
       savedFromMapboxId.accept('${userLocation.value!.lat};${userLocation.value!.lng}');
-    } else {
+      } else {
       savedFromMapboxId.accept('43.693695;51.260834');
     }
   }
-
+        
   // Загружаем все сохраненные адреса из SharedPreferences
   Future<void> _loadSavedAddresses() async {
     try {
-      final prefs = inject<SharedPreferences>();
+        final prefs = inject<SharedPreferences>();
       
       // Загружаем адрес "откуда"
       final savedFromAddr = prefs.getString('saved_from_address');
@@ -625,10 +638,10 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       () => model.getUserProfile(),
       showErrorMessages: false, // Не показываем ошибки для автоматических запросов профиля
     );
-    
+
     if (result != null) {
       me.accept(result);
-      initializeSocket();
+    initializeSocket();
     }
   }
 
@@ -636,15 +649,15 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
   Future<void> onSubmit(DriverOrderForm form, DriverType taxi) async {
     await NetworkUtils.executeWithErrorHandling<void>(
       () => inject<RestClient>().createDriverOrder(body: {
-        "from": form.fromAddress.value,
-        "to": form.toAddress.value,
-        "lng": userLocation.value?.lng,
-        "lat": userLocation.value?.lat,
-        "price": form.cost.value,
+      "from": form.fromAddress.value,
+      "to": form.toAddress.value,
+      "lng": userLocation.value?.lng,
+      "lat": userLocation.value?.lat,
+      "price": form.cost.value,
         "orderType": "TAXI",
-        "comment": '${form.comment};${form.fromMapboxId.value};${form.toMapboxId.value}',
-        "fromMapboxId": form.fromMapboxId.value,
-        "toMapboxId": form.toMapboxId.value,
+      "comment": '${form.comment};${form.fromMapboxId.value};${form.toMapboxId.value}',
+      "fromMapboxId": form.fromMapboxId.value,
+      "toMapboxId": form.toMapboxId.value,
       }),
       customErrorMessage: 'Не удалось создать заказ',
     );
@@ -1318,7 +1331,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         if (blockedUntilStr != null) {
           try {
             blockedUntil = DateTime.parse(blockedUntilStr);
-          } catch (e) {
+    } catch (e) {
             print('Error parsing blockedUntil date: $e');
           }
         }
@@ -1619,7 +1632,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       return 'free'; // Свободная дорога
     } else if (speedKmh >= 25) {
       return 'moderate'; // Средние пробки
-    } else {
+      } else {
       return 'heavy'; // Сильные пробки
       }
   }
@@ -1691,7 +1704,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       }
     } catch (e) {
       print('❌ Ошибка определения адреса: $e');
-      savedFromAddress.accept('Текущее местоположение');
+        savedFromAddress.accept('Текущее местоположение');
       if (userLocation.value != null) {
         savedFromMapboxId.accept('${userLocation.value!.lat};${userLocation.value!.lng}');
       }

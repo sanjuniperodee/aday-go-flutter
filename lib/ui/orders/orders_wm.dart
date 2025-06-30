@@ -448,6 +448,52 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       }
     });
 
+    // Заказ отменен клиентом (после принятия водителем)
+    newOrderSocket!.on('orderCancelledByClient', (data) async {
+      logger.i('🚫 Получено событие orderCancelledByClient: $data');
+      
+      try {
+        final orderId = data['orderId'];
+        final reason = data['reason'] ?? 'cancelled_by_client';
+        final message = data['message'] ?? 'Клиент отменил заказ';
+        
+        // Закрываем все открытые модальные окна (особенно важно для окна активного заказа)
+        if (context.mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+        
+        // Показываем уведомление об отмене
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'ОК',
+                textColor: Colors.white,
+                onPressed: () {},
+              ),
+            ),
+          );
+        }
+        
+        // Показываем haptic feedback
+        HapticFeedback.heavyImpact();
+        
+        // Обновляем список заказов
+        await fetchOrderRequests();
+        
+        // Очищаем активный заказ
+        activeOrder.accept(null);
+        
+        logger.i('✅ Обработка отмены заказа клиентом завершена для заказа: $orderId');
+        
+      } catch (e) {
+        logger.e('❌ Ошибка обработки отмены заказа клиентом: $e');
+      }
+    });
+
     // Завершение поездки
     newOrderSocket!.on('rideEnded', (data) {
       logger.i('🏁 Поездка завершена: $data');

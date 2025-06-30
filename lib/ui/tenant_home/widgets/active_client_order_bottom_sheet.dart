@@ -89,7 +89,7 @@ class _ActiveClientOrderBottomSheetState
               ? _buildSearchingForDriverView()
               : activeRequest.order?.orderStatus == 'COMPLETED' && !isRated
                   ? _buildRatingView()
-                  : _buildActiveOrderView(),
+              : _buildActiveOrderView(),
         ),
       ),
     );
@@ -117,13 +117,13 @@ class _ActiveClientOrderBottomSheetState
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
+        Container(
               width: 40,
               height: 40,
-              decoration: BoxDecoration(
+          decoration: BoxDecoration(
                 color: primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle,
-              ),
+          ),
               child: Icon(
                 Icons.search,
                 color: primaryColor,
@@ -134,29 +134,29 @@ class _ActiveClientOrderBottomSheetState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Поиск водителя',
-                  style: TextStyle(
+              Text(
+                'Поиск водителя',
+                style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
-                  ),
                 ),
+              ),
                 Row(
                   children: [
-                    Text(
+              Text(
                       'Ищем ближайшего',
-                      style: TextStyle(
+                style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey.shade600,
-                      ),
+                ),
                     ),
                     SizedBox(width: 4),
                     _buildSimpleAnimatedDots(),
                   ],
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
           ],
         ),
         
@@ -203,24 +203,24 @@ class _ActiveClientOrderBottomSheetState
                       children: [
                         Text(
                           activeRequest.order?.from ?? 'Не указано',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.black87,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
                             fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                         SizedBox(height: 8),
                         Text(
                           activeRequest.order?.to ?? 'Не указано',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.black87,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
                             fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -296,7 +296,7 @@ class _ActiveClientOrderBottomSheetState
           width: double.infinity,
           height: 44,
           child: OutlinedButton(
-            onPressed: widget.onCancel,
+          onPressed: widget.onCancel,
             style: OutlinedButton.styleFrom(
               side: BorderSide(
                 color: Colors.red.shade300,
@@ -817,16 +817,16 @@ class _ActiveClientOrderBottomSheetState
         // Кнопка "Отправить оценку"
         PrimaryButton.primary(
           onPressed: isSubmittingRating || driverRating == 0.0
-              ? null
-              : () async {
-                  setState(() {
-                    isSubmittingRating = true;
-                  });
-                  await _submitRating();
-                  setState(() {
-                    isSubmittingRating = false;
-                  });
-                },
+               ? null
+               : () async {
+                   setState(() {
+                     isSubmittingRating = true;
+                   });
+                   await _submitRating();
+                   setState(() {
+                     isSubmittingRating = false;
+                   });
+                 },
           text: isSubmittingRating
               ? 'Отправка...'
               : 'Отправить оценку',
@@ -844,7 +844,11 @@ class _ActiveClientOrderBottomSheetState
             setState(() {
               isRated = true; // Считаем, что пропущено - больше не показываем
             });
-            Navigator.of(context).pop(); // Закрываем bottom sheet
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              widget.activeOrderListener.accept(null);
+            }
           },
           text: 'Не сейчас', // Менее обязывающий текст
           textStyle: TextStyle(
@@ -862,23 +866,48 @@ class _ActiveClientOrderBottomSheetState
   Future<void> _submitRating() async {
     try {
       final orderId = activeRequest.order?.id;
-      final driverId = activeRequest.driver?.id;
 
-      if (orderId != null && driverId != null && driverRating > 0) {
+      print('🔍 Данные для отправки отзыва:');
+      print('   orderId: $orderId');
+      print('   rating: $driverRating');
+      print('   comment: "${ratingComment.trim()}"');
+
+      if (orderId != null && driverRating > 0) {
         await inject<OrderRequestsInteractor>().rateDriver(
           orderId: orderId,
-          driverId: driverId,
           rating: driverRating.toInt(), // Оценка от 1 до 5
-          comment: ratingComment.isEmpty ? null : ratingComment,
+          comment: ratingComment.trim().isEmpty ? null : ratingComment.trim(),
         );
-        print('✅ Оценка отправлена успешно: $driverRating звезд, комментарий: $ratingComment');
+        print('✅ Оценка отправлена успешно: $driverRating звезд, комментарий: "${ratingComment.trim()}"');
+        
         setState(() {
           isRated = true; // Устанавливаем флаг, что оценка отправлена
         });
-        Navigator.of(context).pop(); // Закрываем bottom sheet
+        
+        // Показываем уведомление об успехе
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Спасибо за отзыв!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Закрываем окно через небольшую задержку
+        await Future.delayed(Duration(milliseconds: 500));
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          widget.activeOrderListener.accept(null);
+        }
       } else {
-        print('⚠️ Не удалось отправить оценку: orderId=$orderId, driverId=$driverId, rating=$driverRating');
-        // Показываем сообщение об ошибке, если нужно
+        print('⚠️ Не удалось отправить оценку: orderId=$orderId, rating=$driverRating');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Пожалуйста, поставьте оценку от 1 до 5 звезд'),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
     } catch (e) {
       print('❌ Ошибка при отправке оценки: $e');
@@ -887,6 +916,7 @@ class _ActiveClientOrderBottomSheetState
         SnackBar(
           content: Text('Не удалось отправить оценку. Попробуйте еще раз.'),
           backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
         ),
       );
     }
@@ -984,7 +1014,7 @@ class _ActiveClientOrderBottomSheetState
       case 'серый':
       case 'grey':
       case 'gray':
-        return Colors.grey;
+      return Colors.grey;
       case 'коричневый':
       case 'brown':
         return Colors.brown;

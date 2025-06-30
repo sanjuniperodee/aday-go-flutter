@@ -57,7 +57,6 @@ abstract class IOrderRequestsInteractor {
 
   Future<void> rateDriver({
     required String orderId,
-    required String driverId,
     required int rating,
     String? comment,
   });
@@ -161,16 +160,19 @@ class OrderRequestsInteractor extends IOrderRequestsInteractor {
   @override
   Future<void> rateDriver({
     required String orderId,
-    required String driverId,
     required int rating,
     String? comment,
-  }) =>
-      _restClient.makeReview(
-        body: {
-          'orderId': orderId,
-          'driverId': driverId,
-          'rating': rating,
-          'comment': comment,
-        },
-      );
+  }) {
+    final body = {
+      'orderRequestId': orderId,
+      'rating': rating,
+    };
+    
+    // Добавляем комментарий только если он не пустой
+    if (comment != null && comment.trim().isNotEmpty) {
+      body['comment'] = comment.trim();
+    }
+    
+    return _restClient.makeReview(body: body);
+  }
 }

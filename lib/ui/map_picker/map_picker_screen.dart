@@ -164,7 +164,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
               // 3. Только если ничего из этого недоступно, используем координаты по умолчанию
               currentPosition = widget.args.position ?? 
                   userLocation ?? 
-                  geotypes.Position(76.893156, 43.239337);
+                  geotypes.Position(51.1973, 43.6532);
               
               print('Setting initial marker position: ${currentPosition!.lat}, ${currentPosition!.lng}');
               
@@ -527,8 +527,8 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                   print('🔍 Feature not found in suggestions, searching immediately...');
                                   
                                   // Get coordinates for search context
-                                  final latitude = currentPosition?.lat.toDouble() ?? 43.239337;
-                                  final longitude = currentPosition?.lng.toDouble() ?? 76.893156;
+                                  final latitude = currentPosition?.lat.toDouble() ?? 43.6532;
+                                  final longitude = currentPosition?.lng.toDouble() ?? 51.1973;
                                   
                                   // Perform immediate search
                                   final searchResults = await inject<RestClient>().getPlacesQuery(
@@ -1659,9 +1659,9 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       
       // Get coordinates for contextual search
       final latitude = inject<SharedPreferences>().getDouble('latitude') ?? 
-                      (currentPosition?.lat.toDouble() ?? 43.239337);
+                      (currentPosition?.lat.toDouble() ?? 43.6532);
       final longitude = inject<SharedPreferences>().getDouble('longitude') ?? 
-                       (currentPosition?.lng.toDouble() ?? 76.893156);
+                       (currentPosition?.lng.toDouble() ?? 51.1973);
       
       // Perform search with timeout
       final response = await inject<RestClient>().getPlacesQuery(
@@ -1912,9 +1912,9 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
 
       // Get coordinates for search context
       final latitude = inject<SharedPreferences>().getDouble('latitude') ?? 
-                      (currentPosition?.lat.toDouble() ?? 43.239337);
+                      (currentPosition?.lat.toDouble() ?? 43.6532);
       final longitude = inject<SharedPreferences>().getDouble('longitude') ?? 
-                       (currentPosition?.lng.toDouble() ?? 76.893156);
+                       (currentPosition?.lng.toDouble() ?? 51.1973);
       
       // Perform new search
       final searchResults = await inject<RestClient>().getPlacesQuery(

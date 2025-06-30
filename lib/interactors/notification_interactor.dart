@@ -94,11 +94,19 @@ class NotificationInteractor extends INotificationInteractor {
     FirebaseMessaging.instance.requestPermission(
       provisional: true,
     );
-    FirebaseMessaging.instance.getToken().then((value) {
-      inject<RestClient>().saveFirebaseDeviceToken(
-        deviceToken: value ?? '',
-      );
-    });
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null && token.isNotEmpty) {
+        await inject<RestClient>().saveFirebaseDeviceToken(deviceToken: token);
+        logger.i('✅ Firebase FCM token отправлен на сервер');
+      } else {
+        logger.w('⚠️ Не удалось получить FCM-токен (null/empty)');
+      }
+    } catch (e, st) {
+      // Не падаем, если сервис Firebase Installations недоступен (например, на эмуляторе без Google Play Services)
+      logger.w('⚠️ FirebaseMessaging.getToken() error: $e');
+      logger.d(st);
+    }
 
     /// Initialize local Notifications
     _initializeLocalNotification();
