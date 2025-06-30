@@ -864,14 +864,35 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
   void cancelActiveClientOrder() async {
     if (activeOrder.value?.order?.id == null) return;
     
-    await NetworkUtils.executeWithErrorHandling<void>(
-      () => model.rejectOrderByClientRequest(
-        orderRequestId: activeOrder.value!.order!.id!,
-      ),
-      customErrorMessage: 'Не удалось отменить заказ',
-    );
-    
-    activeOrder.accept(ActiveClientRequestModel());
+    try {
+      await NetworkUtils.executeWithErrorHandling<void>(
+        () => model.rejectOrderByClientRequest(
+          orderRequestId: activeOrder.value!.order!.id!,
+        ),
+        customErrorMessage: 'Не удалось отменить заказ',
+      );
+      
+      // Если отмена прошла успешно (нет исключения)
+      // Очищаем активный заказ
+      activeOrder.accept(null);
+      
+      // Закрываем окно поиска водителя
+      if (context.mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        
+        // Показываем уведомление об отмене
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Поиск водителя отменен'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // Если произошла ошибка, ничего не делаем - NetworkUtils уже показал ошибку
+      print('Ошибка при отмене заказа: $e');
+    }
   }
 
   @override

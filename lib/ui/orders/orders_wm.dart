@@ -475,6 +475,39 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
         );
       }
     });
+
+    // Заказ удален (отменен клиентом)
+    newOrderSocket!.on('orderDeleted', (data) {
+      logger.i('🗑️ Заказ удален: $data');
+      
+      try {
+        // Обновляем список заказов чтобы убрать отмененный заказ
+        if (statusController.value) {
+          fetchOrderRequests();
+        }
+
+      } catch (e) {
+        logger.e('❌ Ошибка обработки удаления заказа: $e');
+      }
+    });
+
+    // Заказ принят другим водителем
+    newOrderSocket!.on('orderTaken', (data) {
+      logger.i('🤝 Заказ принят другим водителем: $data');
+      
+      try {
+        final orderId = data['orderId'];
+        final takenBy = data['takenBy'];
+        
+        // Обновляем список заказов чтобы убрать принятый заказ
+        if (statusController.value) {
+          fetchOrderRequests();
+        }
+        
+      } catch (e) {
+        logger.e('❌ Ошибка обработки принятия заказа другим водителем: $e');
+      }
+    });
   }
 
   void _sendLocationUpdate(double latitude, double longitude) {

@@ -238,10 +238,6 @@ class WebSocketService {
       _isDriverConnected = true;
       _notifyDriverConnectionCallbacks(true);
       
-      // Send driver online status
-      _driverSocket!.emit('driverOnline', {
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
     });
     
     _driverSocket!.onDisconnect((reason) {
@@ -391,11 +387,7 @@ class WebSocketService {
     if (_driverSocket != null) {
       _logger.i('🔌 Отключение сокета водителя');
       
-      // Send offline status before disconnecting
-      if (_driverSocket!.connected) {
-        setDriverOffline();
-        await Future.delayed(Duration(milliseconds: 500)); // Give time for the event to be sent
-      }
+      // Больше не нужно отправлять driverOffline - backend автоматически убирает из онлайн при отключении
       
       _driverSocket!.clearListeners();
       _driverSocket!.disconnect();
