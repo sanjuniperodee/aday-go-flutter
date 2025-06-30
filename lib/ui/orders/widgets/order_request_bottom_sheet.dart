@@ -246,127 +246,127 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: SingleChildScrollView(
-                    controller: scrollController,
+                child: SingleChildScrollView(
+                  controller: scrollController,
                     physics: ClampingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Информация о клиенте - более компактная
-                        Container(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                      // Информация о клиенте - более компактная
+                      Container(
                           padding: EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.blue.shade100),
+                          border: Border.all(color: Colors.blue.shade100),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                                width: 36,
+                                height: 36,
+                              decoration: BoxDecoration(
+                                color: primaryColor.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Icon(
+                                Icons.person,
+                                color: primaryColor,
+                                  size: 18,
+                              ),
+                            ),
+                              SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.orderRequest.user?.fullName ?? 'Клиент',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Пассажир',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Кнопка WhatsApp
+                            InkWell(
+                              onTap: () {
+                                launchUrlString(
+                                    'https://wa.me/${(widget.orderRequest.user?.phone ?? '').replaceAll('+', '')}');
+                              },
+                              child: Container(
+                                  width: 32,
+                                  height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                    borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Icon(
+                                  Icons.message,
+                                  color: Colors.white,
+                                    size: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Комментарий (если есть)
+                      if (widget.orderRequest.comment.isNotEmpty) ...[
+                          SizedBox(height: 6),
+                        Container(
+                          width: double.infinity,
+                            padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.shade200),
                           ),
                           child: Row(
                             children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: Icon(
-                                  Icons.person,
-                                  color: primaryColor,
-                                  size: 18,
-                                ),
+                              Icon(
+                                Icons.comment_outlined,
+                                color: Colors.orange.shade700,
+                                  size: 14,
                               ),
-                              SizedBox(width: 10),
+                                SizedBox(width: 6),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.orderRequest.user?.fullName ?? 'Клиент',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Пассажир',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Кнопка WhatsApp
-                              InkWell(
-                                onTap: () {
-                                  launchUrlString(
-                                      'https://wa.me/${(widget.orderRequest.user?.phone ?? '').replaceAll('+', '')}');
-                                },
-                                child: Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: Colors.green,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Icon(
-                                    Icons.message,
-                                    color: Colors.white,
-                                    size: 14,
+                                child: Text(
+                                  widget.orderRequest.comment,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                    color: Colors.orange.shade800,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        
-                        // Комментарий (если есть)
-                        if (widget.orderRequest.comment.isNotEmpty) ...[
-                          SizedBox(height: 6),
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.orange.shade200),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.comment_outlined,
-                                  color: Colors.orange.shade700,
-                                  size: 14,
-                                ),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    widget.orderRequest.comment,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.orange.shade800,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        
+                      ],
+                      
                         SizedBox(height: 8),
-                        
-                        // Маршрут - более компактный
-                        Container(
+                      
+                      // Маршрут - более компактный
+                      Container(
                           padding: EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
                             borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Column(
-                            children: [
+                        ),
+                        child: Column(
+                          children: [
                               // Заголовок маршрута с ценой
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -400,132 +400,146 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
                               
                               SizedBox(height: 8),
                               
-                              // Откуда
-                              Row(
-                                children: [
-                                  Container(
+                            // Откуда
+                            Row(
+                              children: [
+                                Container(
                                     width: 8,
                                     height: 8,
-                                    decoration: BoxDecoration(
-                                      color: Colors.green,
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
                                       borderRadius: BorderRadius.circular(4),
-                                    ),
                                   ),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Откуда',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.grey.shade600,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        Text(
-                                          widget.orderRequest.from,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              
-                              // Линия маршрута
-                              Container(
-                                margin: EdgeInsets.only(left: 4, top: 2, bottom: 2),
-                                width: 1,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade300,
-                                  borderRadius: BorderRadius.circular(1),
                                 ),
+                                  SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Откуда',
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                          color: Colors.grey.shade600,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      Text(
+                                        widget.orderRequest.from,
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            
+                            // Линия маршрута
+                            Container(
+                                margin: EdgeInsets.only(left: 4, top: 2, bottom: 2),
+                              width: 1,
+                                height: 10,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(1),
                               ),
-                              
-                              // Куда
-                              Row(
-                                children: [
-                                  Container(
+                            ),
+                            
+                            // Куда
+                            Row(
+                              children: [
+                                Container(
                                     width: 8,
                                     height: 8,
-                                    decoration: BoxDecoration(
-                                      color: primaryColor,
+                                  decoration: BoxDecoration(
+                                    color: primaryColor,
                                       borderRadius: BorderRadius.circular(4),
-                                    ),
                                   ),
+                                ),
                                   SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Куда',
-                                          style: TextStyle(
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Куда',
+                                        style: TextStyle(
                                             fontSize: 10,
-                                            color: Colors.grey.shade600,
-                                            fontWeight: FontWeight.w500,
-                                          ),
+                                          color: Colors.grey.shade600,
+                                          fontWeight: FontWeight.w500,
                                         ),
-                                        Text(
-                                          widget.orderRequest.to,
-                                          style: TextStyle(
+                                      ),
+                                      Text(
+                                        widget.orderRequest.to,
+                                        style: TextStyle(
                                             fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.black87,
-                                          ),
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black87,
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        
+                      ),
+                      
                         SizedBox(height: 8),
-                        
+                      
                         // Карта - увеличенная
-                        Container(
+                      Container(
                           height: 240,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: mapbox.MapWidget(
-                              key: ValueKey("mapWidget"),
-                              cameraOptions: mapbox.CameraOptions(
-                                center: mapbox.Point(coordinates: mapbox.Position(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: mapbox.MapWidget(
+                            key: ValueKey("mapWidget"),
+                            cameraOptions: mapbox.CameraOptions(
+                              center: mapbox.Point(coordinates: mapbox.Position(
                                   // Calculate center between start and end points
                                   (_safeParseCoordinateLng(widget.orderRequest.fromMapboxId) + 
                                   _safeParseCoordinateLng(widget.orderRequest.toMapboxId)) / 2,
                                   (_safeParseCoordinateLat(widget.orderRequest.fromMapboxId) + 
                                   _safeParseCoordinateLat(widget.orderRequest.toMapboxId)) / 2,
-                                )),
+                              )),
                                 zoom: 12, // Start with moderate zoom
-                              ),
+                            ),
                               onMapCreated: (mapboxController) async {
                                 print('🗺️ Map created, initializing...');
-                                setState(() {
-                                  mapboxMapController = mapboxController;
-                                });
+                              setState(() {
+                                mapboxMapController = mapboxController;
+                              });
                                 
                                 try {
+                                  // ДОБАВЛЯЕМ: Явно включаем все жесты карты для водителя
+                                  await mapboxController.gestures.updateSettings(
+                                    mapbox.GesturesSettings(
+                                      rotateEnabled: true,
+                                      scrollEnabled: true,
+                                      pitchEnabled: true,
+                                      doubleTapToZoomInEnabled: true,
+                                      doubleTouchToZoomOutEnabled: true,
+                                      quickZoomEnabled: true,
+                                      pinchToZoomEnabled: true,
+                                    ),
+                                  );
+                                  print('✅ Все жесты карты явно включены для водителя');
+                                  
                                   // Add marker images first
                                   await addImageFromAsset('point_a', 'assets/images/point_a.png');
                                   await addImageFromAsset('point_b', 'assets/images/point_b.png');
@@ -540,140 +554,140 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
                                 } catch (e) {
                                   print('❌ Error during map initialization: $e');
                                 }
-                              },
-                            ),
+                            },
                           ),
                         ),
-                        
+                      ),
+                      
                         SizedBox(height: 10),
-                        
-                        // Информационные карточки - более компактные
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
+                      
+                      // Информационные карточки - более компактные
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
                                 padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.purple.shade50,
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade50,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.purple.shade100),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.timer_outlined,
+                                border: Border.all(color: Colors.purple.shade100),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.timer_outlined,
+                                    color: Colors.purple.shade600,
+                                      size: 14,
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    route.isNotEmpty && route.containsKey('routes') && route['routes'].isNotEmpty && route['routes'][0].containsKey('duration')
+                                      ? '${((route['routes'][0]['duration'] as double) / 60).round()} мин'
+                                      : '-- мин',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                      fontWeight: FontWeight.w600,
                                       color: Colors.purple.shade600,
-                                      size: 14,
                                     ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      route.isNotEmpty && route.containsKey('routes') && route['routes'].isNotEmpty && route['routes'][0].containsKey('duration')
-                                        ? '${((route['routes'][0]['duration'] as double) / 60).round()} мин'
-                                        : '-- мин',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.purple.shade600,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Время',
-                                      style: TextStyle(
+                                  ),
+                                  Text(
+                                    'Время',
+                                    style: TextStyle(
                                         fontSize: 9,
-                                        color: Colors.grey.shade600,
-                                      ),
+                                      color: Colors.grey.shade600,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
+                          ),
                             SizedBox(width: 6),
-                            Expanded(
-                              child: Container(
+                          Expanded(
+                            child: Container(
                                 padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.blue.shade100),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.straighten,
-                                      color: Colors.blue.shade600,
+                                border: Border.all(color: Colors.blue.shade100),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.straighten,
+                                    color: Colors.blue.shade600,
                                       size: 14,
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      route.isNotEmpty && route.containsKey('routes') && route['routes'].isNotEmpty && route['routes'][0].containsKey('distance')
-                                        ? '${((route['routes'][0]['distance'] as double) / 1000).toStringAsFixed(1)} км'
-                                        : '-- км',
-                                      style: TextStyle(
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    route.isNotEmpty && route.containsKey('routes') && route['routes'].isNotEmpty && route['routes'][0].containsKey('distance')
+                                      ? '${((route['routes'][0]['distance'] as double) / 1000).toStringAsFixed(1)} км'
+                                      : '-- км',
+                                    style: TextStyle(
                                         fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.blue.shade600,
-                                      ),
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blue.shade600,
                                     ),
-                                    Text(
-                                      'Расстояние',
-                                      style: TextStyle(
+                                  ),
+                                  Text(
+                                    'Расстояние',
+                                    style: TextStyle(
                                         fontSize: 9,
-                                        color: Colors.grey.shade600,
-                                      ),
+                                      color: Colors.grey.shade600,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                        
-                        SizedBox(height: 20),
-                        
-                        // Кнопки действий - исправлено
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Container(
-                                height: 44,
-                                child: OutlinedButton(
+                          ),
+                        ],
+                      ),
+                      
+                      SizedBox(height: 20),
+                      
+                      // Кнопки действий - исправлено
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Container(
+                              height: 44,
+                              child: OutlinedButton(
                                   onPressed: isOrderCancelled ? null : () => Navigator.pop(context),
-                                  style: OutlinedButton.styleFrom(
+                                style: OutlinedButton.styleFrom(
                                     foregroundColor: isOrderCancelled ? Colors.grey.shade400 : Colors.grey.shade700,
                                     side: BorderSide(color: isOrderCancelled ? Colors.grey.shade200 : Colors.grey.shade300),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Text(
-                                    'Отклонить',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                ),
+                                child: Text(
+                                  'Отклонить',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
                             ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              flex: 3,
-                              child: Container(
-                                height: 44,
-                                child: ElevatedButton(
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            flex: 3,
+                            child: Container(
+                              height: 44,
+                              child: ElevatedButton(
                                   onPressed: isOrderCancelled ? null : () => widget.onAccept(),
-                                  style: ElevatedButton.styleFrom(
+                                style: ElevatedButton.styleFrom(
                                     backgroundColor: isOrderCancelled ? Colors.grey.shade300 : primaryColor,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
                                       if (isOrderCancelled) ...[
                                         Icon(Icons.cancel_outlined, size: 16),
                                         SizedBox(width: 6),
@@ -685,23 +699,23 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
                                           ),
                                         ),
                                       ] else ...[
-                                        Icon(Icons.check_circle, size: 16),
-                                        SizedBox(width: 6),
-                                        Text(
-                                          'Принять заказ',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
+                                    Icon(Icons.check_circle, size: 16),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Принять заказ',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                       ],
-                                    ],
-                                  ),
+                                  ],
                                 ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
                         
                         // Индикатор отмены заказа
                         if (isOrderCancelled) ...[
@@ -736,9 +750,9 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
                             ),
                           ),
                         ],
-                        
-                        SizedBox(height: 16),
-                      ],
+                      
+                      SizedBox(height: 16),
+                    ],
                     ),
                   ),
                 ),
@@ -814,7 +828,7 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
       print('   To: $toLat, $toLng');
       
       // Fetch directions from Mapbox
-      final directions = await inject<MapboxApi>().getDirections(
+    final directions = await inject<MapboxApi>().getDirections(
         fromLat: fromLat,
         fromLng: fromLng,
         toLat: toLat,
@@ -833,9 +847,9 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
         }
       }
 
-      setState(() {
-        route = directions;
-      });
+    setState(() {
+      route = directions;
+    });
 
       // Add route and markers to map if controller is ready
       if (mapboxMapController != null) {
@@ -846,11 +860,11 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
         
         if (route.isNotEmpty) {
           // Add route line
-          await addRouteToMap();
+        await addRouteToMap();
           print('✅ Route line added');
           
           // Add markers
-          await addMarkersToMap();
+        await addMarkersToMap();
           print('✅ Markers added');
           
           // Fit route in view with delay to ensure everything is loaded
@@ -865,7 +879,7 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
       } else {
         print('⚠️ Map controller not ready, route will be added when map loads');
       }
-    } catch (e) {
+      } catch (e) {
       print('❌ Error fetching route: $e');
       print('❌ Stack trace: ${StackTrace.current}');
     }
@@ -1217,15 +1231,15 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
       // Include all route coordinates for more precise bounds
       if (route.containsKey('routes') && route['routes'].isNotEmpty) {
         List<dynamic> coordinates = route['routes'][0]['geometry']['coordinates'];
-        for (var coord in coordinates) {
-          final longitude = coord[0] as double;
-          final latitude = coord[1] as double;
-          
-          minLat = math.min(minLat, latitude);
-          maxLat = math.max(maxLat, latitude);
-          minLng = math.min(minLng, longitude);
-          maxLng = math.max(maxLng, longitude);
-        }
+      for (var coord in coordinates) {
+        final longitude = coord[0] as double;
+        final latitude = coord[1] as double;
+        
+        minLat = math.min(minLat, latitude);
+        maxLat = math.max(maxLat, latitude);
+        minLng = math.min(minLng, longitude);
+        maxLng = math.max(maxLng, longitude);
+      }
       }
       
       print('   Bounds: minLat=$minLat, maxLat=$maxLat, minLng=$minLng, maxLng=$maxLng');
@@ -1238,28 +1252,36 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
       final double latDiff = (maxLat - minLat).abs();
       final double lngDiff = (maxLng - minLng).abs();
       
-      // Use more sophisticated zoom calculation based on visible area
+      // Use the larger of the two differences to determine zoom
       final double maxDiff = math.max(latDiff, lngDiff);
       
-      // More precise zoom calculation with smaller increments
-      double zoom = 16.0; // Start with higher zoom for close routes
+      // Determine zoom based on the maximum difference (adjusted for wider view)
+      double zoom = 15.0; // Default close zoom, will be adjusted downwards
       
-      if (maxDiff > 0.001) zoom = 15.5;
-      if (maxDiff > 0.005) zoom = 15.0;
-      if (maxDiff > 0.01) zoom = 14.5;
-      if (maxDiff > 0.02) zoom = 14.0;
-      if (maxDiff > 0.03) zoom = 13.5;
-      if (maxDiff > 0.05) zoom = 13.0;
-      if (maxDiff > 0.08) zoom = 12.5;
-      if (maxDiff > 0.1) zoom = 12.0;
-      if (maxDiff > 0.15) zoom = 11.5;
-      if (maxDiff > 0.2) zoom = 11.0;
-      if (maxDiff > 0.3) zoom = 10.5;
-      if (maxDiff > 0.5) zoom = 10.0;
-      if (maxDiff > 0.8) zoom = 9.5;
-      if (maxDiff > 1.0) zoom = 9.0;
-      if (maxDiff > 1.5) zoom = 8.5;
-      if (maxDiff > 2.0) zoom = 8.0;
+      // УЛУЧШЕННАЯ ЛОГИКА: Более широкий обзор для лучшей видимости маршрута
+      if (maxDiff > 0.0001) zoom = 16.0; // Очень близко
+      if (maxDiff > 0.0005) zoom = 15.0; // Близко
+      if (maxDiff > 0.001) zoom = 14.0;  // Уменьшено с 14.5
+      if (maxDiff > 0.005) zoom = 13.0;  // Уменьшено с 14.0
+      if (maxDiff > 0.01) zoom = 12.0;   // Уменьшено с 13.5
+      if (maxDiff > 0.02) zoom = 11.5;   // Уменьшено с 13.0
+      if (maxDiff > 0.03) zoom = 11.0;   // Уменьшено с 12.5
+      if (maxDiff > 0.05) zoom = 10.5;   // Уменьшено с 12.0
+      if (maxDiff > 0.08) zoom = 10.0;   // Уменьшено с 11.5
+      if (maxDiff > 0.1) zoom = 9.5;     // Уменьшено с 11.0
+      if (maxDiff > 0.15) zoom = 9.0;    // Уменьшено с 10.5
+      if (maxDiff > 0.2) zoom = 8.5;     // Уменьшено с 10.0
+      if (maxDiff > 0.3) zoom = 8.0;     // Уменьшено с 9.5
+      if (maxDiff > 0.5) zoom = 7.5;     // Уменьшено с 9.0
+      if (maxDiff > 0.8) zoom = 7.0;     // Уменьшено с 8.5
+      if (maxDiff > 1.0) zoom = 6.5;     // Уменьшено с 8.0
+      if (maxDiff > 1.5) zoom = 6.0;     // Уменьшено с 7.5
+      if (maxDiff > 2.0) zoom = 5.5;     // Уменьшено с 7.0
+      if (maxDiff > 3.0) zoom = 5.0;     // Уменьшено с 6.0
+      if (maxDiff > 5.0) zoom = 4.5;     // Уменьшено с 5.0
+      
+      // ДОПОЛНИТЕЛЬНАЯ КОРРЕКТИРОВКА: Уменьшаем зум на 0.5 для более широкого обзора
+      zoom = math.max(4.0, zoom - 0.5);
       
       print('   Calculated zoom: $zoom (maxDiff: $maxDiff)');
       print('   Center: $centerLat, $centerLng');

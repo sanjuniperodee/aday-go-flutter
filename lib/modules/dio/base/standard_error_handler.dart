@@ -3,6 +3,7 @@ import 'package:injectable/injectable.dart';
 import './error/error.dart';
 import './error/network_error_handler.dart';
 import './material_message_controller.dart';
+import '../../../utils/network_utils.dart';
 
 /// Стандартная реализация ErrorHandler
 @singleton
@@ -18,8 +19,8 @@ class StandardErrorHandler extends NetworkErrorHandler {
     if (e is BaseException) {
       _show(e.message);
     } else {
-      /// TODO переделать с учетом локализации
-      _show('Ошибка');
+      /// Используем новую систему обработки ошибок
+      NetworkUtils.handleNetworkError(e);
     }
   }
 
@@ -34,13 +35,11 @@ class StandardErrorHandler extends NetworkErrorHandler {
 
   @override
   void handleNoInternetError(e) {
-    // TODO: implement handleNoInternetError
-    _show('Не соединения с интернетом');
+    NetworkUtils.showNoInternetMessage();
   }
 
   @override
   void handleConnectionTimeOutException(e) {
-    // TODO: implement handleConnectionTimeOutException
-    _show('Истекло время ожидания подключения');
+    NetworkUtils.showConnectionTimeoutMessage();
   }
 }

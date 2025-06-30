@@ -6,12 +6,13 @@ part of 'mapbox_api.dart';
 // RetrofitGenerator
 // **************************************************************************
 
-// ignore_for_file: unnecessary_brace_in_string_interps,no_leading_underscores_for_local_identifiers
+// ignore_for_file: unnecessary_brace_in_string_interps,no_leading_underscores_for_local_identifiers,unused_element,unnecessary_string_interpolations
 
 class _MapboxApi implements MapboxApi {
   _MapboxApi(
     this._dio, {
     this.baseUrl,
+    this.errorLogger,
   }) {
     baseUrl ??= 'https://api.mapbox.com/';
   }
@@ -19,6 +20,8 @@ class _MapboxApi implements MapboxApi {
   final Dio _dio;
 
   String? baseUrl;
+
+  final ParseErrorLogger? errorLogger;
 
   @override
   Future<MapboxGeoCodingResponse> getPlaces({
@@ -39,25 +42,31 @@ class _MapboxApi implements MapboxApi {
     };
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
-    final _result = await _dio.fetch<Map<String, dynamic>>(
-        _setStreamType<MapboxGeoCodingResponse>(Options(
+    final _options = _setStreamType<MapboxGeoCodingResponse>(Options(
       method: 'GET',
       headers: _headers,
       extra: _extra,
     )
-            .compose(
-              _dio.options,
-              'https://api.mapbox.com/search/searchbox/v1/suggest',
-              queryParameters: queryParameters,
-              data: _data,
-            )
-            .copyWith(
-                baseUrl: _combineBaseUrls(
-              _dio.options.baseUrl,
-              baseUrl,
-            ))));
-    final value = MapboxGeoCodingResponse.fromJson(_result.data!);
-    return value;
+        .compose(
+          _dio.options,
+          'https://api.mapbox.com/search/searchbox/v1/suggest',
+          queryParameters: queryParameters,
+          data: _data,
+        )
+        .copyWith(
+            baseUrl: _combineBaseUrls(
+          _dio.options.baseUrl,
+          baseUrl,
+        )));
+    final _result = await _dio.fetch<Map<String, dynamic>>(_options);
+    late MapboxGeoCodingResponse _value;
+    try {
+      _value = MapboxGeoCodingResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options);
+      rethrow;
+    }
+    return _value;
   }
 
   @override
@@ -74,25 +83,31 @@ class _MapboxApi implements MapboxApi {
     };
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
-    final _result = await _dio.fetch<Map<String, dynamic>>(
-        _setStreamType<MapboxFeatureDetailResponse>(Options(
+    final _options = _setStreamType<MapboxFeatureDetailResponse>(Options(
       method: 'GET',
       headers: _headers,
       extra: _extra,
     )
-            .compose(
-              _dio.options,
-              'https://api.mapbox.com/search/searchbox/v1/retrieve/${mapboxId}',
-              queryParameters: queryParameters,
-              data: _data,
-            )
-            .copyWith(
-                baseUrl: _combineBaseUrls(
-              _dio.options.baseUrl,
-              baseUrl,
-            ))));
-    final value = MapboxFeatureDetailResponse.fromJson(_result.data!);
-    return value;
+        .compose(
+          _dio.options,
+          'https://api.mapbox.com/search/searchbox/v1/retrieve/${mapboxId}',
+          queryParameters: queryParameters,
+          data: _data,
+        )
+        .copyWith(
+            baseUrl: _combineBaseUrls(
+          _dio.options.baseUrl,
+          baseUrl,
+        )));
+    final _result = await _dio.fetch<Map<String, dynamic>>(_options);
+    late MapboxFeatureDetailResponse _value;
+    try {
+      _value = MapboxFeatureDetailResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options);
+      rethrow;
+    }
+    return _value;
   }
 
   @override
@@ -116,7 +131,7 @@ class _MapboxApi implements MapboxApi {
     };
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
-    final _result = await _dio.fetch(_setStreamType<dynamic>(Options(
+    final _options = _setStreamType<dynamic>(Options(
       method: 'GET',
       headers: _headers,
       extra: _extra,
@@ -131,9 +146,10 @@ class _MapboxApi implements MapboxApi {
             baseUrl: _combineBaseUrls(
           _dio.options.baseUrl,
           baseUrl,
-        ))));
-    final value = _result.data;
-    return value;
+        )));
+    final _result = await _dio.fetch(_options);
+    final _value = _result.data;
+    return _value;
   }
 
   @override
@@ -147,25 +163,31 @@ class _MapboxApi implements MapboxApi {
     final queryParameters = <String, dynamic>{r'access_token': accessToken};
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
-    final _result = await _dio.fetch<Map<String, dynamic>>(
-        _setStreamType<MapboxFeatureDetailResponse>(Options(
+    final _options = _setStreamType<MapboxFeatureDetailResponse>(Options(
       method: 'GET',
       headers: _headers,
       extra: _extra,
     )
-            .compose(
-              _dio.options,
-              'geocoding/v5/mapbox.places/${longitude},${latitude}.json',
-              queryParameters: queryParameters,
-              data: _data,
-            )
-            .copyWith(
-                baseUrl: _combineBaseUrls(
-              _dio.options.baseUrl,
-              baseUrl,
-            ))));
-    final value = MapboxFeatureDetailResponse.fromJson(_result.data!);
-    return value;
+        .compose(
+          _dio.options,
+          'geocoding/v5/mapbox.places/${longitude},${latitude}.json',
+          queryParameters: queryParameters,
+          data: _data,
+        )
+        .copyWith(
+            baseUrl: _combineBaseUrls(
+          _dio.options.baseUrl,
+          baseUrl,
+        )));
+    final _result = await _dio.fetch<Map<String, dynamic>>(_options);
+    late MapboxFeatureDetailResponse _value;
+    try {
+      _value = MapboxFeatureDetailResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options);
+      rethrow;
+    }
+    return _value;
   }
 
   RequestOptions _setStreamType<T>(RequestOptions requestOptions) {

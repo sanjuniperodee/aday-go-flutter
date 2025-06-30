@@ -7,6 +7,12 @@ const TextStyle text500Size24Black = TextStyle(
   fontWeight: FontWeight.w500,
 );
 
+const TextStyle text500Size20Black = TextStyle(
+  color: Colors.black,
+  fontSize: 20,
+  fontWeight: FontWeight.w500,
+);
+
 const TextStyle text400Size16Black = TextStyle(
   color: Colors.black,
   fontSize: 16,

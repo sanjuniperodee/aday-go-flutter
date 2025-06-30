@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:lottie/lottie.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:flutter_rating_stars/flutter_rating_stars.dart';
 
 import '../../../core/colors.dart';
 import '../../../core/images.dart';
@@ -46,6 +47,10 @@ class _ActiveClientOrderBottomSheetState
   Timer? waitingTimer;
 
   bool isOrderFinished = false;
+  bool isRated = false;
+  double driverRating = 0.0;
+  String ratingComment = '';
+  bool isSubmittingRating = false;
 
   @override
   void initState() {
@@ -82,7 +87,9 @@ class _ActiveClientOrderBottomSheetState
         child: SizedBox(
           child: activeRequest.order?.orderStatus == 'CREATED'
               ? _buildSearchingForDriverView()
-              : _buildActiveOrderView(),
+              : activeRequest.order?.orderStatus == 'COMPLETED' && !isRated
+                  ? _buildRatingView()
+                  : _buildActiveOrderView(),
         ),
       ),
     );
@@ -645,6 +652,244 @@ class _ActiveClientOrderBottomSheetState
         SizedBox(height: 16),
       ],
     );
+  }
+
+  // Экран оценки поездки (редизайн)
+  Widget _buildRatingView() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch, // Растягиваем элементы по ширине
+      children: [
+        // Полоска для перетаскивания
+        Center(
+          child: Container(
+            width: 38,
+            height: 4,
+            decoration: BoxDecoration(
+              color: greyscale30,
+              borderRadius: BorderRadius.circular(1.4),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Заголовок
+        Text(
+          'Как вам поездка?',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w500,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        Text(
+          'Пожалуйста, оцените водителя',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            color: greyscale60,
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Информация о водителе (опционально, с более компактным дизайном)
+        if (activeRequest.driver != null) ...[
+          Container(
+            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24, // Чуть меньше радиус
+                  backgroundColor: primaryColor.withOpacity(0.1),
+                  child: Icon(
+                    Icons.person,
+                    color: primaryColor,
+                    size: 24, // Меньше иконка
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Водитель',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: greyscale60,
+                        ),
+                      ),
+                      Text(
+                        '${activeRequest.driver?.firstName ?? ''} ${activeRequest.driver?.lastName ?? ''}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+
+        // Звездочки для оценки (увеличенный размер и улучшенный вид)
+        Center(
+          child: RatingStars(
+            value: driverRating,
+            onValueChanged: (value) {
+              setState(() {
+                driverRating = value;
+              });
+            },
+            starBuilder: (index, color) => Icon(
+              Icons.star_rounded,
+              color: color,
+              size: 48, // Больше размер звезд
+            ),
+            starCount: 5,
+            starSize: 48,
+            valueLabelColor: Colors.transparent, // Скрываем числовое значение
+            valueLabelTextStyle: TextStyle(), // Пустой стиль
+            valueLabelRadius: 0,
+            maxValue: 5,
+            starSpacing: 8, // Увеличиваем расстояние между звездами
+            maxValueVisibility: false, // Скрываем максимальное значение
+            valueLabelVisibility: false, // Скрываем текстовое значение
+            animationDuration: Duration(milliseconds: 300),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Поле для комментария
+        TextField(
+          onChanged: (value) {
+            setState(() {
+              ratingComment = value;
+            });
+          },
+          decoration: InputDecoration(
+            hintText: 'Ваши впечатления о поездке...',
+            hintStyle: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: greyscale50,
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none, // Без рамки
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: primaryColor, width: 2), // Активная рамка
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+          maxLines: 4,
+          minLines: 3,
+          keyboardType: TextInputType.multiline,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Кнопка "Отправить оценку"
+        PrimaryButton.primary(
+          onPressed: isSubmittingRating || driverRating == 0.0
+              ? null
+              : () async {
+                  setState(() {
+                    isSubmittingRating = true;
+                  });
+                  await _submitRating();
+                  setState(() {
+                    isSubmittingRating = false;
+                  });
+                },
+          text: isSubmittingRating
+              ? 'Отправка...'
+              : 'Отправить оценку',
+          textStyle: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Кнопка "Закрыть" (если оценка уже отправлена или пропущена)
+        PrimaryButton.secondary(
+          onPressed: () {
+            setState(() {
+              isRated = true; // Считаем, что пропущено - больше не показываем
+            });
+            Navigator.of(context).pop(); // Закрываем bottom sheet
+          },
+          text: 'Не сейчас', // Менее обязывающий текст
+          textStyle: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            color: greyscale60,
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  // Метод для отправки оценки
+  Future<void> _submitRating() async {
+    try {
+      final orderId = activeRequest.order?.id;
+      final driverId = activeRequest.driver?.id;
+
+      if (orderId != null && driverId != null && driverRating > 0) {
+        await inject<OrderRequestsInteractor>().rateDriver(
+          orderId: orderId,
+          driverId: driverId,
+          rating: driverRating.toInt(), // Оценка от 1 до 5
+          comment: ratingComment.isEmpty ? null : ratingComment,
+        );
+        print('✅ Оценка отправлена успешно: $driverRating звезд, комментарий: $ratingComment');
+        setState(() {
+          isRated = true; // Устанавливаем флаг, что оценка отправлена
+        });
+        Navigator.of(context).pop(); // Закрываем bottom sheet
+      } else {
+        print('⚠️ Не удалось отправить оценку: orderId=$orderId, driverId=$driverId, rating=$driverRating');
+        // Показываем сообщение об ошибке, если нужно
+      }
+    } catch (e) {
+      print('❌ Ошибка при отправке оценки: $e');
+      // Показываем сообщение об ошибке пользователю
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Не удалось отправить оценку. Попробуйте еще раз.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _callDriver(String? phoneNumber) async {

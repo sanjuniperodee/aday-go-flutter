@@ -79,13 +79,13 @@ class OrderRequestCard extends StatelessWidget {
                             size: 14,
                           ),
                           SizedBox(width: 2),
-                          Text(
+                      Text(
                             '4.8', // Placeholder рейтинг, можно заменить на реальный
-                            style: TextStyle(
+                        style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               color: Colors.grey.shade700,
-                            ),
+                        ),
                           ),
                         ],
                       ),
@@ -101,14 +101,14 @@ class OrderRequestCard extends StatelessWidget {
                       // Иконки маршрута
                       Column(
                         children: [
-                          Container(
+                      Container(
                             width: 8,
                             height: 8,
-                            decoration: BoxDecoration(
-                              color: Colors.green,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
                               borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
+                        ),
+                      ),
                           Container(
                             width: 2,
                             height: 12,
@@ -116,7 +116,7 @@ class OrderRequestCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: Colors.grey.shade300,
                               borderRadius: BorderRadius.circular(1),
-                            ),
+                          ),
                           ),
                           Container(
                             width: 8,
@@ -124,11 +124,11 @@ class OrderRequestCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: primaryColor,
                               borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      
+                    ],
+                  ),
+                  
                       SizedBox(width: 8),
                       
                       // Адреса на всю ширину
@@ -139,11 +139,11 @@ class OrderRequestCard extends StatelessWidget {
                             // Откуда
                             Text(
                               orderRequest.from,
-                              style: TextStyle(
+                          style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.black87,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w500,
+                          ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -159,7 +159,7 @@ class OrderRequestCard extends StatelessWidget {
                                 fontWeight: FontWeight.w400,
                               ),
                               maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                          overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),

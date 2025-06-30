@@ -350,7 +350,7 @@ class ProfileScreen extends ElementaryWidget<IProfileWM> {
               _buildProfileSection(
                 icon: Icons.support_agent,
                 title: 'Поддержка',
-                onTap: () => wm.goToSupportScreen(),
+                onTap: () async => await wm.goToSupportScreen(),
               ),
                             ],
                           ),

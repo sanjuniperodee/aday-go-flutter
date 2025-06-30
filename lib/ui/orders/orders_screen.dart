@@ -17,7 +17,7 @@ import 'package:elementary/elementary.dart';
 
 import '../../domains/driver_registered_category/driver_registered_category_domain.dart';
 import '../../router/router.dart';
-import 'orders_wm.dart';
+import './orders_wm.dart';
 
 class OrdersScreen extends ElementaryWidget<IOrdersWM> {
   OrdersScreen({
@@ -99,67 +99,6 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                               child: ListView(
                                 children: [
                                   const SizedBox(height: 24),
-                                  // УБИРАЕМ выбор категорий - оставляем только TAXI
-                                  // SizedBox(
-                                  //   height: 40,
-                                  //   child: ListView(
-                                  //     scrollDirection: Axis.horizontal,
-                                  //     children: [
-                                  //       const SizedBox(width: 16),
-                                  //       ...DriverType.values
-                                  //           .asMap()
-                                  //           .entries
-                                  //           .map(
-                                  //             (e) => InkWell(
-                                  //               onTap: () =>
-                                  //                   wm.tabIndexChanged(e.key),
-                                  //               child: Container(
-                                  //                 margin: const EdgeInsets.only(
-                                  //                     right: 8),
-                                  //                 padding: const EdgeInsets
-                                  //                     .symmetric(
-                                  //                     horizontal: 16),
-                                  //                 decoration: ShapeDecoration(
-                                  //                   color: tabIndex == e.key
-                                  //                       ? Color(0xFFF73C4E)
-                                  //                       : Colors.white,
-                                  //                   shape:
-                                  //                       RoundedRectangleBorder(
-                                  //                     side: tabIndex != e.key
-                                  //                         ? BorderSide(
-                                  //                             width: 1,
-                                  //                             color: Color(
-                                  //                                 0xFFB4AAA9))
-                                  //                         : BorderSide.none,
-                                  //                     borderRadius:
-                                  //                         BorderRadius.circular(
-                                  //                             102),
-                                  //                   ),
-                                  //                 ),
-                                  //                 child: Row(
-                                  //                   children: [
-                                  //                     SvgPicture.asset(
-                                  //                       e.value.asset!,
-                                  //                       color: tabIndex == e.key
-                                  //                           ? Colors.white
-                                  //                           : Colors.grey,
-                                  //                     ),
-                                  //                     const SizedBox(width: 8),
-                                  //                     TextLocale(
-                                  //                       e.value.value!,
-                                  //                       style: tabIndex == e.key
-                                  //                           ? text400Size16White
-                                  //                           : text400Size16Greyscale30,
-                                  //                     )
-                                  //                   ],
-                                  //                 ),
-                                  //               ),
-                                  //             ),
-                                  //           )
-                                  //     ],
-                                  //   ),
-                                  // ),
-                                  // const SizedBox(height: 16),
                                   DoubleSourceBuilder(
                                     firstSource: wm.isWebsocketConnected,
                                     secondSource: wm.locationPermission,
@@ -168,6 +107,7 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                                       bool? isWebsocketConnected,
                                       LocationPermission? locationPermission,
                                     ) {
+                                      // Если нет разрешения на геолокацию
                                       if (![
                                         LocationPermission.always,
                                         LocationPermission.whileInUse,
@@ -245,11 +185,14 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                                             ],
                                           ),
                                         );
+                                      
+                                      // Если есть разрешение, но WebSocket не подключен и переключатель включен
                                       else if ([
                                             LocationPermission.always,
                                             LocationPermission.whileInUse,
                                           ].contains(locationPermission) &&
-                                          !isWebsocketConnected!) {
+                                          wm.statusController.value &&
+                                          !(isWebsocketConnected ?? false)) {
                                         return DoubleSourceBuilder<bool?, String?>(
                                           firstSource: wm.isWebSocketConnecting,
                                           secondSource: wm.webSocketConnectionError,  
@@ -292,18 +235,16 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment.center,
                                                       children: [
-                                                        // Показываем разные заголовки в зависимости от состояния
                                                         Text(
                                                           isConnecting == true 
                                                             ? 'Подключение...' 
                                                             : connectionError != null 
                                                               ? 'Ошибка подключения'
-                                                              : 'Вы оффлайн',
+                                                              : 'Подключение к серверу',
                                                           textAlign: TextAlign.center,
                                                           style: text400Size16Black,
                                                         ),
                                                         const SizedBox(width: 10),
-                                                        // Показываем индикатор загрузки или иконку
                                                         if (isConnecting == true)
                                                           SizedBox(
                                                             width: 12,
@@ -321,7 +262,7 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                                                             height: 12,
                                                             child: SvgPicture.asset(
                                                               connectionError != null 
-                                                                ? 'assets/icons/close.svg' // Используем существующую иконку
+                                                                ? 'assets/icons/close.svg'
                                                                 : 'assets/icons/close.svg'
                                                             ),
                                                           ),
@@ -332,27 +273,19 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                                                   Container(
                                                     width: double.infinity,
                                                     child: Text(
-                                                      // Показываем разные сообщения в зависимости от состояния
                                                       isConnecting == true 
-                                                        ? 'Подключаемся к серверу...'
+                                                        ? 'Подключаемся к серверу заказов...'
                                                         : connectionError != null 
                                                           ? connectionError
-                                                          : 'Переключите режим в онлайн',
+                                                          : 'Инициализация подключения...',
                                                       style: text400Size12Greyscale50,
                                                     ),
                                                   ),
-                                                  // Показываем кнопку повтора при ошибке
                                                   if (connectionError != null && isConnecting != true) ...[
                                                     const SizedBox(height: 12),
                                                     PrimaryButton.secondary(
                                                       onPressed: () {
-                                                        // Включаем переключатель чтобы инициировать повторное подключение
-                                                        if (wm.statusController.value == false) {
-                                                          wm.statusController.value = true;
-                                                        } else {
-                                                          // Если переключатель уже включен, принудительно переподключаемся
-                                                          wm.initializeSocket();
-                                                        }
+                                                        wm.initializeSocket();
                                                       },
                                                       text: 'Повторить',
                                                       textStyle: text400Size16White,
@@ -369,42 +302,42 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                                     },
                                   ),
                                   const SizedBox(height: 16),
-                                  if (!isWebsocketConnected!)
-                                    SizedBox.shrink()
-                                  else if ((driverRegisteredCategories ?? [])
-                                      .any((category) =>
-                                          category.categoryType == orderType))
-                                    ...(orderRequests ?? []).map(
-                                      (e) => InkWell(
-                                        onTap: () => wm.onOrderRequestTap(e),
-                                        child:
-                                            OrderRequestCard(orderRequest: e),
-                                      ),
-                                    )
-                                  else
-                                    Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16),
-                                        child: Column(
-                                          children: [
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.all(16.0),
-                                              child: Text(
-                                                'Чтобы начать принимать заказы нужно зарегистрироваться на категорию',
-                                                style: text400Size16Greyscale90,
+                                  // Показываем заказы только если WebSocket подключен
+                                  if (isWebsocketConnected == true)
+                                    if ((driverRegisteredCategories ?? [])
+                                        .any((category) =>
+                                            category.categoryType == orderType))
+                                      ...(orderRequests ?? []).map(
+                                        (e) => InkWell(
+                                          onTap: () => wm.onOrderRequestTap(e),
+                                          child:
+                                              OrderRequestCard(orderRequest: e),
+                                        ),
+                                      )
+                                    else
+                                      Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 16),
+                                          child: Column(
+                                            children: [
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.all(16.0),
+                                                child: Text(
+                                                  'Чтобы начать принимать заказы нужно зарегистрироваться на категорию',
+                                                  style: text400Size16Greyscale90,
+                                                ),
                                               ),
-                                            ),
-                                            PrimaryButton.primary(
-                                              onPressed: wm.registerOrderType,
-                                              text: 'Зарегестрироваться',
-                                              textStyle: text400Size16White,
-                                            )
-                                          ],
+                                              PrimaryButton.primary(
+                                                onPressed: wm.registerOrderType,
+                                                text: 'Зарегестрироваться',
+                                                textStyle: text400Size16White,
+                                              )
+                                            ],
+                                          ),
                                         ),
                                       ),
-                                    ),
                                 ],
                               ),
                             ),

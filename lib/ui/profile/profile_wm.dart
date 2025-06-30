@@ -3,6 +3,7 @@ import 'package:aktau_go/interactors/profile_interactor.dart';
 import 'package:aktau_go/interactors/session_interactor.dart';
 import 'package:aktau_go/router/router.dart';
 import 'package:aktau_go/utils/utils.dart';
+import 'package:aktau_go/utils/network_utils.dart';
 import 'package:elementary/elementary.dart';
 import 'package:elementary_helper/elementary_helper.dart';
 import 'package:flutter/material.dart';
@@ -26,15 +27,15 @@ abstract class IProfileWM implements IWidgetModel {
 
   void navigateToLogin();
 
-  void login();
+  Future<void> login();
   
-  void logout();
+  Future<void> logout();
   
   void goToHistoryScreen();
   
   void goToEditProfile();
   
-  void goToSupportScreen();
+  Future<void> goToSupportScreen();
 
   StateNotifier<String> get role;
 
@@ -42,7 +43,7 @@ abstract class IProfileWM implements IWidgetModel {
 
   void logOut();
 
-  void toggleRole();
+  Future<void> toggleRole();
 }
 
 class ProfileWM extends WidgetModel<ProfileScreen, ProfileModel>
@@ -60,14 +61,22 @@ class ProfileWM extends WidgetModel<ProfileScreen, ProfileModel>
   
   @override
   Future<void> login() async {
-    await model.login();
-    // After login, refresh the profile data
+    await NetworkUtils.executeWithErrorHandling<void>(
+      () => model.login(),
+      customErrorMessage: 'Не удалось войти в систему',
+    );
+    
+    // After login attempt, refresh the profile data
     await _fetchProfile();
   }
   
   @override
   Future<void> logout() async {
-    await model.logout();
+    await NetworkUtils.executeWithErrorHandling<void>(
+      () => model.logout(),
+      customErrorMessage: 'Не удалось выйти из системы',
+    );
+    
     // Clear user data after logout
     me.accept(null);
     role.accept(null);
@@ -88,9 +97,9 @@ class ProfileWM extends WidgetModel<ProfileScreen, ProfileModel>
   }
   
   @override
-  void goToSupportScreen() {
+  Future<void> goToSupportScreen() async {
     // Показываем модальное окно поддержки
-    showModalBottomSheet(
+    await showModalBottomSheet<void>(
       context: context,
       isDismissible: true,
       isScrollControlled: true,
@@ -124,9 +133,10 @@ class ProfileWM extends WidgetModel<ProfileScreen, ProfileModel>
           ),
           SizedBox(height: 16),
           InkWell(
-            onTap: () {
+            onTap: () async {
               // Вызов WhatsApp
-              model.launchWhatsApp();
+              await model.launchWhatsApp();
+              Navigator.of(context).pop(); // Close the bottom sheet
             },
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
@@ -163,16 +173,20 @@ class ProfileWM extends WidgetModel<ProfileScreen, ProfileModel>
   }
 
   Future<void> _fetchProfile() async {
-    try {
+    final result = await NetworkUtils.executeWithErrorHandling<UserDomain?>(
+      () => model.getUserProfile(),
+      showErrorMessages: false, // Не показываем ошибки для автоматических запросов профиля
+    );
+    
+    if (result != null) {
       print('Fetching user profile data...');
-      final response = await model.getUserProfile();
       
       // Check if the response contains a valid user
-      final bool hasValidUser = response != null && response.id.isNotEmpty;
+      final bool hasValidUser = result.id.isNotEmpty;
       print('User profile loaded: ${hasValidUser ? 'Valid user found' : 'No valid user'}');
       
       if (hasValidUser) {
-        me.accept(response);
+        me.accept(result);
         
         // Try to get role from session interactor
         final currentRole = model.role.value;
@@ -184,8 +198,8 @@ class ProfileWM extends WidgetModel<ProfileScreen, ProfileModel>
         print('No valid user profile data received');
         me.accept(null);
       }
-    } catch (e) {
-      print('Error fetching profile: $e');
+    } else {
+      print('Error fetching profile or no internet connection');
       me.accept(null);
     }
   }

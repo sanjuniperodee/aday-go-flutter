@@ -168,6 +168,7 @@ abstract class RestClient {
   Future<String> getPlaceDetail({
     @Query('lon') required double longitude,
     @Query('lat') required double latitude,
+    @Query('radius') double? radius,
   });
 
   @GET("v1/order-requests/find-by-name")

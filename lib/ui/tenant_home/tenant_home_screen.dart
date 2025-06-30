@@ -139,132 +139,38 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                     Positioned(
                       top: 32,
                       right: 32,
-                      child: Column(
-                        children: [
-                          // Кнопка управления режимом карты (показывается когда маршрут отображается)
-                          if (isRouteDisplayed)
-                            Container(
-                              margin: EdgeInsets.only(bottom: 8),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 8,
-                                    offset: Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: ClipOval(
-                                child: Material(
-                                  color: Colors.white,
-                                  child: InkWell(
-                                    onTap: () {
-                                      // Очищаем маршрут и разблокируем карту
-                                      wm.clearRoute();
-                                    },
-                                    child: Container(
-                                      width: 48,
-                                      height: 48,
-                                      child: Icon(
-                                        Icons.close,
-                                        color: Colors.red,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
                             ),
-                          // Кнопка "Моя локация"
-                          Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 8,
-                                  offset: Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: Material(
-                                color: Colors.white,
-                                child: InkWell(
-                                  onTap: () {
-                                    // Если маршрут отображается, сначала очищаем его
-                                    if (isRouteDisplayed) {
-                                      wm.clearRoute();
-                                    }
-                                    // Затем идем к моей локации
-                                    wm.getMyLocation();
-                                  },
-                                  child: Container(
-                                    width: 48,
-                                    height: 48,
-                                    child: Icon(
-                                      Icons.my_location,
-                                      color: primaryColor,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Route preview hint (shows briefly when route is drawn)
-                    if (isRouteDisplayed)
-                    Positioned(
-                      top: 90,
-                      left: 0,
-                      right: 0,
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0, end: 1),
-                        duration: Duration(milliseconds: 500),
-                        builder: (context, value, child) {
-                          return Opacity(
-                            opacity: value,
-                            child: child,
-                          );
-                        },
-                        child: Center(
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black12,
-                                  blurRadius: 8,
-                                  offset: Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.lock,
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Material(
+                            color: Colors.white,
+                            child: InkWell(
+                              onTap: () {
+                                // Если маршрут отображается, сначала очищаем его
+                                if (isRouteDisplayed) {
+                                  wm.clearRoute();
+                                }
+                                // Затем идем к моей локации
+                                wm.getMyLocation();
+                              },
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                child: Icon(
+                                  Icons.my_location,
                                   color: primaryColor,
-                                  size: 16,
                                 ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Режим просмотра маршрута',
-                                  style: TextStyle(
-                                    color: primaryColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),

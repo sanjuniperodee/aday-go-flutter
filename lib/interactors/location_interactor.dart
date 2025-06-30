@@ -96,95 +96,53 @@ class LocationInteractor extends ILocationInteractor {
   @override
   Future<geoLocator.Position?> getCurrentLocation() async {
     try {
-      print('🎯 Начинаем получение текущего местоположения...');
-      
-      // Сначала проверяем разрешения
-      geoLocator.LocationPermission permission = await geoLocator.Geolocator.checkPermission();
-      
-      if (permission == geoLocator.LocationPermission.denied) {
-        print('🔄 Разрешения отсутствуют, запрашиваем...');
-        permission = await geoLocator.Geolocator.requestPermission();
-        if (permission == geoLocator.LocationPermission.denied) {
-          print('❌ Не удалось получить разрешения');
-          return null;
-        }
-      }
-      
-      if (permission == geoLocator.LocationPermission.deniedForever) {
-        print('❌ Разрешения навсегда отклонены');
-        return null;
-      }
-      
-      // Проверяем что сервис включен
-      bool serviceEnabled = await geoLocator.Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        print('❌ Сервис геолокации отключен');
-        return null;
-      }
-      
-      print('✅ Разрешения и сервисы в порядке, получаем позицию...');
-      
-      // Получаем текущую позицию
-      if (Platform.isAndroid) {
-        final position = await geoLocator.Geolocator.getCurrentPosition(
-          locationSettings: geoLocator.LocationSettings(
-            accuracy: geoLocator.LocationAccuracy.high,
-            timeLimit: Duration(seconds: 15), // Таймаут 15 секунд
-          ),
-        );
-        
-        print('📍 Позиция получена: ${position.latitude}, ${position.longitude}');
+      // Сначала пробуем получить последнее известное местоположение (быстро)
+      final lastKnown = await geoLocator.Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        print('📍 Используем последнее известное местоположение: ${lastKnown.latitude}, ${lastKnown.longitude}');
         
         // Сохраняем в SharedPreferences
-        await sharedPreferences.setDouble('latitude', position.latitude);
-        await sharedPreferences.setDouble('longitude', position.longitude);
+        await sharedPreferences.setDouble('latitude', lastKnown.latitude);
+        await sharedPreferences.setDouble('longitude', lastKnown.longitude);
         
         // Обновляем состояние
-        userLocation.accept(LatLng(position.latitude, position.longitude));
+        userLocation.accept(LatLng(lastKnown.latitude, lastKnown.longitude));
         
-        return position;
-      } else {
-        // Для iOS пробуем сначала последнюю известную позицию
-        var position = await geoLocator.Geolocator.getLastKnownPosition();
+        // Запускаем получение актуальных координат в фоне
+        _getFreshLocation();
         
-        if (position == null) {
-          // Если нет последней позиции, получаем текущую
-          position = await geoLocator.Geolocator.getCurrentPosition(
-            locationSettings: geoLocator.LocationSettings(
-              accuracy: geoLocator.LocationAccuracy.high,
-              timeLimit: Duration(seconds: 15),
-            ),
-          );
-        }
-        
-        if (position != null) {
-          print('📍 Позиция получена: ${position.latitude}, ${position.longitude}');
-          
-          // Сохраняем в SharedPreferences
-          await sharedPreferences.setDouble('latitude', position.latitude);
-          await sharedPreferences.setDouble('longitude', position.longitude);
-          
-          // Обновляем состояние
-          userLocation.accept(LatLng(position.latitude, position.longitude));
-        }
-        
-        return position;
+        return lastKnown;
       }
+      
+      // Если нет последнего известного местоположения, получаем текущее
+      return await _getFreshLocation();
     } catch (e) {
       print('❌ Ошибка получения местоположения: $e');
+      return null;
+    }
+  }
+  
+  Future<geoLocator.Position?> _getFreshLocation() async {
+    try {
+      final position = await geoLocator.Geolocator.getCurrentPosition(
+        locationSettings: geoLocator.LocationSettings(
+          accuracy: geoLocator.LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5), // Уменьшаем таймаут до 5 секунд
+        ),
+      );
       
-      // В случае ошибки пробуем получить последнюю известную позицию
-      try {
-        final lastPosition = await geoLocator.Geolocator.getLastKnownPosition();
-        if (lastPosition != null) {
-          print('📍 Используем последнюю известную позицию: ${lastPosition.latitude}, ${lastPosition.longitude}');
-          userLocation.accept(LatLng(lastPosition.latitude, lastPosition.longitude));
-          return lastPosition;
-        }
-      } catch (e2) {
-        print('❌ Не удалось получить последнюю позицию: $e2');
-      }
+      print('📍 Получены актуальные координаты: ${position.latitude}, ${position.longitude}');
       
+      // Сохраняем в SharedPreferences
+      await sharedPreferences.setDouble('latitude', position.latitude);
+      await sharedPreferences.setDouble('longitude', position.longitude);
+      
+      // Обновляем состояние
+      userLocation.accept(LatLng(position.latitude, position.longitude));
+      
+      return position;
+    } catch (e) {
+      print('❌ Ошибка получения актуальных координат: $e');
       return null;
     }
   }

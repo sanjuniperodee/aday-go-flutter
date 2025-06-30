@@ -368,8 +368,8 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                               prefixIcon: Container(
                                 margin: EdgeInsets.only(left: 4, right: 8),
                                 child: Icon(
-                                  Icons.search,
-                                  color: primaryColor,
+                                Icons.search,
+                                color: primaryColor,
                                   size: 22,
                                 ),
                               ),
@@ -390,13 +390,13 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                             color: Colors.grey[600],
                                           ),
                                         ),
-                                        onPressed: () {
-                                          _textFieldController.clear();
-                                          setState(() {
-                                            _showDeleteButton = false;
-                                            _addressName = '';
-                                          });
-                                        },
+                                      onPressed: () {
+                                        _textFieldController.clear();
+                                        setState(() {
+                                          _showDeleteButton = false;
+                                          _addressName = '';
+                                        });
+                                      },
                                       ),
                                     )
                                   : null,
@@ -410,9 +410,9 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: Colors.grey[100]!,
-                                    width: 1,
+                                      width: 1,
+                                    ),
                                   ),
-                                ),
                                 child: Material(
                                   color: Colors.transparent,
                                   child: InkWell(
@@ -463,8 +463,8 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Icon(
-                                              Icons.place,
-                                              color: primaryColor,
+                                    Icons.place,
+                                    color: primaryColor,
                                               size: 18,
                                             ),
                                           ),
@@ -476,8 +476,8 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                               children: [
                                                 Text(
                                                   suggestion,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w500,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
                                                     fontSize: 15,
                                                     color: Colors.black87,
                                                   ),
@@ -485,8 +485,8 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
                                               ],
-                                            ),
-                                          ),
+                                    ),
+                                  ),
                                           Icon(
                                             Icons.arrow_outward,
                                             color: Colors.grey[400],
@@ -576,7 +576,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                 
                               } catch (e) {
                                 print('❌ Error handling address selection: $e');
-                                setState(() {
+                                  setState(() {
                                   _isAddressLoading = false;
                                 });
                                 
@@ -808,7 +808,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       painter: DottedLinePainter(),
     );
   }
-  
+
   // Location button handler
   Future<void> _goToMyLocation() async {
     if (userLocation != null && mapboxMapController != null) {
@@ -854,32 +854,41 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       await addImageFromAsset('point_a', 'assets/images/point_a.png', scale: 0.3);
       await addImageFromAsset('point_b', 'assets/images/point_b.png', scale: 0.3);
       
-      // ИСПРАВЛЕНО: Отключаем Location Component чтобы предотвратить автоматическое центрирование на GPS
+      // Отключаем Location Component чтобы предотвратить автоматическое центрирование на GPS
       await mapboxMapController?.location.updateSettings(
         LocationComponentSettings(
-          enabled: false,           // ← ОТКЛЮЧЕНО! Теперь маркер не будет магнититься
+          enabled: false,
           pulsingEnabled: false,
           showAccuracyRing: false,
           puckBearingEnabled: false,
         ),
       );
+      
       setState(() {
-        _locationComponentEnabled = false; // Обновляем состояние
+        _locationComponentEnabled = false;
         _isMapReady = true;
       });
       
       print('Map is ready, locationComponentEnabled: $_locationComponentEnabled');
       
-      // Important: fetch address for the CURRENT MARKER POSITION (not user location)
+      // Устанавливаем начальную позицию карты
+      if (currentPosition != null) {
+        await mapboxMapController?.flyTo(
+          CameraOptions(
+            center: Point(coordinates: currentPosition!),
+            zoom: _defaultZoom,
+          ),
+          MapAnimationOptions(duration: 500),
+        );
+        
+        // Получаем адрес для текущей позиции
       _fetchAddress(currentPosition!);
+      }
       
-      // Draw route if fromPosition is available
+      // Если есть fromPosition, рисуем маршрут
       if (widget.args.fromPosition != null && currentPosition != null) {
         print('fromPosition is available, drawing route...');
-        // Add a small delay to ensure the map is fully loaded
-        Future.delayed(Duration(milliseconds: 500), () {
           _drawRouteBetweenPoints();
-        });
       }
     } catch (e) {
       print('Error in onMapCreated: $e');
@@ -1366,39 +1375,65 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   }
   
   // Confirm button handler
-  void _onConfirmPressed() {
+  void _onConfirmPressed() async {
     if (currentPosition != null) {
       try {
-        print('Confirming location with address: $_addressName');
+        print('🎯 Подтверждение выбора местоположения...');
+        print('📍 Текущая позиция: ${currentPosition?.lat}, ${currentPosition?.lng}');
+        print('🏠 Название адреса: "$_addressName"');
+        print('📝 Текст в поле: "${_textFieldController.text}"');
         
         // Check if we have a valid address
         if (_addressName.isEmpty || _addressName == "Адрес не найден") {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Не удалось определить адрес, попробуйте переместить маркер')),
-          );
-          return;
+          // Попытаемся получить адрес еще раз
+          if (currentPosition != null) {
+            print('🔄 Повторная попытка получения адреса...');
+            await _fetchAddress(currentPosition!);
+            
+            // Ждем немного чтобы адрес успел загрузиться
+            await Future.delayed(Duration(milliseconds: 500));
+          }
+          
+          // Если адрес все еще пустой, используем координаты
+          if (_addressName.isEmpty || _addressName == "Адрес не найден") {
+            if (currentPosition != null) {
+              _addressName = "Выбранная точка (${currentPosition!.lat.toStringAsFixed(4)}, ${currentPosition!.lng.toStringAsFixed(4)})";
+              print('🔧 Используем координаты как адрес: "$_addressName"');
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Не удалось определить местоположение')),
+              );
+              return;
+            }
+          }
         }
         
-        // Get the final address to submit - prefer text field content if manually edited
-        String finalAddress = _textFieldController.text.isNotEmpty ? 
-            _textFieldController.text : _addressName;
-            
-        // Trim the address to avoid whitespace issues
-        finalAddress = finalAddress.trim();
+        // ИСПРАВЛЕНИЕ: Приоритет у адреса с карты (_addressName)
+        String finalAddress = _addressName.trim();
         
-        // Make sure we don't pass empty addresses
+        // Только если адрес с карты пустой, используем текстовое поле
+        if (finalAddress.isEmpty || finalAddress == "Адрес не найден") {
+          finalAddress = _textFieldController.text.trim();
+        }
+        
+        // Финальная проверка - если все еще пустое, используем координаты
+        if (finalAddress.isEmpty && currentPosition != null) {
+          finalAddress = "Выбранная точка (${currentPosition!.lat.toStringAsFixed(4)}, ${currentPosition!.lng.toStringAsFixed(4)})";
+        }
+        
+        // Убеждаемся что адрес не пустой
         if (finalAddress.isEmpty) {
-          finalAddress = "Выбранная точка";
+          finalAddress = "Выбранное место";
         }
             
-        print('Final address to submit: $finalAddress');
+        print('✅ Финальный адрес для передачи: "$finalAddress"');
         
         // Make sure the widget args onSubmit handler is actually called
         try {
           widget.args.onSubmit(currentPosition!, finalAddress);
-          print('Called onSubmit with position ${currentPosition!.lat},${currentPosition!.lng} and address: $finalAddress');
+          print('📤 Вызван onSubmit с позицией ${currentPosition!.lat},${currentPosition!.lng} и адресом: "$finalAddress"');
         } catch (e) {
-          print('Error in onSubmit callback: $e');
+          print('❌ Ошибка в onSubmit callback: $e');
         }
         
         // Navigate back with result
@@ -1408,7 +1443,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
           'shouldShowRoute': widget.args.fromPosition != null
         });
       } catch (e) {
-        print('Error in _onConfirmPressed: $e');
+        print('❌ Ошибка в _onConfirmPressed: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Произошла ошибка: $e')),
         );
@@ -1488,16 +1523,92 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     );
   }
 
-  // Update address name based on the current position
-  void _updateAddressName(geotypes.Position position) {
-    if (_lastFetchedPosition != null &&
-        _calculateDistance(_lastFetchedPosition!, position) < 10) {
-      // Skip if the position hasn't changed significantly
+  // Fetch address for a given position
+  Future<void> _fetchAddress(geotypes.Position position) async {
+    if (!_isMapReady || _isAddressLoading) {
       return;
     }
-    
-    // Call _fetchAddress instead of implementing the same logic twice
-    _fetchAddress(position);
+
+    // Prevent frequent updates while dragging
+    if (_debounceTimer?.isActive ?? false) {
+      _debounceTimer!.cancel();
+    }
+    _debounceTimer = Timer(Duration(milliseconds: 300), () async {
+      try {
+        setState(() {
+          _isAddressLoading = true;
+        });
+        
+        print('🔍 Получение адреса для позиции: ${position.lat}, ${position.lng}');
+        
+        final address = await inject<RestClient>().getPlaceDetail(
+          latitude: position.lat.toDouble(),
+          longitude: position.lng.toDouble(),
+          radius: 15.0, // Pass 15-meter radius
+        ).timeout(
+          Duration(seconds: 8), // Увеличиваем таймаут
+          onTimeout: () {
+            print('⏰ Таймаут получения адреса');
+            return ""; // Возвращаем пустую строку вместо null
+          },
+        );
+
+        if (mounted) {
+          String finalAddress;
+          
+          if (address != null && address.isNotEmpty && address != "Адрес не найден") {
+            finalAddress = address.trim();
+            print('✅ Получен адрес: "$finalAddress"');
+          } else {
+            // Fallback к координатам если адрес не найден
+            finalAddress = "Точка (${position.lat.toStringAsFixed(4)}, ${position.lng.toStringAsFixed(4)})";
+            print('⚠️ Адрес не найден, используем координаты: "$finalAddress"');
+          }
+          
+          setState(() {
+            _addressName = finalAddress;
+            _isAddressLoading = false;
+            currentPosition = position;
+            _lastFetchedPosition = position; // Update last fetched position
+          });
+          
+          // ИСПРАВЛЕНИЕ: Всегда обновляем текстовое поле полученным адресом
+          _textFieldController.text = finalAddress;
+          _showDeleteButton = finalAddress.isNotEmpty;
+        }
+      } catch (e) {
+        print('❌ Ошибка получения адреса: $e');
+        if (mounted) {
+          final fallbackAddress = "Точка (${position.lat.toStringAsFixed(4)}, ${position.lng.toStringAsFixed(4)})";
+          setState(() {
+            _addressName = fallbackAddress;
+            _isAddressLoading = false;
+            currentPosition = position;
+            _lastFetchedPosition = position;
+          });
+          
+          // ИСПРАВЛЕНИЕ: Всегда обновляем текстовое поле в fallback случае
+          _textFieldController.text = fallbackAddress;
+          _showDeleteButton = fallbackAddress.isNotEmpty;
+        }
+      }
+    });
+  }
+
+  // Show a brief animation for the pin dropping
+  Future<void> _showPinDropAnimation() async {
+    // Simple animation implementation
+    if (mounted) {
+      setState(() {
+        _isDragging = false;
+      });
+      
+      // Add haptic feedback
+      HapticFeedback.lightImpact();
+      
+      // You can add more sophisticated animation here if needed
+      await Future.delayed(Duration(milliseconds: 200));
+    }
   }
 
   // Calculate distance between two positions in meters
@@ -1581,7 +1692,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     } catch (e) {
       print('❌ Error getting suggestions: $e');
       suggestions.clear();
-      return [];
+    return [];
     }
   }
 
@@ -1606,15 +1717,10 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       // Request location permission if needed
       await inject<LocationInteractor>().requestLocation();
       
-      // Get current location - IMPORTANT: We'll only use this for initializing the map view,
-      // not for setting the marker position unless explicitly requested
+      // Get current location
       final location = await inject<LocationInteractor>().getCurrentLocation();
       if (location != null) {
         userLocation = geotypes.Position(location.longitude, location.latitude);
-        await inject<SharedPreferences>().setDouble('latitude', location.latitude);
-        await inject<SharedPreferences>().setDouble('longitude', location.longitude);
-        
-        print('Got user location: ${location.latitude}, ${location.longitude}');
         
         // Only set current position from user location if no position was provided
         if (widget.args.position == null) {
@@ -1851,73 +1957,6 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       print('❌ Error in fallback search: $e');
       setState(() {
         _isAddressLoading = false;
-      });
-    }
-  }
-
-  // Enhanced pin drop animation
-  Future<void> _showPinDropAnimation() async {
-    try {
-      // Trigger a brief drag state to show animation
-      setState(() {
-        _isDragging = true;
-      });
-      
-      await Future.delayed(Duration(milliseconds: 150));
-      
-      setState(() {
-        _isDragging = false;
-      });
-      
-      // Wait for animation to complete
-      await Future.delayed(Duration(milliseconds: 300));
-      
-    } catch (e) {
-      print('Error in pin drop animation: $e');
-    }
-  }
-
-  // Fetch address data for a specific position (the marker position)
-  Future<void> _fetchAddress(geotypes.Position position) async {
-    if (!mounted) return;
-    
-    try {
-      setState(() {
-        _isAddressLoading = true;
-      });
-      
-      print('Fetching address for position: ${position.lat}, ${position.lng}');
-      
-      final client = inject<RestClient>();
-      final placeName = await client.getPlaceDetail(
-        latitude: position.lat.toDouble(),
-        longitude: position.lng.toDouble(),
-      );
-      
-      if (!mounted) return;
-      
-      final addressText = placeName ?? "Адрес не найден";
-      print('Address fetched: $addressText');
-      
-      // Force UI update with the new address
-      setState(() {
-        _addressName = addressText;
-        _textFieldController.text = addressText;
-        _isAddressLoading = false;
-        _showDeleteButton = addressText != "Адрес не найден" && addressText.isNotEmpty;
-        _lastFetchedPosition = position;
-      });
-      
-      // Verify the text update took effect
-      print('UI updated with address: $_addressName, text field: ${_textFieldController.text}');
-    } catch (e) {
-      if (!mounted) return;
-      
-      print('Error fetching address: $e');
-      setState(() {
-        _isAddressLoading = false;
-        _addressName = "Ошибка получения адреса";
-        _textFieldController.text = "Ошибка получения адреса";
       });
     }
   }

@@ -1,7 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
 
 import 'package:aktau_go/domains/active_request/active_request_domain.dart';
 import 'package:aktau_go/forms/driver_registration_form.dart';
@@ -9,17 +6,12 @@ import 'package:aktau_go/interactors/profile_interactor.dart';
 import 'package:flutter/material.dart';
 import 'package:elementary/elementary.dart';
 import 'package:elementary_helper/elementary_helper.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:flutter/services.dart';
 
-import '../../core/colors.dart';
-import '../../core/images.dart';
-import '../../core/text_styles.dart';
 import '../../domains/driver_registered_category/driver_registered_category_domain.dart';
 import '../../domains/order_request/order_request_domain.dart';
 import '../../domains/user/user_domain.dart';
@@ -27,12 +19,11 @@ import '../../interactors/order_requests_interactor.dart';
 import '../../router/router.dart';
 import '../../utils/logger.dart';
 import '../../utils/utils.dart';
-import '../widgets/primary_bottom_sheet.dart';
-import '../widgets/primary_button.dart';
 import './widgets/order_request_bottom_sheet.dart';
 import './orders_model.dart';
 import './orders_screen.dart';
 import 'widgets/active_order_bottom_sheet.dart';
+import 'package:aktau_go/interactors/common/rest_client.dart';
 
 defaultOrdersWMFactory(BuildContext context) => OrdersWM(OrdersModel(
       inject<OrderRequestsInteractor>(),
@@ -41,101 +32,60 @@ defaultOrdersWMFactory(BuildContext context) => OrdersWM(OrdersModel(
 
 abstract class IOrdersWM implements IWidgetModel {
   StateNotifier<int> get tabIndex;
-
   StateNotifier<List<OrderRequestDomain>> get orderRequests;
-
-  StateNotifier<ActiveRequestDomain> get activeOrder;
-
+  StateNotifier<ActiveRequestDomain?> get activeOrder;
   StateNotifier<List<DriverRegisteredCategoryDomain>> get driverRegisteredCategories;
-
-  StateNotifier<UserDomain> get me;
-
+  StateNotifier<UserDomain?> get me;
   StateNotifier<bool> get showNewOrders;
-
   StateNotifier<bool> get isWebsocketConnected;
-
   StateNotifier<LocationPermission> get locationPermission;
-
   StateNotifier<DriverType> get orderType;
-
   StateNotifier<LatLng> get driverPosition;
-
   ValueNotifier<bool> get statusController;
-
   StateNotifier<bool> get isOrderRejected;
-
   StateNotifier<bool> get isWebSocketConnecting;
-
   StateNotifier<String?> get webSocketConnectionError;
 
-  StateNotifier<int> get tabIndexController;
-
-  StateNotifier<Position?> get driverPositionController;
-
-  StateNotifier<bool> get showNewOrdersController;
-
-  StateNotifier<bool?> get isWebsocketConnectedController;
-
   Future<void> fetchOrderRequests();
-
   Future<void> onOrderRequestTap(OrderRequestDomain e);
-
   void tapNewOrders();
-
   void requestLocationPermission();
-
   void registerOrderType();
-
   Future<void> initializeSocket();
 }
 
 class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
     with WidgetsBindingObserver
     implements IOrdersWM {
-  OrdersWM(
-    OrdersModel model,
-  ) : super(model);
+  OrdersWM(super.model);
 
   IO.Socket? newOrderSocket;
-
   StreamSubscription<Position>? onUserLocationChanged;
 
   @override
-  final StateNotifier<int> tabIndex = StateNotifier(
-    initValue: 0,
-  );
+  final StateNotifier<int> tabIndex = StateNotifier(initValue: 0);
 
   @override
   final ValueNotifier<bool> statusController = ValueNotifier(false);
 
   @override
-  final StateNotifier<bool> showNewOrders = StateNotifier(
-    initValue: false,
-  );
+  final StateNotifier<bool> showNewOrders = StateNotifier(initValue: false);
 
   @override
-  final StateNotifier<bool> isWebsocketConnected = StateNotifier(
-    initValue: false,
-  );
+  final StateNotifier<bool> isWebsocketConnected = StateNotifier(initValue: false);
 
   @override
-  final StateNotifier<bool> isOrderRejected = StateNotifier(
-    initValue: false,
-  );
+  final StateNotifier<bool> isOrderRejected = StateNotifier(initValue: false);
 
   @override
-  final StateNotifier<DriverType> orderType = StateNotifier(
-    initValue: DriverType.TAXI,
-  );
+  final StateNotifier<DriverType> orderType = StateNotifier(initValue: DriverType.TAXI);
 
   @override
   final StateNotifier<List<DriverRegisteredCategoryDomain>> driverRegisteredCategories =
-      StateNotifier(
-    initValue: const [],
-  );
+      StateNotifier(initValue: const []);
 
   @override
-  final StateNotifier<UserDomain> me = StateNotifier();
+  final StateNotifier<UserDomain?> me = StateNotifier();
 
   @override
   final StateNotifier<LatLng> driverPosition = StateNotifier(
@@ -145,9 +95,7 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
   ));
 
   @override
-  final StateNotifier<List<OrderRequestDomain>> orderRequests = StateNotifier(
-    initValue: const [],
-  );
+  final StateNotifier<List<OrderRequestDomain>> orderRequests = StateNotifier(initValue: const []);
 
   @override
   final StateNotifier<bool> isWebSocketConnecting = StateNotifier(initValue: false);
@@ -156,26 +104,18 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
   final StateNotifier<String?> webSocketConnectionError = StateNotifier();
 
   @override
-  final StateNotifier<int> tabIndexController = StateNotifier(initValue: 0);
-
-  @override
-  final StateNotifier<Position?> driverPositionController = StateNotifier();
-
-  @override
-  final StateNotifier<bool?> isWebsocketConnectedController = StateNotifier();
-
-  @override
-  final StateNotifier<bool> showNewOrdersController = StateNotifier();
-
-  @override
   final StateNotifier<LocationPermission> locationPermission = StateNotifier();
+
+  @override
+  final StateNotifier<ActiveRequestDomain?> activeOrder = StateNotifier();
+
+  // Separate non-nullable notifier for ActiveOrderBottomSheet
+  final StateNotifier<ActiveRequestDomain> _activeOrderNotifier = StateNotifier();
 
   @override
   void initWidgetModel() {
     super.initWidgetModel();
     fetchDriverRegisteredCategories();
-    // НЕ загружаем заказы при инициализации - только при включении кнопки "онлайн"
-    // fetchOrderRequests(); // УДАЛЕНО
     fetchUserProfile();
     fetchActiveOrder();
     
@@ -223,202 +163,133 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
         await disconnectWebsocket();
       }
     });
-    
-    // НЕ запускаем периодический polling - все через сокеты
-    // _startOrdersPolling(); // УДАЛЕНО
   }
 
   @override
   void dispose() {
     onUserLocationChanged?.cancel();
-    disconnectWebsocket(); // Good to disconnect too
+    disconnectWebsocket();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    // УБИРАЕМ ручное обновление при изменении состояния приложения
-    // fetchOrderRequests(); // УДАЛЕНО
-    // Only initialize socket if returning to foreground
-    if (state == AppLifecycleState.resumed && statusController.value) {
-      initializeSocket();
+  Future<void> _initializeLocationAndSocket() async {
+    try {
+      isWebSocketConnecting.accept(true);
+      webSocketConnectionError.accept(null);
+      
+      // Запрашиваем разрешение на геолокацию
+      await _requestLocationPermission();
+      
+      // Если разрешение получено, запускаем отслеживание
+      if ([LocationPermission.always, LocationPermission.whileInUse].contains(locationPermission.value)) {
+        await _startLocationTracking();
+      }
+      
+      isWebSocketConnecting.accept(false);
+    } catch (e) {
+      logger.e('❌ Ошибка инициализации: $e');
+      isWebSocketConnecting.accept(false);
+      webSocketConnectionError.accept('Ошибка инициализации: $e');
     }
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Обновляем заказы при возврате на страницу, если водитель онлайн
-    if (statusController.value && (isWebsocketConnected.value ?? false)) {
-      Future.delayed(Duration(milliseconds: 300), () {
-        if (context.mounted) {
-          fetchOrderRequests();
+  Future<void> _requestLocationPermission() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      locationPermission.accept(permission);
+    } catch (e) {
+      logger.e('❌ Ошибка запроса разрешения на геолокацию: $e');
+      locationPermission.accept(LocationPermission.denied);
+    }
+  }
+
+  Future<void> _startLocationTracking() async {
+    try {
+      if (![LocationPermission.always, LocationPermission.whileInUse].contains(locationPermission.value)) {
+        return;
+      }
+
+      // Получаем текущее местоположение
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      driverPosition.accept(LatLng(position.latitude, position.longitude));
+      
+      // Сохраняем координаты
+      await inject<SharedPreferences>().setDouble('latitude', position.latitude);
+      await inject<SharedPreferences>().setDouble('longitude', position.longitude);
+
+      // Запускаем отслеживание изменений
+      onUserLocationChanged?.cancel();
+      onUserLocationChanged = Geolocator.getPositionStream(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10, // Обновляем при перемещении на 10 метров
+        ),
+      ).listen((Position position) {
+        driverPosition.accept(LatLng(position.latitude, position.longitude));
+        
+        // Отправляем обновление местоположения через WebSocket
+        if (newOrderSocket != null && newOrderSocket!.connected) {
+          _sendLocationUpdate(position.latitude, position.longitude);
         }
       });
+
+      logger.i('✅ Отслеживание местоположения запущено');
+    } catch (e) {
+      logger.e('❌ Ошибка запуска отслеживания местоположения: $e');
     }
   }
 
-  Future<void> fetchDriverRegisteredCategories() async {
+  Future<void> _ensureLocationAndSocket() async {
     try {
-      final response = await inject<ProfileInteractor>().fetchDriverRegisteredCategories();
-
-      driverRegisteredCategories.accept(response);
-    } on Exception catch (e) {
-      logger.e(e);
-    }
-  }
-
-  @override
-  Future<void> fetchOrderRequests() async {
-    try {
-      final response = await model.getOrderRequests(
-        type: orderType.value!,
-      );
-      orderRequests.accept(response);
-      showNewOrders.accept(false);
-    } on Exception catch (e) {
-      logger.e(e);
-    }
-  }
-
-  @override
-  Future<void> onOrderRequestTap(OrderRequestDomain e) async {
-    await showModalBottomSheet(
-      context: context,
-      isDismissible: true,
-      enableDrag: false,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => OrderRequestBottomSheet(
-        orderRequest: e,
-        onAccept: () async {
-          await acceptOrderRequest(e);
-          Routes.router.popUntil((predicate) => predicate.isFirst);
-          // УБИРАЕМ ручное обновление - все через сокеты
-          // fetchOrderRequests(); // УДАЛЕНО
-        },
-      ),
-    );
-  }
-
-  Future<void> acceptOrderRequest(OrderRequestDomain orderRequest) async {
-    await model.acceptOrderRequest(
-      driver: me.value!,
-      orderRequest: orderRequest,
-    );
-
-    fetchActiveOrder();
-  }
-
-  Future<void> fetchUserProfile() async {
-    try {
-      final response = await model.getUserProfile();
-
-      me.accept(response);
-
-      if (statusController.value) {
-        await initializeSocket();
+      if (newOrderSocket == null || !newOrderSocket!.connected) {
+        await initializeWebsocket();
       }
-    } on Exception catch (e) {
-      logger.e(e);
-      // Don't call fetchUserProfile recursively as it can cause an infinite loop
-      Future.delayed(Duration(seconds: 5), fetchUserProfile);
+    } catch (e) {
+      logger.e('❌ Ошибка обеспечения подключения: $e');
+      webSocketConnectionError.accept('Ошибка подключения: $e');
     }
-  }
-
-  @override
-  final StateNotifier<ActiveRequestDomain> activeOrder = StateNotifier();
-
-  void fetchActiveOrder({
-    bool openBottomSheet = true,
-  }) async {
-    try {
-      final response = await model.getActiveOrder();
-      await fetchUserProfile();
-      activeOrder.accept(response);
-      if (openBottomSheet) {
-        showModalBottomSheet(
-          context: context,
-          isDismissible: false,
-          enableDrag: false,
-          isScrollControlled: true,
-          useSafeArea: true,
-          builder: (context) => ActiveOrderBottomSheet(
-            me: me.value!,
-            activeOrder: activeOrder.value!,
-            activeOrderListener: activeOrder,
-            onCancel: () {},
-          ),
-        );
-      }
-    } on Exception catch (e) {
-      logger.e(e);
-      if (!openBottomSheet) {
-        Navigator.of(context).popUntil(
-          (predicate) => predicate.isFirst,
-        );
-        final snackBar = SnackBar(
-          content: Text(
-            'Заказ был отменен',
-          ),
-        );
-        fetchOrderRequests();
-        ScaffoldMessenger.of(context).showSnackBar(snackBar);
-      }
-    }
-  }
-
-  @override
-  void tapNewOrders() {
-    showNewOrders.accept(false);
-    // Обновляем список заказов по запросу пользователя
-    fetchOrderRequests();
   }
 
   @override
   Future<void> initializeSocket() async {
+    await initializeWebsocket();
+  }
+
+  Future<void> initializeWebsocket() async {
     try {
-      // ДОБАВЛЕНО: Показываем состояние загрузки
       isWebSocketConnecting.accept(true);
       webSocketConnectionError.accept(null);
       
-      // Проверяем данные для подключения
       if (me.value == null) {
-        logger.e('❌ Профиль водителя не найден');
+        logger.e('❌ Профиль пользователя не загружен');
+        webSocketConnectionError.accept('Профиль пользователя не загружен');
         isWebSocketConnecting.accept(false);
-        webSocketConnectionError.accept('Профиль водителя не найден');
         return;
       }
-      
-      // Проверяем разрешения на геолокацию
-      if (![LocationPermission.always, LocationPermission.whileInUse].contains(locationPermission.value)) {
-        logger.e('❌ Нет разрешений на геолокацию');
-        isWebSocketConnecting.accept(false);
-        webSocketConnectionError.accept('Нет разрешений на геолокацию');
-        return;
-      }
-      
-      // Проверяем наличие координат
-      if (driverPosition.value == null) {
-        logger.e('❌ Местоположение водителя недоступно');
-        isWebSocketConnecting.accept(false);
-        webSocketConnectionError.accept('Местоположение недоступно');
-        return;
-      }
-      
-      // Отключаем существующий сокет если есть
-      await disconnectWebsocket();
-      
-      // Генерируем или получаем sessionId
-      final sessionId = await inject<SharedPreferences>().getString('session_id') ?? generateUUID();
-      logger.i('📍 SessionId: $sessionId');
-      final driverId = me.value?.id ?? '';
-      logger.i('📍 DriverId: $driverId');
+
+      final driverId = me.value!.id;
+      final sessionId = inject<SharedPreferences>().getString('session_id') ?? 
+                       DateTime.now().millisecondsSinceEpoch.toString();
       final position = driverPosition.value;
-      logger.i('📍 Position: ${position?.latitude}, ${position?.longitude}');
+
+      logger.i('🔌 Инициализация WebSocket...');
+      logger.i('📍 Параметры: driverId=$driverId, sessionId=$sessionId');
       
-      // ИСПРАВЛЯЕМ: Используем правильную конфигурацию сокета для продакшна
+      // Отключаем существующее соединение
+      if (newOrderSocket != null) {
+        newOrderSocket!.close();
+        newOrderSocket = null;
+      }
+
+      // Создаем новое соединение
       newOrderSocket = IO.io(
         'ws://taxi.aktau-go.kz',
         <String, dynamic>{
@@ -434,8 +305,8 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
             'userId': driverId,
             'driverId': driverId,
             'sessionId': sessionId,
-            'lat': position?.latitude?.toString() ?? '0',
-            'lng': position?.longitude?.toString() ?? '0',
+            'lat': position?.latitude.toString() ?? '0',
+            'lng': position?.longitude.toString() ?? '0',
             'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
           },
         },
@@ -444,175 +315,87 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       // Настройка обработчиков событий
       _setupSocketEventHandlers();
       
-      // ВАЖНО: Подключаемся после настройки обработчиков
+      // Подключаемся после настройки обработчиков
       newOrderSocket!.connect();
       
       logger.i('🔌 Сокет создан и подключается...');
       logger.i('📍 Параметры подключения: userType=driver, userId=$driverId, sessionId=$sessionId');
       
       // Сохраняем sessionId если его не было
-      if (!(await inject<SharedPreferences>().containsKey('session_id'))) {
+      if (!inject<SharedPreferences>().containsKey('session_id')) {
         await inject<SharedPreferences>().setString('session_id', sessionId);
       }
       
     } catch (e) {
-      logger.e('❌ Ошибка инициализации сокета: $e');
-      isWebsocketConnected.accept(false);
+      logger.e('❌ Ошибка инициализации WebSocket: $e');
       isWebSocketConnecting.accept(false);
-      webSocketConnectionError.accept('Ошибка подключения: ${e.toString()}');
+      webSocketConnectionError.accept('Ошибка подключения: $e');
+      isWebsocketConnected.accept(false);
     }
   }
-  
-  // Настройка обработчиков событий сокета
+
   void _setupSocketEventHandlers() {
     if (newOrderSocket == null) return;
-    
-    // Очищаем все старые обработчики
-    newOrderSocket!.clearListeners();
-    
-    // Обработчик успешного подключения
-    newOrderSocket!.onConnect((_) {
-      logger.i('✅ Сокет успешно подключен');
+
+    // Подключение установлено
+    newOrderSocket!.onConnect((data) {
+      logger.i('✅ WebSocket подключен');
       isWebsocketConnected.accept(true);
-      isWebSocketConnecting.accept(false);  // ДОБАВЛЕНО: Убираем индикатор загрузки
-      webSocketConnectionError.accept(null); // ДОБАВЛЕНО: Очищаем ошибки
+      isWebSocketConnecting.accept(false);
+      webSocketConnectionError.accept(null);
       
-      // ИСПРАВЛЯЕМ: Отправляем корректные данные водителя при подключении
-      if (me.value != null && driverPosition.value != null) {
-        try {
-          // Отправляем информацию о водителе онлайн с задержкой для стабильности
-          Future.delayed(Duration(milliseconds: 500), () {
-            if (newOrderSocket != null && (newOrderSocket!.connected ?? false)) {
-              newOrderSocket!.emit('driverOnline', {
-                'driverId': me.value!.id,
-                'userId': me.value!.id,
-                'userType': 'driver',
-                'lat': driverPosition.value!.latitude,
-                'lng': driverPosition.value!.longitude,
-                'timestamp': DateTime.now().millisecondsSinceEpoch,
-                'status': 'online',
-              });
-              logger.i('📡 Отправлена информация о водителе онлайн');
-              
-              // Отправляем координаты отдельно для регистрации в кеше
-              _sendLocationUpdate(
-                driverPosition.value!.latitude, 
-                driverPosition.value!.longitude
-              );
-            }
-          });
-        } catch (e) {
-          logger.e('❌ Ошибка отправки driverOnline: $e');
-        }
-      } else {
-        logger.w('⚠️ Данные водителя или позиция недоступны при подключении');
+      // Отправляем текущие координаты при подключении
+      if (driverPosition.value != null) {
+        _sendLocationUpdate(
+          driverPosition.value!.latitude,
+          driverPosition.value!.longitude,
+        );
       }
     });
-    
-    // Обработчик отключения
-    newOrderSocket!.onDisconnect((reason) {
-      logger.w('🔌 Сокет отключен: $reason');
+
+    // Соединение разорвано
+    newOrderSocket!.onDisconnect((data) {
+      logger.i('🔄 WebSocket отключен: $data');
       isWebsocketConnected.accept(false);
-      isWebSocketConnecting.accept(false);  // ДОБАВЛЕНО: Убираем индикатор загрузки
-      
-      // УЛУЧШЕННАЯ логика переподключения
-      if (statusController.value && reason != 'io client disconnect') {
-        logger.i('🔄 Попытка автоматического переподключения...');
-        
-        // Увеличиваем задержку для стабильности в продакшне
-        Future.delayed(Duration(seconds: 5), () {
-          if (statusController.value && 
-              !(isWebsocketConnected.value ?? false) &&
-              me.value != null &&
-              driverPosition.value != null) {
-            initializeSocket();
-          }
-        });
-      }
+      isWebSocketConnecting.accept(false);
     });
-    
-    // Обработчик ошибок подключения
-    newOrderSocket!.onConnectError((error) {
-      logger.e('❌ Ошибка подключения сокета: $error');
+
+    // Ошибка соединения
+    newOrderSocket!.onError((data) {
+      logger.e('❌ Ошибка WebSocket: $data');
       isWebsocketConnected.accept(false);
-      isWebSocketConnecting.accept(false);  // ДОБАВЛЕНО: Убираем индикатор загрузки
-      webSocketConnectionError.accept('Ошибка подключения: ${error.toString()}'); // ДОБАВЛЕНО: Показываем ошибку
-      
-      // ДОБАВЛЯЕМ: Retry с увеличенной задержкой при ошибке
-      if (statusController.value) {
-        Future.delayed(Duration(seconds: 10), () {
-          if (statusController.value && !(isWebsocketConnected.value ?? false)) {
-            logger.i('🔄 Повторная попытка подключения после ошибки...');
-            initializeSocket();
-          }
-        });
-      }
+      isWebSocketConnecting.accept(false);
+      webSocketConnectionError.accept('Ошибка соединения: $data');
     });
-    
-    // Обработчик переподключения
-    newOrderSocket!.onReconnect((attempt) {
-      logger.i('🔄 Сокет переподключился (попытка $attempt)');
+
+    // Попытка переподключения
+    newOrderSocket!.onReconnectAttempt((attemptNumber) {
+      logger.i('🔄 Попытка переподключения #$attemptNumber');
+      isWebSocketConnecting.accept(true);
+      webSocketConnectionError.accept('Переподключение...');
+    });
+
+    // Успешное переподключение
+    newOrderSocket!.onReconnect((data) {
+      logger.i('✅ WebSocket переподключен');
       isWebsocketConnected.accept(true);
-      
-      // При переподключении заново отправляем статус онлайн
-      if (me.value != null && driverPosition.value != null) {
-        Future.delayed(Duration(milliseconds: 1000), () {
-          if (newOrderSocket != null && (newOrderSocket!.connected ?? false)) {
-            newOrderSocket!.emit('driverOnline', {
-              'driverId': me.value!.id,
-              'userId': me.value!.id,
-              'userType': 'driver',
-              'lat': driverPosition.value!.latitude,
-              'lng': driverPosition.value!.longitude,
-              'timestamp': DateTime.now().millisecondsSinceEpoch,
-              'status': 'online',
-            });
-            logger.i('📡 Статус онлайн восстановлен после переподключения');
-          }
-        });
-      }
+      isWebSocketConnecting.accept(false);
+      webSocketConnectionError.accept(null);
     });
-    
-    // Обработчик ошибок переподключения
-    newOrderSocket!.onReconnectError((error) {
-      logger.e('❌ Ошибка переподключения: $error');
-      isWebsocketConnected.accept(false);
-    });
-    
-    // === ОБРАБОТЧИКИ СОБЫТИЙ ЗАКАЗОВ ===
-    
+
     // Новый заказ
     newOrderSocket!.on('newOrder', (data) {
-      logger.i('📦 Получено событие newOrder: $data');
-      
-      // Показываем индикатор новых заказов
-      showNewOrders.accept(true);
-      
-      // Обновляем список заказов если водитель онлайн
-      if (statusController.value) {
-        Future.delayed(Duration(milliseconds: 100), () {
-          if (context.mounted) {
-            fetchOrderRequests();
-          }
-        });
-      }
+      logger.i('🚗 Получен новый заказ: $data');
+      _handleNewOrder(data);
     });
-    
-    // Заказ принят другим водителем
-    newOrderSocket!.on('orderTaken', (data) {
-      logger.i('👤 Заказ принят другим водителем: $data');
-      
-      // Обновляем список заказов если водитель онлайн
-      if (statusController.value) {
-        Future.delayed(Duration(milliseconds: 100), () {
-          if (context.mounted) {
-            fetchOrderRequests();
-          }
-        });
-      }
+
+    // Обновление заказа
+    newOrderSocket!.on('orderUpdated', (data) {
+      logger.i('📝 Обновление заказа: $data');
+      _handleOrderUpdate(data);
     });
-    
-    // Заказ принят мной (текущим водителем)
+
+    // Заказ принят мной
     newOrderSocket!.on('orderAcceptedByMe', (data) {
       logger.i('✅ Я успешно принял заказ: $data');
       
@@ -632,156 +415,45 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
         }
       });
     });
-    
+
     // Заказ отклонен клиентом
     newOrderSocket!.on('orderRejected', (data) async {
       logger.i('❌ Получено событие orderRejected: $data');
       
-      // Обновляем список заказов если водитель онлайн
-      if (statusController.value) {
-        Future.delayed(Duration(milliseconds: 100), () {
-          if (context.mounted) {
-            fetchOrderRequests();
-          }
-        });
-      }
-      
-      if (isOrderRejected.value == false && context.mounted) {
-        isOrderRejected.accept(true);
-        
-        try {
-          await showModalBottomSheet(
-            context: context,
-            isDismissible: true,
-            isScrollControlled: true,
-            builder: (context) => PrimaryBottomSheet(
-              contentPadding: EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  const SizedBox(height: 10),
-                  Center(
-                    child: Container(
-                      width: 38,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: greyscale30,
-                        borderRadius: BorderRadius.circular(1.4),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SvgPicture.asset(icPlacemarkError),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Text(
-                      'Поездка отклонена клиентом',
-                      style: text500Size20Greyscale90,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrimaryButton.primary(
-                      onPressed: () async {
-                        isOrderRejected.accept(false);
-                        fetchActiveOrder(openBottomSheet: false);
-                        Navigator.of(context).pop();
-                      },
-                      text: 'Закрыть',
-                      textStyle: text400Size16White,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          );
-        } catch (e) {
-          logger.e('❌ Ошибка показа уведомления об отклонении: $e');
-          isOrderRejected.accept(false);
-        }
-      }
-    });
-    
-    // Заказ обновлен
-    newOrderSocket!.on('orderUpdated', (data) {
-      logger.i('🔄 Заказ обновлен: $data');
-      
-      // Обновляем список заказов если водитель онлайн
-      if (statusController.value) {
-        Future.delayed(Duration(milliseconds: 100), () {
-          if (context.mounted) {
-            fetchOrderRequests();
-          }
-        });
-      }
-      
-      // Если это активный заказ - обновляем его тоже
-      if (activeOrder.value != null) {
-        fetchActiveOrder(openBottomSheet: false);
-      }
-    });
-    
-    // Заказ отменен клиентом
-    newOrderSocket!.on('orderCancelled', (data) {
-      logger.i('🚫 Заказ отменен клиентом: $data');
-      
-      // Обновляем список заказов если водитель онлайн
-      if (statusController.value) {
-        Future.delayed(Duration(milliseconds: 100), () {
-          if (context.mounted) {
-            fetchOrderRequests();
-          }
-        });
-      }
-      
-      // Если это наш активный заказ - показываем уведомление
       try {
-        if (activeOrder.value != null && 
-            data != null && 
-            data is Map && 
-            data.containsKey('id') && 
-            activeOrder.value!.orderRequest?.id.toString() == data['id'].toString()) {
-          
+        // Закрываем все открытые модальные окна
+        if (context.mounted) {
           Navigator.of(context).popUntil((route) => route.isFirst);
-          
+        }
+        
+        // Показываем уведомление об отклонении
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Клиент отменил заказ'),
-              backgroundColor: Colors.orange,
+              content: Text('Заказ был отклонен клиентом'),
+              backgroundColor: Colors.red,
               duration: Duration(seconds: 3),
             ),
           );
-          
-          activeOrder.accept(ActiveRequestDomain());
         }
+        
+        // Обновляем список заказов
+        await fetchOrderRequests();
+        
+        // Очищаем активный заказ
+        activeOrder.accept(null);
+        
       } catch (e) {
-        logger.e('❌ Ошибка обработки отмены заказа: $e');
+        logger.e('❌ Ошибка обработки отклонения заказа: $e');
       }
     });
-    
-    // Заказ удален
-    newOrderSocket!.on('orderDeleted', (data) {
-      logger.i('🗑️ Заказ удален: $data');
-      
-      // Обновляем список заказов если водитель онлайн
-      if (statusController.value) {
-        Future.delayed(Duration(milliseconds: 100), () {
-          if (context.mounted) {
-            fetchOrderRequests();
-          }
-        });
-      }
-    });
-    
-    // ДОБАВЛЯЕМ: Обработчик завершения поездки
+
+    // Завершение поездки
     newOrderSocket!.on('rideEnded', (data) {
       logger.i('🏁 Поездка завершена: $data');
       
       // Очищаем активный заказ
-      activeOrder.accept(ActiveRequestDomain());
+      activeOrder.accept(null);
       
       // Обновляем список заказов если водитель онлайн
       if (statusController.value) {
@@ -803,200 +475,199 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
         );
       }
     });
-    
-    // Подтверждение получения события
-    newOrderSocket!.on('eventAck', (data) {
-      logger.i('✅ Подтверждение события: $data');
-    });
-    
-    // ДОБАВЛЯЕМ: Обработчик подтверждения соединения
-    newOrderSocket!.on('connectionConfirmed', (data) {
-      logger.i('✅ Подключение подтверждено сервером: $data');
-      isWebsocketConnected.accept(true);
-    });
-    
-    logger.i('🎯 Все обработчики событий настроены');
   }
 
-  @override
-  Future<void> disconnectWebsocket() async {
+  void _sendLocationUpdate(double latitude, double longitude) {
     try {
-      if (newOrderSocket != null) {
-        logger.i('🔌 Отключаем сокет...');
-        
-        // Отправляем информацию о том, что водитель офлайн
-        if ((newOrderSocket!.connected ?? false) && me.value != null) {
-          try {
-            newOrderSocket!.emit('driverOffline', {
-              'driverId': me.value!.id,
-              'userId': me.value!.id,          // Дублируем как userId
-              'userType': 'driver',            // Подтверждаем тип пользователя
-              'timestamp': DateTime.now().millisecondsSinceEpoch,
-              'status': 'offline',             // Статус водителя
-            });
-            logger.i('📡 Отправлена информация о водителе офлайн');
-            
-            // Даем время серверу обработать сообщение
-            await Future.delayed(Duration(milliseconds: 500));
-          } catch (e) {
-            logger.e('❌ Ошибка отправки driverOffline: $e');
-          }
-        }
-        
-        // Очищаем обработчики
-        newOrderSocket!.clearListeners();
-        
-        // Отключаем сокет
-        newOrderSocket!.disconnect();
-        newOrderSocket!.dispose();
-        newOrderSocket = null;
-        
-        logger.i('✅ Сокет отключен и очищен');
+      if (newOrderSocket != null && newOrderSocket!.connected) {
+        newOrderSocket!.emit('updateLocation', {
+          'latitude': latitude,
+          'longitude': longitude,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+        logger.d('📍 Отправлено обновление местоположения: $latitude, $longitude');
       }
-      
-      isWebsocketConnected.accept(false);
     } catch (e) {
-      logger.e('❌ Ошибка при отключении сокета: $e');
-      isWebsocketConnected.accept(false);
+      logger.e('❌ Ошибка отправки обновления местоположения: $e');
     }
   }
 
-  @override
-  Future<void> requestLocationPermission() async {
-    final permission = await Geolocator.requestPermission();
-    locationPermission.accept(permission);
-    
-    if ([LocationPermission.always, LocationPermission.whileInUse].contains(permission)) {
-      // Автоматически включаем онлайн режим ТОЛЬКО при явном запросе разрешений пользователем
-      statusController.value = true;
-      await _startLocationTracking();
-    }
-  }
-
-  @override
-  Future<void> registerOrderType() async {
-    await Routes.router.navigate(Routes.driverRegistrationScreen);
-    await fetchDriverRegisteredCategories();
-    // УБИРАЕМ ручное обновление - заказы обновятся автоматически если водитель онлайн
-    // await fetchOrderRequests(); // УДАЛЕНО
-  }
-
-  // Инициализация геолокации и сокета при запуске
-  Future<void> _initializeLocationAndSocket() async {
-    final permission = await Geolocator.checkPermission();
-    locationPermission.accept(permission);
-    
-    if (![LocationPermission.always, LocationPermission.whileInUse].contains(permission)) {
-      // Автоматически запрашиваем разрешение
-      final newPermission = await Geolocator.requestPermission();
-      locationPermission.accept(newPermission);
-    }
-    
-    // ИСПРАВЛЯЕМ: НЕ включаем автоматически онлайн режим при запуске
-    // Пользователь должен сам включить переключатель
-    // if ([LocationPermission.always, LocationPermission.whileInUse].contains(locationPermission.value)) {
-    //   statusController.value = true;
-    //   await _startLocationTracking();
-    // }
-    
-    // Просто инициализируем отслеживание местоположения если разрешения есть
-    if ([LocationPermission.always, LocationPermission.whileInUse].contains(locationPermission.value)) {
-      await _startLocationTracking();
-    }
-  }
-
-  // Обеспечиваем геолокацию и сокет при включении онлайн режима
-  Future<void> _ensureLocationAndSocket() async {
-    if ([LocationPermission.always, LocationPermission.whileInUse].contains(locationPermission.value)) {
-      await _startLocationTracking();
-      await initializeSocket();
-    }
-  }
-
-  // Запуск отслеживания местоположения
-  Future<void> _startLocationTracking() async {
-    // Отменяем предыдущее отслеживание если есть
-    onUserLocationChanged?.cancel();
-    
+  void _handleNewOrder(dynamic orderData) {
     try {
-      // Получаем текущее местоположение
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      
-      // Сохраняем в SharedPreferences
-      final prefs = inject<SharedPreferences>();
-      await prefs.setDouble('latitude', position.latitude);
-      await prefs.setDouble('longitude', position.longitude);
-      
-      // Обновляем состояние
-      driverPosition.accept(LatLng(position.latitude, position.longitude));
-      
-      // ДОБАВЛЯЕМ: Отправляем координаты на сервер
-      _sendLocationUpdate(position.latitude, position.longitude);
-      
-      // Начинаем отслеживание изменений
-      onUserLocationChanged = Geolocator.getPositionStream(
-        locationSettings: LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 10, // Обновляем только при изменении на 10+ метров
-        ),
-      ).listen((Position position) async {
-        await prefs.setDouble('latitude', position.latitude);
-        await prefs.setDouble('longitude', position.longitude);
-        driverPosition.accept(LatLng(position.latitude, position.longitude));
-        
-        // ДОБАВЛЯЕМ: Отправляем обновленные координаты на сервер
-        _sendLocationUpdate(position.latitude, position.longitude);
-      });
+      fetchOrderRequests();
+      _showNewOrderNotification();
+      showNewOrders.accept(true);
+      HapticFeedback.heavyImpact();
     } catch (e) {
-      logger.e('Error getting location: $e');
+      logger.e('❌ Ошибка обработки нового заказа: $e');
     }
   }
   
-  // УЛУЧШЕННЫЙ МЕТОД: Отправка координат на сервер
-  void _sendLocationUpdate(double latitude, double longitude) {
+  void _handleOrderUpdate(dynamic orderData) {
     try {
-      if (newOrderSocket != null && 
-          (newOrderSocket!.connected ?? false) && 
-          statusController.value && 
-          me.value != null) {
-        
-        // Отправляем с дополнительными параметрами для совместимости
-        newOrderSocket!.emit('driverLocationUpdate', {
-          'driverId': me.value!.id,
-          'userId': me.value!.id,          // Дублируем как userId 
-          'userType': 'driver',            // Подтверждаем тип пользователя
-          'lat': latitude,
-          'lng': longitude,
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-          'status': 'online',              // Статус водителя
-        });
-        
-        logger.i('📍 Координаты отправлены на сервер: $latitude, $longitude');
-      } else {
-        logger.w('⚠️ Не могу отправить координаты: сокет отключен или водитель оффлайн');
+      fetchOrderRequests();
+      fetchActiveOrder(openBottomSheet: false);
+    } catch (e) {
+      logger.e('❌ Ошибка обработки обновления заказа: $e');
+    }
+  }
+  
+  Future<void> _showNewOrderNotification() async {
+    try {
+      // Показываем простое уведомление в приложении
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🚗 Новый заказ!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
-      logger.e('❌ Ошибка отправки координат: $e');
+      logger.e('❌ Ошибка отображения уведомления о новом заказе: $e');
     }
   }
 
-  // Генерация UUID для sessionId
-  String generateUUID() {
-    final random = Random();
-    final bytes = List<int>.generate(16, (i) => random.nextInt(256));
-    
-    // Устанавливаем версию (4) и вариант
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    
-    return [
-      bytes.sublist(0, 4),
-      bytes.sublist(4, 6),
-      bytes.sublist(6, 8),
-      bytes.sublist(8, 10),
-      bytes.sublist(10, 16),
-    ].map((part) => part.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join()).join('-');
+  @override
+  Future<void> fetchOrderRequests() async {
+    try {
+      final orderTypeValue = orderType.value;
+      if (orderTypeValue == null) return;
+      
+      final response = await model.getOrderRequests(
+        type: orderTypeValue,
+      );
+      orderRequests.accept(response);
+      showNewOrders.accept(false);
+    } on Exception catch (e) {
+      logger.e(e);
+    }
   }
-}
+
+  @override
+  Future<void> onOrderRequestTap(OrderRequestDomain e) async {
+    await showModalBottomSheet(
+      context: context,
+      isDismissible: true,
+      enableDrag: false,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => OrderRequestBottomSheet(
+        orderRequest: e,
+        onAccept: () async {
+          await acceptOrderRequest(e);
+          Routes.router.popUntil((predicate) => predicate.isFirst);
+        },
+      ),
+    );
+  }
+
+  Future<void> acceptOrderRequest(OrderRequestDomain orderRequest) async {
+    final meValue = me.value;
+    if (meValue == null) return;
+    
+    await model.acceptOrderRequest(
+      driver: meValue,
+      orderRequest: orderRequest,
+    );
+
+    fetchActiveOrder();
+  }
+
+  @override
+  void tapNewOrders() {
+    showNewOrders.accept(false);
+    fetchOrderRequests();
+  }
+
+  @override
+  void requestLocationPermission() async {
+    try {
+      await _requestLocationPermission();
+      
+      // После получения разрешения запускаем отслеживание
+      if ([LocationPermission.always, LocationPermission.whileInUse].contains(locationPermission.value)) {
+        await _startLocationTracking();
+      }
+    } catch (e) {
+      logger.e('❌ Ошибка запроса разрешения на геолокацию: $e');
+    }
+  }
+
+  @override
+  void registerOrderType() {
+    // Открываем страницу регистрации водителя
+    Routes.router.navigate('/driver-registration');
+  }
+
+  void fetchActiveOrder({bool openBottomSheet = true}) async {
+    try {
+      final response = await model.getActiveOrder();
+      if (response != null) {
+        activeOrder.accept(response);
+        _activeOrderNotifier.accept(response);
+        
+        final meValue = me.value;
+        if (openBottomSheet && context.mounted && meValue != null) {
+          showModalBottomSheet(
+            context: context,
+            isDismissible: false,
+            enableDrag: false,
+            isScrollControlled: true,
+            useSafeArea: true,
+            builder: (context) => ActiveOrderBottomSheet(
+              me: meValue,
+              activeOrder: response,
+              activeOrderListener: _activeOrderNotifier,
+              onCancel: () {},
+            ),
+          );
+        }
+      } else {
+        // Если нет активного заказа
+        activeOrder.accept(null);
+      }
+    } catch (e) {
+      logger.e('❌ Ошибка получения активного заказа: $e');
+      activeOrder.accept(null);
+    }
+  }
+  
+  Future<void> fetchDriverRegisteredCategories() async {
+    try {
+      final response = await inject<ProfileInteractor>().fetchDriverRegisteredCategories();
+      driverRegisteredCategories.accept(response);
+    } catch (e) {
+      logger.e('❌ Ошибка получения списка зарегистрированных категорий: $e');
+    }
+  }
+
+  Future<void> fetchUserProfile() async {
+    try {
+      final userProfile = await inject<RestClient>().getUserProfile();
+      if (userProfile != null) {
+        final userDomain = UserDomain(
+          id: userProfile.id,
+          firstName: userProfile.firstName,
+          lastName: userProfile.lastName,
+          phone: userProfile.phone,
+        );
+        me.accept(userDomain);
+      }
+    } catch (e) {
+      logger.e('❌ Ошибка загрузки профиля пользователя: $e');
+    }
+  }
+
+  Future<void> disconnectWebsocket() async {
+    try {
+      newOrderSocket?.close();
+      newOrderSocket = null;
+      isWebsocketConnected.accept(false);
+      logger.i('🔄 WebSocket отключен');
+    } catch (e) {
+      logger.e('❌ Ошибка отключения WebSocket: $e');
+    }
+  }
+} 

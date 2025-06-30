@@ -14,6 +14,7 @@ import 'package:aktau_go/ui/widgets/primary_dropdown.dart';
 import 'package:aktau_go/ui/widgets/rounded_text_field.dart';
 import 'package:aktau_go/utils/text_editing_controller.dart';
 import 'package:aktau_go/utils/utils.dart';
+import 'package:aktau_go/utils/network_utils.dart';
 import 'package:easy_autocomplete/easy_autocomplete.dart';
 import 'package:elementary/elementary.dart';
 import 'package:flutter/material.dart';
@@ -560,13 +561,18 @@ class _TenantHomeCreateOrderViewState extends State<TenantHomeCreateOrderView> {
   }
 
   Future<void> handleOrderSubmit() async {
+    setState(() {
+      isLoading = true;
+    });
+    
     try {
-      setState(() {
-        isLoading = true;
-      });
-      
       print('Отправка заказа...');
-      await widget.onSubmit(driverOrderForm);
+      
+      // Используем новую систему обработки ошибок
+      await NetworkUtils.executeWithErrorHandling<void>(
+        () => widget.onSubmit(driverOrderForm),
+        customErrorMessage: 'Не удалось создать заказ. Проверьте подключение к интернету.',
+      );
       
       // Delay before closing form to allow for request processing
       await Future.delayed(Duration(milliseconds: 300));
@@ -592,24 +598,6 @@ class _TenantHomeCreateOrderViewState extends State<TenantHomeCreateOrderView> {
           ),
         );
       }
-    } on Exception catch (e) {
-      print('Ошибка при создании заказа: $e');
-      // Error handling only if widget is still mounted
-      if (mounted) {
-        final snackBar = SnackBar(
-          content: Text(
-            'Не удалось создать заказ: ${e.toString()}',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red[700],
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          duration: Duration(seconds: 3),
-        );
-        ScaffoldMessenger.of(context).showSnackBar(snackBar);
-      }
     } finally {
       // Reset loading state only if widget is still mounted
       if (mounted) {
@@ -623,29 +611,33 @@ class _TenantHomeCreateOrderViewState extends State<TenantHomeCreateOrderView> {
   Future<List<String>> autocompletePlaces(String value) async {
     if (value.length <= 2) return [];
 
-    try {
-      // Get coordinates from SharedPreferences or use Aktau coordinates as default
-      final latitude = inject<SharedPreferences>().getDouble('latitude') ?? 43.693695; // Aktau coordinates
-      final longitude = inject<SharedPreferences>().getDouble('longitude') ?? 51.260834; // Aktau coordinates
-      
-      print('Поиск адресов для "$value" в районе координат: $latitude, $longitude');
-      
-      final request = await inject<RestClient>().getPlacesQuery(
-        query: value,
-        latitude: latitude,
-        longitude: longitude,
-      );
-      
-      if (request != null && request.isNotEmpty) {
-        setState(() {
-          _suggestions = request.map((e) => e.name ?? '').toList();
-        });
-        return request.map((e) => e.name ?? '').toList();
-      }
-    } catch (e) {
-      print('Error in autocompletePlaces: $e');
-    }
-    return [];
+    final result = await NetworkUtils.executeWithErrorHandling<List<String>>(
+      () async {
+        // Get coordinates from SharedPreferences or use Aktau coordinates as default
+        final latitude = inject<SharedPreferences>().getDouble('latitude') ?? 43.693695; // Aktau coordinates
+        final longitude = inject<SharedPreferences>().getDouble('longitude') ?? 51.260834; // Aktau coordinates
+        
+        print('Поиск адресов для "$value" в районе координат: $latitude, $longitude');
+        
+        final request = await inject<RestClient>().getPlacesQuery(
+          query: value,
+          latitude: latitude,
+          longitude: longitude,
+        );
+        
+        if (request != null && request.isNotEmpty) {
+          final suggestions = request.map((e) => e.name ?? '').toList();
+          setState(() {
+            _suggestions = suggestions;
+          });
+          return suggestions;
+        }
+        return <String>[];
+      },
+      showErrorMessages: false, // Не показываем ошибки для автокомплита
+    );
+    
+    return result ?? [];
   }
 
   _onFromSubmitted(String json) {
