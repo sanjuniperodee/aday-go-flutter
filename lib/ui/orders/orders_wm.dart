@@ -61,6 +61,7 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
 
   IO.Socket? newOrderSocket;
   StreamSubscription<Position>? onUserLocationChanged;
+  Timer? _activeOrderCheckTimer;
 
   @override
   final StateNotifier<int> tabIndex = StateNotifier(initValue: 0);
@@ -117,10 +118,20 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
     super.initWidgetModel();
     fetchDriverRegisteredCategories();
     fetchUserProfile();
-    fetchActiveOrder();
+    
+    // Сразу загружаем последнюю известную позицию водителя
+    _loadLastKnownDriverPosition();
     
     // Автоматически запрашиваем геолокацию при запуске
     _initializeLocationAndSocket();
+    
+    // ВАЖНО: Проверяем активный заказ с задержкой чтобы UI успел инициализироваться
+    Future.delayed(Duration(milliseconds: 500), () {
+      fetchActiveOrder(openBottomSheet: true);
+    });
+    
+    // Запускаем периодическую проверку активного заказа
+    _startActiveOrderMonitoring();
     
     // Добавляем слушатель переключения статуса
     statusController.addListener(() async {
@@ -167,6 +178,7 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
 
   @override
   void dispose() {
+    _activeOrderCheckTimer?.cancel();
     onUserLocationChanged?.cancel();
     disconnectWebsocket();
     super.dispose();
@@ -212,10 +224,25 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
         return;
       }
 
+      // Сначала пытаемся загрузить последнюю сохраненную позицию для быстрого старта
+      try {
+        final prefs = inject<SharedPreferences>();
+        final savedLat = prefs.getDouble('latitude');
+        final savedLng = prefs.getDouble('longitude');
+        
+        if (savedLat != null && savedLng != null && savedLat != 0 && savedLng != 0) {
+          driverPosition.accept(LatLng(savedLat, savedLng));
+          logger.i('📍 Загружена последняя сохраненная позиция: $savedLat, $savedLng');
+        }
+      } catch (e) {
+        logger.e('⚠️ Ошибка загрузки сохраненной позиции: $e');
+      }
+
       // Получаем текущее местоположение
       Position position = await Geolocator.getCurrentPosition(
         locationSettings: LocationSettings(
           accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10), // Ограничиваем время ожидания
         ),
       );
 
@@ -224,6 +251,8 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       // Сохраняем координаты
       await inject<SharedPreferences>().setDouble('latitude', position.latitude);
       await inject<SharedPreferences>().setDouble('longitude', position.longitude);
+      
+      logger.i('📍 Обновлена текущая позиция: ${position.latitude}, ${position.longitude}');
 
       // Запускаем отслеживание изменений
       onUserLocationChanged?.cancel();
@@ -235,6 +264,10 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       ).listen((Position position) {
         driverPosition.accept(LatLng(position.latitude, position.longitude));
         
+        // Сохраняем новую позицию
+        inject<SharedPreferences>().setDouble('latitude', position.latitude);
+        inject<SharedPreferences>().setDouble('longitude', position.longitude);
+        
         // Отправляем обновление местоположения через WebSocket
         if (newOrderSocket != null && newOrderSocket!.connected) {
           _sendLocationUpdate(position.latitude, position.longitude);
@@ -244,6 +277,20 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       logger.i('✅ Отслеживание местоположения запущено');
     } catch (e) {
       logger.e('❌ Ошибка запуска отслеживания местоположения: $e');
+      
+      // Если не удалось получить текущую позицию, используем сохраненную
+      try {
+        final prefs = inject<SharedPreferences>();
+        final savedLat = prefs.getDouble('latitude');
+        final savedLng = prefs.getDouble('longitude');
+        
+        if (savedLat != null && savedLng != null && savedLat != 0 && savedLng != 0 && driverPosition.value == null) {
+          driverPosition.accept(LatLng(savedLat, savedLng));
+          logger.i('📍 Используем сохраненную позицию как fallback: $savedLat, $savedLng');
+        }
+      } catch (fallbackError) {
+        logger.e('❌ Ошибка загрузки fallback позиции: $fallbackError');
+      }
     }
   }
 
@@ -559,12 +606,12 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
   void _sendLocationUpdate(double latitude, double longitude) {
     try {
       if (newOrderSocket != null && newOrderSocket!.connected) {
-        newOrderSocket!.emit('updateLocation', {
-          'latitude': latitude,
-          'longitude': longitude,
+        newOrderSocket!.emit('driverLocationUpdate', {
+          'lat': latitude,
+          'lng': longitude,
           'timestamp': DateTime.now().millisecondsSinceEpoch,
         });
-        logger.d('📍 Отправлено обновление местоположения: $latitude, $longitude');
+        logger.d('📍 Отправлено обновление местоположения водителя: $latitude, $longitude');
       }
     } catch (e) {
       logger.e('❌ Ошибка отправки обновления местоположения: $e');
@@ -646,10 +693,50 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
     final meValue = me.value;
     if (meValue == null) return;
     
+    // 🔒 КРИТИЧЕСКИ ВАЖНО: Проверяем геопозицию водителя перед принятием заказа
+    if (driverPosition.value == null) {
+      logger.w('❌ Попытка принять заказ без доступной геопозиции водителя');
+      
+      // Пытаемся получить текущую позицию
+      await _startLocationTracking();
+      
+      // Если все еще нет позиции - блокируем принятие
+      if (driverPosition.value == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ Невозможно принять заказ без доступа к геопозиции'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Разрешить',
+                textColor: Colors.white,
+                onPressed: () => requestLocationPermission(),
+              ),
+            ),
+          );
+        }
+        logger.e('❌ ЗАКАЗ НЕ ПРИНЯТ: геопозиция водителя недоступна');
+        return; // Блокируем принятие заказа
+      }
+    }
+    
+    // ✅ Геопозиция доступна - принимаем заказ и СРАЗУ отправляем позицию
+    logger.i('✅ Принятие заказа: геопозиция водителя доступна (${driverPosition.value!.latitude}, ${driverPosition.value!.longitude})');
+    
     await model.acceptOrderRequest(
       driver: meValue,
       orderRequest: orderRequest,
     );
+
+    // ГАРАНТИРОВАННО отправляем текущую позицию водителя на бэк сразу после принятия
+    if (driverPosition.value != null) {
+      _sendLocationUpdate(
+        driverPosition.value!.latitude, 
+        driverPosition.value!.longitude
+      );
+      logger.i('📍 Позиция водителя отправлена на бэк сразу после принятия заказа');
+    }
 
     fetchActiveOrder();
   }
@@ -687,6 +774,28 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
         activeOrder.accept(response);
         _activeOrderNotifier.accept(response);
         
+        // 🚨 КРИТИЧЕСКИ ВАЖНО: При восстановлении активного заказа ОБЯЗАТЕЛЬНО отправляем позицию водителя
+        if (driverPosition.value != null) {
+          _sendLocationUpdate(
+            driverPosition.value!.latitude, 
+            driverPosition.value!.longitude
+          );
+          logger.i('📍 Позиция водителя отправлена на бэк при восстановлении активного заказа');
+        } else {
+          // Если позиции нет - пытаемся получить текущую
+          logger.w('⚠️ При восстановлении активного заказа нет позиции водителя, пытаемся получить');
+          await _startLocationTracking();
+          if (driverPosition.value != null) {
+            _sendLocationUpdate(
+              driverPosition.value!.latitude, 
+              driverPosition.value!.longitude
+            );
+            logger.i('📍 Позиция водителя получена и отправлена при восстановлении заказа');
+          } else {
+            logger.e('❌ Не удалось получить позицию водителя при восстановлении активного заказа');
+          }
+        }
+        
         final meValue = me.value;
         if (openBottomSheet && context.mounted && meValue != null) {
           showModalBottomSheet(
@@ -699,6 +808,7 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
               me: meValue,
               activeOrder: response,
               activeOrderListener: _activeOrderNotifier,
+              ordersWm: this,
               onCancel: () {},
             ),
           );
@@ -747,6 +857,34 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       logger.i('🔄 WebSocket отключен');
     } catch (e) {
       logger.e('❌ Ошибка отключения WebSocket: $e');
+    }
+  }
+
+  // Запускаем мониторинг активного заказа
+  void _startActiveOrderMonitoring() {
+    _activeOrderCheckTimer = Timer.periodic(Duration(seconds: 5), (timer) {
+      // Проверяем активный заказ только если окно не открыто
+      if (activeOrder.value == null && context.mounted) {
+        fetchActiveOrder(openBottomSheet: true);
+      }
+    });
+  }
+
+  // Загружаем последнюю известную позицию водителя
+  Future<void> _loadLastKnownDriverPosition() async {
+    try {
+      final prefs = inject<SharedPreferences>();
+      final savedLat = prefs.getDouble('latitude');
+      final savedLng = prefs.getDouble('longitude');
+      
+      if (savedLat != null && savedLng != null && savedLat != 0 && savedLng != 0) {
+        driverPosition.accept(LatLng(savedLat, savedLng));
+        logger.i('📍 Загружена последняя известная позиция водителя при инициализации: $savedLat, $savedLng');
+      } else {
+        logger.i('📍 Нет сохраненной позиции водителя');
+      }
+    } catch (e) {
+      logger.e('❌ Ошибка загрузки последней позиции при инициализации: $e');
     }
   }
 } 

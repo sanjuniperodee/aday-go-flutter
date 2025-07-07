@@ -399,7 +399,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     savedFromAddress.accept('Текущее местоположение');
     if (userLocation.value != null) {
       savedFromMapboxId.accept('${userLocation.value!.lat};${userLocation.value!.lng}');
-      } else {
+    } else {
       savedFromMapboxId.accept('43.693695;51.260834');
     }
   }
@@ -889,6 +889,10 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       // Очищаем активный заказ
       activeOrder.accept(null);
       
+      // КРИТИЧЕСКИ ВАЖНО: Очищаем все маршруты и состояние карты при отмене заказа
+      await clearRoute();
+      print('🧹 Все маршруты очищены после отмены заказа');
+      
       // Закрываем окно поиска водителя
       if (context.mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
@@ -1247,9 +1251,37 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       _lastRouteKey = null;
       print('🧹 Очищен кэш текущего маршрута');
       
-      // Remove existing route layers and sources
-      final layersToRemove = ['main-route-layer', 'main-route-outline-layer', 'main-markers-layer', 'main-markers-layer-a', 'main-markers-layer-b'];
-      final sourcesToRemove = ['main-route-source', 'main-markers-source', 'main-markers-source-a', 'main-markers-source-b'];
+      // КОМПЛЕКСНАЯ ОЧИСТКА: Remove все возможные слои маршрутов
+      final layersToRemove = [
+        // Основные слои маршрута
+        'main-route-layer', 
+        'main-route-outline-layer', 
+        'main-markers-layer', 
+        'main-markers-layer-a', 
+        'main-markers-layer-b',
+        // Динамические слои
+        'dynamic-route-layer',
+        'dynamic-route-outline-layer',
+        // Общие слои маршрутов
+        'route-layer',
+        'route-outline-layer',
+        // Слои маркеров водителя
+        'client-driver-marker-layer'
+      ];
+      
+      final sourcesToRemove = [
+        // Основные источники
+        'main-route-source', 
+        'main-markers-source', 
+        'main-markers-source-a', 
+        'main-markers-source-b',
+        // Динамические источники
+        'dynamic-route-source',
+        // Общие источники
+        'route-source',
+        // Источники маркеров водителя
+        'client-driver-marker-source'
+      ];
       
       // Также удаляем слои сегментов пробок (проверяем популярные индексы)
       for (int legIndex = 0; legIndex < 5; legIndex++) {
@@ -1281,6 +1313,10 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
           // Игнорируем ошибки - источник может не существовать
         }
       }
+      
+      // ВАЖНО: Очищаем также состояние позиции водителя
+      driverLocation.accept(null);
+      print('🧹 Позиция водителя очищена');
       
       // АВТОМАТИЧЕСКИ разблокируем карту и сбрасываем состояния
       isRouteDisplayed.accept(false);

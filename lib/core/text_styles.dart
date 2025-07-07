@@ -13,6 +13,12 @@ const TextStyle text500Size20Black = TextStyle(
   fontWeight: FontWeight.w500,
 );
 
+const TextStyle text500Size18Black = TextStyle(
+  color: Colors.black,
+  fontSize: 18,
+  fontWeight: FontWeight.w500,
+);
+
 const TextStyle text400Size16Black = TextStyle(
   color: Colors.black,
   fontSize: 16,
@@ -112,6 +118,18 @@ const TextStyle text400Size10Greyscale60 = TextStyle(
 const TextStyle text400Size12Greyscale50 = TextStyle(
   color: greyscale50,
   fontSize: 12,
+  fontWeight: FontWeight.w400,
+);
+
+const TextStyle text400Size14Greyscale50 = TextStyle(
+  color: greyscale50,
+  fontSize: 14,
+  fontWeight: FontWeight.w400,
+);
+
+const TextStyle text400Size16Greyscale50 = TextStyle(
+  color: greyscale50,
+  fontSize: 16,
   fontWeight: FontWeight.w400,
 );
 

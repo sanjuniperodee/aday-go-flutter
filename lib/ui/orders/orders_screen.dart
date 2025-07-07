@@ -307,13 +307,12 @@ class OrdersScreen extends ElementaryWidget<IOrdersWM> {
                                     if ((driverRegisteredCategories ?? [])
                                         .any((category) =>
                                             category.categoryType == orderType))
-                                      ...(orderRequests ?? []).map(
-                                        (e) => InkWell(
-                                          onTap: () => wm.onOrderRequestTap(e),
-                                          child:
-                                              OrderRequestCard(orderRequest: e),
-                                        ),
-                                      )
+                                                                             ...(orderRequests ?? []).map(
+                                         (e) => OrderRequestCard(
+                                           orderRequest: e,
+                                           onAccept: () => wm.onOrderRequestTap(e),
+                                         ),
+                                       )
                                     else
                                       Center(
                                         child: Padding(
