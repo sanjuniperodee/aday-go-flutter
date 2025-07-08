@@ -34,6 +34,6 @@ class OrdersModel extends ElementaryModel {
         orderRequest: orderRequest,
       );
 
-  Future<ActiveRequestDomain> getActiveOrder() =>
+  Future<ActiveRequestDomain?> getActiveOrder() =>
       _orderRequestsInteractor.getActiveOrder();
 }

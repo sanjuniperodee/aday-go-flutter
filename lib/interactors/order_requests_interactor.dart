@@ -43,7 +43,7 @@ abstract class IOrderRequestsInteractor {
     required String orderRequestId,
   });
 
-  Future<ActiveRequestDomain> getActiveOrder();
+  Future<ActiveRequestDomain?> getActiveOrder();
 
   Future<ActiveClientRequestModel> getMyClientActiveOrder();
 
@@ -89,8 +89,16 @@ class OrderRequestsInteractor extends IOrderRequestsInteractor {
       );
 
   @override
-  Future<ActiveRequestDomain> getActiveOrder() async =>
-      activeRequestMapper(await _restClient.getMyActiveOrder());
+  Future<ActiveRequestDomain?> getActiveOrder() async {
+    try {
+      final response = await _restClient.getMyActiveOrder();
+      return activeRequestMapper(response);
+    } catch (e) {
+      // Если сервер возвращает ошибку или "You dont have active order", возвращаем null
+      print('❌ Ошибка получения активного заказа: $e');
+      return null;
+    }
+  }
 
   @override
   Future<void> arrivedOrderRequest({

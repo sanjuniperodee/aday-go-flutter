@@ -88,8 +88,36 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
       widget.ordersWm?.driverPosition.addListener(() {
         final position = widget.ordersWm?.driverPosition.value;
         if (position != null && mounted && mapboxMapController != null) {
+          _currentPosition = Position(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            timestamp: DateTime.now(),
+            accuracy: 0,
+            altitude: 0,
+            heading: 0,
+            speed: 0,
+            speedAccuracy: 0,
+            altitudeAccuracy: 0,
+            headingAccuracy: 0,
+          );
+          
+          // Обновляем маркер водителя
           addDriverMarker(position.latitude, position.longitude);
-          print('📍 Позиция водителя обновлена из orders_wm: $position');
+          
+          // Обновляем маршрут в зависимости от статуса заказа
+          _updateRouteBasedOnDriverPosition(position.latitude, position.longitude);
+          
+          // Центрируем карту на водителе
+          mapboxMapController!.flyTo(
+            mapbox.CameraOptions(
+              center: mapbox.Point(coordinates: mapbox.Position(position.longitude, position.latitude)),
+              zoom: 16.0,
+              padding: mapbox.MbxEdgeInsets(top: 100, left: 50, bottom: 300, right: 50),
+            ),
+            mapbox.MapAnimationOptions(duration: 1000),
+          );
+          
+          print('📍 Позиция водителя обновлена из orders_wm: [32m${position.latitude}, ${position.longitude}[0m');
         }
       });
       
@@ -116,6 +144,24 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
     try {
       final response = await inject<OrderRequestsInteractor>().getActiveOrder();
 
+      if (response == null) {
+        // Нет активного заказа - закрываем окно
+        print('❌ Нет активного заказа');
+        if (mounted) {
+          setState(() {
+            isOrderFinished = true;
+          });
+          
+          // Закрываем окно через небольшую задержку
+          Future.delayed(Duration(milliseconds: 500), () {
+            if (mounted) {
+              Navigator.of(context).pop();
+            }
+          });
+        }
+        return;
+      }
+
       activeRequest = response;
 
       String? sessionId = inject<SharedPreferences>().getString('sessionId');
@@ -129,9 +175,15 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
         return;
       }
       
-      setState(() {});
+      // Проверяем mounted перед setState
+      if (mounted) {
+        setState(() {});
+      }
 
-      await fetchActiveOrderRoute();
+      // Проверяем mounted перед вызовом fetchActiveOrderRoute
+      if (mounted) {
+        await fetchActiveOrderRoute();
+      }
     } on Exception catch (e) {
       print('Ошибка получения активного заказа: $e');
       // ИСПРАВЛЕНИЕ: Если нет активного заказа, закрываем окно
@@ -151,18 +203,22 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
   }
 
   Future<void> fetchActiveOrderRoute() async {
+    // Проверяем mounted перед выполнением
+    if (!mounted) {
+      print('⚠️ fetchActiveOrderRoute вызван после dispose');
+      return;
+    }
+    
     final orderStatus = activeRequest.orderRequest?.orderStatus;
     
     print('🗺️ Обновление маршрута водителя для статуса: $orderStatus');
     
-    // Очищаем все предыдущие элементы карты
-    await clearAllMapElements();
-    
-    // Определяем откуда и куда строить маршрут в зависимости от статуса
-    double fromLat, fromLng, toLat, toLng;
-    String routeDescription;
-    
     try {
+      // Очищаем все предыдущие элементы карты
+      if (mapboxMapController != null) {
+        await clearAllMapElements();
+      }
+      
       // Получаем текущее местоположение водителя
       final driverPosition = await _getCurrentDriverPosition();
       if (driverPosition == null) {
@@ -170,145 +226,18 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
         return;
       }
       
-      // Координаты клиента (точка А)
-      final clientLat = activeRequest.orderRequest!.lat.toDouble();
-      final clientLng = activeRequest.orderRequest!.lng.toDouble();
+      // Проверяем mounted перед обновлением маршрута
+      if (!mounted) return;
       
-      // Координаты назначения (точка Б) - парсим из toMapboxId
-      double destinationLat, destinationLng;
-      try {
-        final toCoords = activeRequest.orderRequest!.toMapboxId.split(';');
-        if (toCoords.length >= 2) {
-          destinationLat = double.tryParse(toCoords[0]) ?? 0.0;
-          destinationLng = double.tryParse(toCoords[1]) ?? 0.0;
-        } else {
-          destinationLat = clientLat + 0.01;
-          destinationLng = clientLng + 0.01;
-        }
-      } catch (e) {
-        print('⚠️ Ошибка парсинга координат назначения, используем fallback');
-        destinationLat = clientLat + 0.01;
-        destinationLng = clientLng + 0.01;
-      }
-      
-      // ВАЖНО: Для водителя логика отображения отличается от клиента
-      switch (orderStatus) {
-        case 'CREATED':
-          // Показываем полный маршрут от клиента до назначения (для понимания заказа)
-          fromLat = clientLat;
-          fromLng = clientLng;
-          toLat = destinationLat;
-          toLng = destinationLng;
-          routeDescription = 'Маршрут заказа';
-          print('📍 CREATED: Показываем полный маршрут заказа');
-          break;
-          
-        case 'STARTED':
-        case 'ACCEPTED':
-          // Водитель едет к клиенту - маршрут от водителя до клиента
-          fromLat = driverPosition.latitude;
-          fromLng = driverPosition.longitude;
-          toLat = clientLat;
-          toLng = clientLng;
-          routeDescription = 'Маршрут к клиенту';
-          print('📍 STARTED: Водитель (${fromLat}, ${fromLng}) → Клиент (${toLat}, ${toLng})');
-          break;
-          
-        case 'WAITING':
-          // Водитель на месте, показываем только маркер водителя без маршрута
-          print('📍 WAITING: Водитель на месте, показываем только маркер');
-          // Добавляем маркер водителя
-          await addDriverMarker(driverPosition.latitude, driverPosition.longitude);
-          // Добавляем маркер назначения
-          await addStaticMarkers([
-            {'lat': destinationLat, 'lng': destinationLng, 'type': 'point_b'},
-          ]);
-          // Центрируем карту на водителе
-          await mapboxMapController!.flyTo(
-            mapbox.CameraOptions(
-              center: mapbox.Point(coordinates: mapbox.Position(driverPosition.longitude, driverPosition.latitude)),
-              zoom: 16.0,
-              padding: mapbox.MbxEdgeInsets(top: 100, left: 50, bottom: 300, right: 50),
-            ),
-            mapbox.MapAnimationOptions(duration: 1000),
-          );
-          return; // Выходим, так как маршрут не нужен
-          
-        case 'ONGOING':
-          // Едем с клиентом - маршрут от текущей позиции водителя до назначения
-          fromLat = driverPosition.latitude;
-          fromLng = driverPosition.longitude;
-          toLat = destinationLat;
-          toLng = destinationLng;
-          routeDescription = 'Маршрут к пункту назначения';
-          print('📍 ONGOING: Водитель → Назначение');
-          break;
-          
-        default:
-          // По умолчанию показываем маршрут от клиента до назначения
-          fromLat = clientLat;
-          fromLng = clientLng;
-          toLat = destinationLat;
-          toLng = destinationLng;
-          routeDescription = 'Маршрут поездки';
-          print('📍 DEFAULT: Клиент → Назначение');
-          break;
-      }
-      
-      print('   Строим маршрут: От ($fromLat, $fromLng) До ($toLat, $toLng)');
-      
-      // Получаем маршрут от Mapbox
-      final directions = await inject<MapboxApi>().getDirections(
-        fromLat: fromLat,
-        fromLng: fromLng,
-        toLat: toLat,
-        toLng: toLng,
-      );
-
-      setState(() {
-        route = directions;
-      });
-
-      if (mapboxMapController != null && route.isNotEmpty) {
-        try {
-          // 1. Сначала добавляем маршрут на карту
-          await addRouteToMap();
-          
-          // 2. Затем добавляем маркеры в правильном порядке
-          if (orderStatus == 'STARTED' || orderStatus == 'ACCEPTED') {
-            await addStaticMarkers([
-              {'lat': clientLat, 'lng': clientLng, 'type': 'point_a'},
-            ]);
-            await addDriverMarker(driverPosition.latitude, driverPosition.longitude);
-          } else if (orderStatus == 'ONGOING') {
-            await addStaticMarkers([
-              {'lat': destinationLat, 'lng': destinationLng, 'type': 'point_b'},
-            ]);
-            await addDriverMarker(driverPosition.latitude, driverPosition.longitude);
-          } else {
-            await addStaticMarkers([
-              {'lat': clientLat, 'lng': clientLng, 'type': 'point_a'},
-              {'lat': destinationLat, 'lng': destinationLng, 'type': 'point_b'},
-            ]);
-          }
-          
-          // 3. Центрируем камеру на маршруте только при первом показе
-          final currentCamera = await mapboxMapController!.getCameraState();
-          if (currentCamera.zoom == null || currentCamera.zoom! < 14) {
-            // Если зум далекий, подгоняем под маршрут
-            await fitRouteInView();
-          }
-          
-          print('✅ $routeDescription обновлен успешно');
-        } catch (e) {
-          print('❌ Ошибка добавления маршрута на карту: $e');
-        }
-      }
+      // Используем новый метод для обновления маршрута
+      await _updateRouteBasedOnDriverPosition(driverPosition.latitude, driverPosition.longitude);
       
     } catch (e) {
       print('❌ Ошибка получения маршрута: $e');
       // Fallback: показываем маршрут клиент → назначение
-      await _showFallbackRoute();
+      if (mounted) {
+        await _showFallbackRoute();
+      }
     }
   }
   
@@ -416,17 +345,6 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
     if (mapboxMapController == null || markers.isEmpty) return;
     
     try {
-      // Сначала удаляем существующие слои статических маркеров
-      if (await mapboxMapController!.style.styleLayerExists('start-marker-layer')) {
-        await mapboxMapController!.style.removeStyleLayer('start-marker-layer');
-      }
-      if (await mapboxMapController!.style.styleLayerExists('end-marker-layer')) {
-        await mapboxMapController!.style.removeStyleLayer('end-marker-layer');
-      }
-      if (await mapboxMapController!.style.styleSourceExists('static-markers-source')) {
-        await mapboxMapController!.style.removeStyleSource('static-markers-source');
-      }
-      
       List<Map<String, dynamic>> features = [];
       
       for (final marker in markers) {
@@ -440,6 +358,45 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
             "type": marker['type']
           }
         });
+      }
+      
+      // Проверяем, существует ли уже источник статических маркеров
+      bool sourceExists = await mapboxMapController!.style.styleSourceExists('static-markers-source');
+      bool startLayerExists = await mapboxMapController!.style.styleLayerExists('start-marker-layer');
+      bool endLayerExists = await mapboxMapController!.style.styleLayerExists('end-marker-layer');
+      
+      if (sourceExists && startLayerExists && endLayerExists) {
+        // Если источник и слои уже существуют, просто обновляем данные
+        try {
+          await mapboxMapController!.style.setStyleSourceProperty(
+            'static-markers-source',
+            'data',
+            json.encode({
+              "type": "FeatureCollection",
+              "features": features
+            }),
+          );
+          print('✅ Статические маркеры обновлены: ${markers.map((m) => m['type']).join(', ')}');
+          return;
+        } catch (e) {
+          print('⚠️ Не удалось обновить существующие статические маркеры, создаем новые: $e');
+        }
+      }
+      
+      // Если источник или слои не существуют, или обновление не удалось, создаем заново
+      try {
+        // Сначала удаляем существующие слои статических маркеров
+        if (endLayerExists) {
+          await mapboxMapController!.style.removeStyleLayer('end-marker-layer');
+        }
+        if (startLayerExists) {
+          await mapboxMapController!.style.removeStyleLayer('start-marker-layer');
+        }
+        if (sourceExists) {
+          await mapboxMapController!.style.removeStyleSource('static-markers-source');
+        }
+      } catch (e) {
+        print('⚠️ Ошибка при очистке старых статических маркеров: $e');
       }
       
       // Добавляем источник для маркеров
@@ -544,16 +501,10 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
     if (mapboxMapController == null || route.isEmpty) return;
 
     try {
-      // Remove existing route layers if they exist
-      if (await mapboxMapController!.style.styleLayerExists('route-layer')) {
-        await mapboxMapController!.style.removeStyleLayer('route-layer');
-      }
-      if (await mapboxMapController!.style.styleLayerExists('route-outline-layer')) {
-        await mapboxMapController!.style.removeStyleLayer('route-outline-layer');
-      }
-      if (await mapboxMapController!.style.styleSourceExists('route-source')) {
-        await mapboxMapController!.style.removeStyleSource('route-source');
-      }
+      // Проверяем, существует ли уже источник маршрута
+      bool sourceExists = await mapboxMapController!.style.styleSourceExists('route-source');
+      bool layerExists = await mapboxMapController!.style.styleLayerExists('route-layer');
+      bool outlineLayerExists = await mapboxMapController!.style.styleLayerExists('route-outline-layer');
 
       // Create GeoJSON LineString from route geometry
       final routeGeometry = route['routes'][0]['geometry'];
@@ -562,6 +513,40 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
         "geometry": routeGeometry,
         "properties": {}
       };
+
+      if (sourceExists && layerExists && outlineLayerExists) {
+        // Если источник и слои уже существуют, просто обновляем данные
+        try {
+          await mapboxMapController!.style.setStyleSourceProperty(
+            'route-source',
+            'data',
+            json.encode({
+              "type": "FeatureCollection",
+              "features": [lineString]
+            }),
+          );
+          print('✅ Маршрут обновлен на карте');
+          return;
+        } catch (e) {
+          print('⚠️ Не удалось обновить существующий маршрут, создаем новый: $e');
+        }
+      }
+
+      // Если источник или слои не существуют, или обновление не удалось, создаем заново
+      try {
+        // Remove existing route layers if they exist
+        if (outlineLayerExists) {
+          await mapboxMapController!.style.removeStyleLayer('route-outline-layer');
+        }
+        if (layerExists) {
+          await mapboxMapController!.style.removeStyleLayer('route-layer');
+        }
+        if (sourceExists) {
+          await mapboxMapController!.style.removeStyleSource('route-source');
+        }
+      } catch (e) {
+        print('⚠️ Ошибка при очистке старых маршрутов: $e');
+      }
 
       // Add source for the route
       await mapboxMapController!.style.addSource(mapbox.GeoJsonSource(
@@ -916,29 +901,46 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
                         
                         try {
                           // Ждем инициализации карты
-                          await Future.delayed(Duration(milliseconds: 300));
+                          await Future.delayed(Duration(milliseconds: 500));
                           
-                          // Настраиваем жесты карты
-                          await mapboxController.gestures.updateSettings(
-                            mapbox.GesturesSettings(
-                              rotateEnabled: true,
-                              scrollEnabled: true,
-                              pitchEnabled: true,
-                              doubleTapToZoomInEnabled: true,
-                              doubleTouchToZoomOutEnabled: true,
-                              quickZoomEnabled: true,
-                              pinchToZoomEnabled: true,
-                            ),
-                          );
+                          // Проверяем mounted перед настройкой жестов
+                          if (!mounted) return;
                           
-                          print('✅ Жесты карты включены');
+                          // Настраиваем жесты карты с обработкой ошибок
+                          try {
+                            await mapboxController.gestures.updateSettings(
+                              mapbox.GesturesSettings(
+                                rotateEnabled: true,
+                                scrollEnabled: true,
+                                pitchEnabled: true,
+                                doubleTapToZoomInEnabled: true,
+                                doubleTouchToZoomOutEnabled: true,
+                                quickZoomEnabled: true,
+                                pinchToZoomEnabled: true,
+                              ),
+                            );
+                            print('✅ Жесты карты включены');
+                          } catch (gestureError) {
+                            print('⚠️ Ошибка настройки жестов карты: $gestureError');
+                            // Продолжаем без настройки жестов
+                          }
+                          
+                          // Проверяем mounted перед загрузкой изображений
+                          if (!mounted) return;
                           
                           // Загружаем изображения маркеров
-                          await addImageFromAsset('point_a', 'assets/images/point_a.png');
-                          await addImageFromAsset('point_b', 'assets/images/point_b.png');
+                          try {
+                            await addImageFromAsset('point_a', 'assets/images/point_a.png');
+                            await addImageFromAsset('point_b', 'assets/images/point_b.png');
+                          } catch (imageError) {
+                            print('⚠️ Ошибка загрузки изображений маркеров: $imageError');
+                          }
                           
                           // Небольшая задержка для полной инициализации
-                          await Future.delayed(Duration(milliseconds: 200));
+                          await Future.delayed(Duration(milliseconds: 300));
+                          
+                          // Проверяем mounted перед загрузкой маршрута
+                          if (!mounted) return;
                           
                           // Загружаем и отображаем маршрут
                           await fetchActiveOrderRoute();
@@ -1541,8 +1543,17 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
       // Обновляем позицию водителя на карте
       if (mounted && mapboxMapController != null) {
         _currentPosition = position; // Сохраняем последнюю известную позицию
-        addDriverMarker(position.latitude, position.longitude);
-        print('📍 Позиция водителя обновлена: ${position.latitude}, ${position.longitude}');
+        
+        try {
+          addDriverMarker(position.latitude, position.longitude);
+          
+          // Обновляем маршрут в зависимости от статуса заказа
+          _updateRouteBasedOnDriverPosition(position.latitude, position.longitude);
+          
+          print('📍 Позиция водителя обновлена: ${position.latitude}, ${position.longitude}');
+        } catch (e) {
+          print('⚠️ Ошибка обновления позиции водителя: $e');
+        }
       }
     });
   }
@@ -1550,13 +1561,269 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
   // Запускаем таймер для периодического обновления карты
   void _startMapUpdateTimer() {
     mapUpdateTimer = Timer.periodic(Duration(seconds: 10), (timer) {
-      if (mounted) {
+      if (mounted && mapboxMapController != null) {
         // Обновляем маршрут и маркеры
         fetchActiveOrderRoute();
         
         print('🔄 Автоматическое обновление карты');
+      } else if (!mounted) {
+        // Останавливаем таймер если виджет размонтирован
+        timer.cancel();
       }
     });
+  }
+
+  // Новый метод для обновления маршрута при изменении позиции водителя
+  Future<void> _updateRouteBasedOnDriverPosition(double driverLat, double driverLng) async {
+    try {
+      final orderStatus = activeRequest.orderRequest?.orderStatus;
+      print('🔄 Обновление маршрута при изменении позиции водителя для статуса: $orderStatus');
+      
+      // Получаем координаты клиента и назначения
+      final clientLat = activeRequest.orderRequest!.lat.toDouble();
+      final clientLng = activeRequest.orderRequest!.lng.toDouble();
+      
+      // Координаты назначения (точка Б) - парсим из toMapboxId
+      double destinationLat, destinationLng;
+      try {
+        final toCoords = activeRequest.orderRequest!.toMapboxId.split(';');
+        if (toCoords.length >= 2) {
+          destinationLat = double.tryParse(toCoords[0]) ?? 0.0;
+          destinationLng = double.tryParse(toCoords[1]) ?? 0.0;
+        } else {
+          destinationLat = clientLat + 0.01;
+          destinationLng = clientLng + 0.01;
+        }
+      } catch (e) {
+        print('⚠️ Ошибка парсинга координат назначения, используем fallback');
+        destinationLat = clientLat + 0.01;
+        destinationLng = clientLng + 0.01;
+      }
+      
+      // Обновляем маршрут в зависимости от статуса заказа
+      switch (orderStatus) {
+        case 'STARTED':
+        case 'ACCEPTED':
+          // Водитель едет к клиенту - обновляем маршрут от водителя до клиента
+          print('📍 STARTED/ACCEPTED: Обновляем маршрут от водителя к клиенту');
+          await _updateRouteOnMap(
+            fromLat: driverLat,
+            fromLng: driverLng,
+            toLat: clientLat,
+            toLng: clientLng,
+            showDriverMarker: true,
+            showClientMarker: true,
+            showDestinationMarker: false,
+          );
+          break;
+          
+        case 'ONGOING':
+          // Водитель везет клиента - обновляем маршрут от водителя до назначения
+          print('📍 ONGOING: Обновляем маршрут от водителя к назначению');
+          await _updateRouteOnMap(
+            fromLat: driverLat,
+            fromLng: driverLng,
+            toLat: destinationLat,
+            toLng: destinationLng,
+            showDriverMarker: true,
+            showClientMarker: false,
+            showDestinationMarker: true,
+          );
+          break;
+          
+        case 'WAITING':
+          // Водитель ожидает клиента - только обновляем позицию водителя
+          print('📍 WAITING: Обновляем только позицию водителя');
+          await addDriverMarker(driverLat, driverLng);
+          // Центрируем карту на водителе
+          await mapboxMapController!.flyTo(
+            mapbox.CameraOptions(
+              center: mapbox.Point(coordinates: mapbox.Position(driverLng, driverLat)),
+              zoom: 16.0,
+              padding: mapbox.MbxEdgeInsets(top: 100, left: 50, bottom: 300, right: 50),
+            ),
+            mapbox.MapAnimationOptions(duration: 1000),
+          );
+          break;
+          
+        default:
+          print('📍 DEFAULT: Статус $orderStatus - маршрут не обновляется');
+          break;
+      }
+      
+    } catch (e) {
+      print('❌ Ошибка обновления маршрута при изменении позиции водителя: $e');
+    }
+  }
+
+  // Новый метод для обновления маршрута на карте
+  Future<void> _updateRouteOnMap({
+    required double fromLat,
+    required double fromLng,
+    required double toLat,
+    required double toLng,
+    required bool showDriverMarker,
+    required bool showClientMarker,
+    required bool showDestinationMarker,
+  }) async {
+    try {
+      if (mapboxMapController == null) return;
+      
+      // Получаем маршрут от Mapbox API
+      final directions = await inject<MapboxApi>().getDirections(
+        fromLat: fromLat,
+        fromLng: fromLng,
+        toLat: toLat,
+        toLng: toLng,
+      );
+      
+      if (directions == null || directions['routes'] == null || directions['routes'].isEmpty) {
+        print('❌ Не удалось получить данные маршрута от API');
+        return;
+      }
+      
+      // Очищаем предыдущие маршруты
+      await _clearRouteLayers();
+      
+      // Добавляем новый маршрут
+      await _addRouteToMap(directions);
+      
+      // Добавляем маркеры
+      if (showDriverMarker) {
+        await addDriverMarker(fromLat, fromLng);
+      }
+      
+      if (showClientMarker) {
+        await addStaticMarkers([
+          {'lat': activeRequest.orderRequest!.lat.toDouble(), 'lng': activeRequest.orderRequest!.lng.toDouble(), 'type': 'point_a'},
+        ]);
+      }
+      
+      if (showDestinationMarker) {
+        final toCoords = activeRequest.orderRequest!.toMapboxId.split(';');
+        if (toCoords.length >= 2) {
+          final destLat = double.tryParse(toCoords[0]) ?? 0.0;
+          final destLng = double.tryParse(toCoords[1]) ?? 0.0;
+          await addStaticMarkers([
+            {'lat': destLat, 'lng': destLng, 'type': 'point_b'},
+          ]);
+        }
+      }
+      
+      // Центрируем камеру на маршруте
+      await _fitCameraToRoute(fromLat, fromLng, toLat, toLng);
+      
+      print('✅ Маршрут обновлен: от ($fromLat, $fromLng) до ($toLat, $toLng)');
+      
+    } catch (e) {
+      print('❌ Ошибка обновления маршрута на карте: $e');
+    }
+  }
+
+  // Метод для очистки слоев маршрута
+  Future<void> _clearRouteLayers() async {
+    try {
+      if (mapboxMapController == null) return;
+      
+      // Удаляем слои маршрута
+      if (await mapboxMapController!.style.styleLayerExists('route-layer')) {
+        await mapboxMapController!.style.removeStyleLayer('route-layer');
+      }
+      if (await mapboxMapController!.style.styleLayerExists('route-outline-layer')) {
+        await mapboxMapController!.style.removeStyleLayer('route-outline-layer');
+      }
+      if (await mapboxMapController!.style.styleSourceExists('route-source')) {
+        await mapboxMapController!.style.removeStyleSource('route-source');
+      }
+    } catch (e) {
+      print('❌ Ошибка очистки слоев маршрута: $e');
+    }
+  }
+
+  // Метод для добавления маршрута на карту
+  Future<void> _addRouteToMap(Map<String, dynamic> directions) async {
+    try {
+      if (mapboxMapController == null) return;
+      
+      final routeGeometry = directions['routes'][0]['geometry'];
+      final lineString = {
+        "type": "Feature",
+        "geometry": routeGeometry,
+        "properties": {}
+      };
+
+      // Добавляем источник маршрута
+      await mapboxMapController!.style.addSource(mapbox.GeoJsonSource(
+        id: 'route-source',
+        data: json.encode({
+          "type": "FeatureCollection",
+          "features": [lineString]
+        }),
+      ));
+
+      // Добавляем слой контура маршрута
+      await mapboxMapController!.style.addLayer(mapbox.LineLayer(
+        id: 'route-outline-layer',
+        sourceId: 'route-source',
+        lineColor: 0xFF1565C0, // Темно-синий контур
+        lineWidth: 8.0,
+        lineOpacity: 0.8,
+        lineCap: mapbox.LineCap.ROUND,
+        lineJoin: mapbox.LineJoin.ROUND,
+      ));
+
+      // Добавляем основной слой маршрута
+      await mapboxMapController!.style.addLayer(mapbox.LineLayer(
+        id: 'route-layer',
+        sourceId: 'route-source',
+        lineColor: 0xFF2196F3, // Яркий синий
+        lineWidth: 5.0,
+        lineOpacity: 1.0,
+        lineCap: mapbox.LineCap.ROUND,
+        lineJoin: mapbox.LineJoin.ROUND,
+      ));
+      
+      print('✅ Маршрут добавлен на карту');
+    } catch (e) {
+      print('❌ Ошибка добавления маршрута: $e');
+    }
+  }
+
+  // Метод для центрирования камеры на маршруте
+  Future<void> _fitCameraToRoute(double fromLat, double fromLng, double toLat, double toLng) async {
+    try {
+      if (mapboxMapController == null) return;
+      
+      // Рассчитываем границы для отображения всего маршрута
+      final minLat = math.min(fromLat, toLat);
+      final maxLat = math.max(fromLat, toLat);
+      final minLng = math.min(fromLng, toLng);
+      final maxLng = math.max(fromLng, toLng);
+
+      // Добавляем небольшой отступ
+      const padding = 0.01;
+      final bounds = mapbox.CoordinateBounds(
+        southwest: mapbox.Point(coordinates: mapbox.Position(minLng - padding, minLat - padding)),
+        northeast: mapbox.Point(coordinates: mapbox.Position(maxLng + padding, maxLat + padding)),
+        infiniteBounds: false,
+      );
+
+      // Настраиваем камеру
+      await mapboxMapController!.flyTo(
+        mapbox.CameraOptions(
+          center: mapbox.Point(coordinates: mapbox.Position(
+            (minLng + maxLng) / 2,
+            (minLat + maxLat) / 2,
+          )),
+          zoom: 14.0,
+          padding: mapbox.MbxEdgeInsets(top: 100, left: 50, bottom: 300, right: 50),
+        ),
+        mapbox.MapAnimationOptions(duration: 1000),
+      );
+
+    } catch (e) {
+      print('❌ Ошибка настройки камеры: $e');
+    }
   }
 
   // Добавить маркер водителя на карту
@@ -1564,18 +1831,10 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
     try {
       if (mapboxMapController == null) return;
 
-      // Удаляем существующий маркер водителя
-      if (await mapboxMapController!.style.styleLayerExists('live-driver-marker-layer')) {
-        await mapboxMapController!.style.removeStyleLayer('live-driver-marker-layer');
-      }
-      if (await mapboxMapController!.style.styleSourceExists('live-driver-marker-source')) {
-        await mapboxMapController!.style.removeStyleSource('live-driver-marker-source');
-      }
-      
-      // Проверяем, существует ли иконка водителя
+      // Проверяем, существует ли иконка водителя (используем ту же что и на клиенте)
       bool iconExists = false;
       try {
-        iconExists = await mapboxMapController!.style.hasStyleImage('driver-car-icon');
+        iconExists = await mapboxMapController!.style.hasStyleImage('professional_car_icon');
         print('🔍 Проверка наличия иконки машины: $iconExists');
       } catch (e) {
         iconExists = false;
@@ -1584,21 +1843,56 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
       
       // Если иконка не существует, создаем ее
       if (!iconExists) {
-        await createDriverLocationMarker();
+        await _loadCarIconFromPng();
       }
       
       // Создаем маркер позиции водителя
       final driverFeature = {
         "type": "Feature",
+        "id": "driver-marker",
+        "properties": {
+          "icon": "professional_car_icon"
+        },
         "geometry": {
           "type": "Point",
           "coordinates": [lng, lat]
-        },
-        "properties": {
-          "id": "driver-marker",
-          "icon": "driver-car-icon"
         }
       };
+      
+      // Проверяем, существует ли уже источник маркера водителя
+      bool sourceExists = await mapboxMapController!.style.styleSourceExists('live-driver-marker-source');
+      bool layerExists = await mapboxMapController!.style.styleLayerExists('live-driver-marker-layer');
+      
+      if (sourceExists && layerExists) {
+        // Если источник и слой уже существуют, просто обновляем данные
+        try {
+          await mapboxMapController!.style.setStyleSourceProperty(
+            'live-driver-marker-source',
+            'data',
+            json.encode({
+              "type": "FeatureCollection",
+              "features": [driverFeature]
+            }),
+          );
+          print('✅ Маркер водителя обновлен: $lat, $lng');
+          return;
+        } catch (e) {
+          print('⚠️ Не удалось обновить существующий маркер, создаем новый: $e');
+        }
+      }
+      
+      // Если источник или слой не существуют, или обновление не удалось, создаем заново
+      try {
+        // Сначала удаляем существующие слои и источники (если есть)
+        if (layerExists) {
+          await mapboxMapController!.style.removeStyleLayer('live-driver-marker-layer');
+        }
+        if (sourceExists) {
+          await mapboxMapController!.style.removeStyleSource('live-driver-marker-source');
+        }
+      } catch (e) {
+        print('⚠️ Ошибка при очистке старых маркеров: $e');
+      }
       
       // Добавляем источник для маркера водителя
       await mapboxMapController!.style.addSource(mapbox.GeoJsonSource(
@@ -1614,11 +1908,11 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
         mapbox.SymbolLayer(
           id: 'live-driver-marker-layer',
           sourceId: 'live-driver-marker-source',
-          iconImage: "driver-car-icon",
-          iconSize: 1.0, // Увеличиваем размер машинки
+          iconImage: "professional_car_icon",
+          iconSize: 0.7, // Используем тот же размер что и на клиенте
           iconAllowOverlap: true,
           iconIgnorePlacement: true,
-          iconRotationAlignment: mapbox.IconRotationAlignment.MAP,
+          iconAnchor: mapbox.IconAnchor.BOTTOM,
           symbolZOrder: mapbox.SymbolZOrder.SOURCE, // Порядок отображения по z-index
         ),
       );
@@ -1630,18 +1924,18 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
       
       // Если не удалось добавить маркер, пробуем создать fallback
       try {
-        await createFallbackDriverIcon();
+        await _createFallbackCarIcon();
         
         // Создаем источник и слой заново
         final driverFeature = {
           "type": "Feature",
+          "id": "driver-marker",
+          "properties": {
+            "icon": "professional_car_icon"
+          },
           "geometry": {
             "type": "Point",
             "coordinates": [lng, lat]
-          },
-          "properties": {
-            "id": "driver-marker",
-            "icon": "driver-car-icon"
           }
         };
         
@@ -1657,10 +1951,11 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
           mapbox.SymbolLayer(
             id: 'live-driver-marker-layer',
             sourceId: 'live-driver-marker-source',
-            iconImage: "driver-car-icon",
-            iconSize: 1.0,
+            iconImage: "professional_car_icon",
+            iconSize: 0.7,
             iconAllowOverlap: true,
             iconIgnorePlacement: true,
+            iconAnchor: mapbox.IconAnchor.BOTTOM,
           ),
         );
         
@@ -1671,181 +1966,133 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
     }
   }
 
-  // Создать кастомную иконку для водителя (машинка)
-  Future<void> createDriverLocationMarker() async {
+  // Загружаем PNG иконку машины (аналогично клиентской версии)
+  Future<void> _loadCarIconFromPng() async {
     try {
-      // Проверяем, существует ли уже иконка
-      if (await mapboxMapController?.style.hasStyleImage('driver-car-icon') == true) {
-        print('✓ Иконка водителя уже существует');
+      print('🔄 Загружаем PNG иконку машины...');
+      
+      // Сначала проверяем, не загружена ли уже иконка
+      bool iconExists = await mapboxMapController!.style.hasStyleImage('professional_car_icon');
+      if (iconExists) {
+        print('✅ Иконка машины уже загружена');
         return;
       }
       
-      // Попробуем загрузить изображение машинки из ассетов
-      try {
-        // Сначала пробуем загрузить PNG
-        final ByteData pngData = await rootBundle.load('assets/images/car.png');
-        
-        // Преобразуем PNG данные
-        final ui.Codec codec = await ui.instantiateImageCodec(
-          pngData.buffer.asUint8List(),
-          targetWidth: 80,
-          targetHeight: 80,
-        );
-        final ui.FrameInfo frameInfo = await codec.getNextFrame();
-        final ByteData? resizedData = await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
-        
-        if (resizedData == null) {
-          throw Exception('Не удалось преобразовать PNG');
-        }
-        
-        await mapboxMapController?.style.addStyleImage(
-          'driver-car-icon',
-          1.0,
-          mapbox.MbxImage(
-            width: 80,
-            height: 80,
-            data: resizedData.buffer.asUint8List(),
-          ),
-          false,
-          [],
-          [],
-          null,
-        );
-        
-        print('✅ PNG иконка машинки загружена');
-        return;
-      } catch (pngError) {
-        print('⚠️ Ошибка загрузки PNG иконки: $pngError');
-        // Если не удалось загрузить из ассетов, создаем программно
-        throw Exception('Не удалось загрузить иконку из ассетов');
+      final ByteData data = await rootBundle.load('assets/images/car-white-svgrepo-com.png');
+      print('📁 PNG файл загружен, размер: ${data.lengthInBytes} байт');
+      
+      // Убедимся что размеры разумные для Mapbox
+      const int width = 60;
+      const int height = 60;
+      
+      // Преобразуем PNG данные в формат, который Mapbox сможет обработать
+      final ui.Codec codec = await ui.instantiateImageCodec(
+        data.buffer.asUint8List(),
+        targetWidth: width,
+        targetHeight: height,
+      );
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+      final ByteData? resizedData = await frameInfo.image.toByteData(format: ui.ImageByteFormat.png);
+      
+      if (resizedData == null) {
+        throw Exception('Не удалось преобразовать изображение');
+      }
+      
+      print('🖼️ Изображение преобразовано, размер: ${resizedData.lengthInBytes} байт');
+      
+      await mapboxMapController!.style.addStyleImage(
+        'professional_car_icon', // Используем одинаковое имя везде
+        1.0,
+        mapbox.MbxImage(
+          width: width,
+          height: height,
+          data: resizedData.buffer.asUint8List(),
+        ),
+        false,
+        [],
+        [],
+        null,
+      );
+
+      // Проверяем, что иконка действительно добавлена
+      bool added = await mapboxMapController!.style.hasStyleImage('professional_car_icon');
+      if (added) {
+        print('✅ PNG иконка машины успешно добавлена как professional_car_icon');
+      } else {
+        throw Exception('Иконка не была добавлена в Mapbox');
       }
     } catch (e) {
-      print('❌ Ошибка создания иконки водителя: $e');
-      await createFallbackDriverIcon();
+      print('❌ Ошибка при загрузке PNG иконки: $e');
+      throw e; // Прокидываем ошибку дальше для обработки в вызывающем методе
     }
   }
   
-  // Создаем fallback иконку водителя программно
-  Future<void> createFallbackDriverIcon() async {
+  // Fallback иконка машины (аналогично клиентской версии)
+  Future<void> _createFallbackCarIcon() async {
     try {
-      final int size = 80; // Увеличиваем размер
+      print('🔄 Создаем fallback иконку машины...');
       
-      final pictureRecorder = ui.PictureRecorder();
-      final canvas = ui.Canvas(pictureRecorder);
-      
-      // Белый круг фона с тенью
+      const size = 60;
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+
+      // Фон с тенью
       final shadowPaint = Paint()
-        ..color = Colors.black.withOpacity(0.3)
-        ..style = PaintingStyle.fill
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6);
-        
-      // Обводка круга
+        ..color = Colors.black.withOpacity(0.4)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+      canvas.drawCircle(Offset(size / 2 + 2, size / 2 + 2), 25, shadowPaint);
+
+      // Основной круг
+      final bgPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(size / 2, size / 2), 23, bgPaint);
+
+      // Обводка
       final borderPaint = Paint()
         ..color = Colors.blue
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3;
-        
-      // Основной цвет машинки
+        ..strokeWidth = 2;
+      canvas.drawCircle(Offset(size / 2, size / 2), 21, borderPaint);
+
+      // Рисуем машинку
       final carPaint = Paint()
         ..color = Colors.blue
         ..style = PaintingStyle.fill;
-        
-      // Окна машинки
+
+      // Корпус машинки
+      final carRect = Rect.fromCenter(
+        center: Offset(size / 2, size / 2),
+        width: 30,
+        height: 20,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(carRect, Radius.circular(8)),
+        carPaint,
+      );
+
+      // Колеса
+      canvas.drawCircle(Offset(size / 2 - 8, size / 2 + 8), 4, Paint()..color = Colors.black);
+      canvas.drawCircle(Offset(size / 2 + 8, size / 2 + 8), 4, Paint()..color = Colors.black);
+
+      // Окна
       final windowPaint = Paint()
         ..color = Colors.white
         ..style = PaintingStyle.fill;
-      
-      // Рисуем тень
-      canvas.drawCircle(
-        ui.Offset(size / 2 + 2, size / 2 + 2), 
-        size / 2 - 2, 
-        shadowPaint
-      );
-      
-      // Рисуем белый фон
-      canvas.drawCircle(
-        ui.Offset(size / 2, size / 2), 
-        size / 2 - 2, 
-        Paint()..color = Colors.white
-      );
-      
-      // Рисуем обводку
-      canvas.drawCircle(
-        ui.Offset(size / 2, size / 2), 
-        size / 2 - 4, 
-        borderPaint
-      );
-      
-      // Рисуем корпус машинки
-      final ui.Path carBody = ui.Path();
-      final double centerX = size / 2;
-      final double centerY = size / 2;
-      final double carWidth = size * 0.5;
-      final double carHeight = size * 0.6;
-      
-      // Создаем форму машинки (вид сверху)
-      carBody.moveTo(centerX - carWidth/2, centerY + carHeight/3);
-      carBody.lineTo(centerX - carWidth/2, centerY - carHeight/4);
-      carBody.quadraticBezierTo(
-        centerX - carWidth/2, centerY - carHeight/2.5,
-        centerX - carWidth/3, centerY - carHeight/2.5
-      );
-      carBody.lineTo(centerX + carWidth/3, centerY - carHeight/2.5);
-      carBody.quadraticBezierTo(
-        centerX + carWidth/2, centerY - carHeight/2.5,
-        centerX + carWidth/2, centerY - carHeight/4
-      );
-      carBody.lineTo(centerX + carWidth/2, centerY + carHeight/3);
-      carBody.quadraticBezierTo(
-        centerX + carWidth/2, centerY + carHeight/2.5,
-        centerX, centerY + carHeight/2.5
-      );
-      carBody.quadraticBezierTo(
-        centerX - carWidth/2, centerY + carHeight/2.5,
-        centerX - carWidth/2, centerY + carHeight/3
-      );
-      carBody.close();
-      
-      canvas.drawPath(carBody, carPaint);
-      
-      // Рисуем лобовое стекло
-      final windshieldRect = ui.RRect.fromRectAndRadius(
-        ui.Rect.fromCenter(
-          center: ui.Offset(centerX, centerY - carHeight/4),
-          width: carWidth * 0.7,
-          height: carHeight * 0.15,
-        ),
-        ui.Radius.circular(2),
-      );
-      canvas.drawRRect(windshieldRect, windowPaint);
-      
-      // Рисуем боковые окна
       canvas.drawRRect(
-        ui.RRect.fromRectAndRadius(
-          ui.Rect.fromCenter(
-            center: ui.Offset(centerX - carWidth/3, centerY),
-            width: carWidth * 0.15,
-            height: carHeight * 0.3,
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(size / 2, size / 2 - 2),
+            width: 20,
+            height: 8,
           ),
-          ui.Radius.circular(2),
+          Radius.circular(4),
         ),
         windowPaint,
       );
-      
-      canvas.drawRRect(
-        ui.RRect.fromRectAndRadius(
-          ui.Rect.fromCenter(
-            center: ui.Offset(centerX + carWidth/3, centerY),
-            width: carWidth * 0.15,
-            height: carHeight * 0.3,
-          ),
-          ui.Radius.circular(2),
-        ),
-        windowPaint,
-      );
-      
+
       // Конвертируем в изображение
-      final picture = pictureRecorder.endRecording();
+      final picture = recorder.endRecording();
       final image = await picture.toImage(size, size);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       final Uint8List imageBytes = byteData!.buffer.asUint8List();
@@ -1859,7 +2106,7 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
       
       // Добавляем в стиль карты
       await mapboxMapController?.style.addStyleImage(
-        'driver-car-icon',
+        'professional_car_icon',
         1.0,
         mbxImage,
         false,
