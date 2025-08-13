@@ -1,6 +1,6 @@
 source 'https://cdn.cocoapods.org/'
-# source 'https://api.mapbox.com/downloads/v2/cocoapods/releases/mapbox-ios-sdk-private?access_token=sk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY21jbHY5bzFuMDQ0eDJpc2I0Y3RseGd0cCJ9._driC-TERu-3lNUEhVXUxw'
-ENV['MAPBOX_DOWNLOADS_TOKEN'] ||= 'sk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY21jbHY5bzFuMDQ0eDJpc2I0Y3RseGd0cCJ9._driC-TERu-3lNUEhVXUxw'
+# source 'https://api.mapbox.com/downloads/v2/cocoapods/releases/mapbox-ios-sdk-private?access_token=pk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY203MG04dzlpMDJ1NTJxcXd0NTlkeDdsdyJ9.x57YdgO8r_TCCQBTOvzHFw'
+ENV['MAPBOX_DOWNLOADS_TOKEN'] ||= 'pk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY203MG04dzlpMDJ1NTJxcXd0NTlkeDdsdyJ9.x57YdgO8r_TCCQBTOvzHFw'
 
 # Uncomment this line to define a global platform for your project
 platform :ios, '14.0'

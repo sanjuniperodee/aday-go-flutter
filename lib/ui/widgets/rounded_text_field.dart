@@ -11,6 +11,7 @@ class RoundedTextField extends StatelessWidget {
   final int maxLines;
   final BorderRadius borderRadius;
   final Color backgroundColor;
+  final Color? borderColor;
   final TextStyle hintStyle;
   final bool enabled;
   final bool obscure;
@@ -20,6 +21,8 @@ class RoundedTextField extends StatelessWidget {
   final TextInputType keyboardType;
   final Function(String?)? onSubmitted;
   final FocusNode? focusNode;
+  final int? maxLength;
+  final TextCapitalization textCapitalization;
 
   RoundedTextField({
     Key? key,
@@ -34,11 +37,14 @@ class RoundedTextField extends StatelessWidget {
     this.inputFormatters = const [],
     this.decoration = const InputDecoration(),
     this.backgroundColor = greyscale10,
+    this.borderColor,
     this.keyboardType = TextInputType.text,
     TextStyle? hintStyle,
     this.borderRadius = const BorderRadius.all(Radius.circular(8)),
     this.onSubmitted,
     this.focusNode,
+    this.maxLength,
+    this.textCapitalization = TextCapitalization.none,
   }) : hintStyle = hintStyle ?? text400Size16Black;
 
   @override
@@ -48,7 +54,7 @@ class RoundedTextField extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor,
         border: Border.all(
-          color: greyscale30,
+          color: borderColor ?? greyscale30,
         ),
         borderRadius: borderRadius,
       ),
@@ -65,6 +71,8 @@ class RoundedTextField extends StatelessWidget {
               enabled: enabled,
               obscureText: obscure,
               onFieldSubmitted: onSubmitted,
+              maxLength: maxLength,
+              textCapitalization: textCapitalization,
               decoration: decoration.copyWith(
                 hintText: hintText,
                 floatingLabelBehavior: FloatingLabelBehavior.never,
@@ -81,6 +89,7 @@ class RoundedTextField extends StatelessWidget {
                 focusedBorder: InputBorder.none,
                 hintStyle: hintStyle,
                 prefixStyle: text400Size16Black,
+                counterText: "",
               ),
               style: text400Size16Black,
             ),

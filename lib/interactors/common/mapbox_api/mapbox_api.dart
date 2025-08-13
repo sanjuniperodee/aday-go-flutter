@@ -25,7 +25,7 @@ abstract class MapboxApi {
     @Query('country') String country = 'kz',
     // @Query('types') String types = 'address',
     @Query('access_token') String accessToken =
-        'pk.eyJ1IjoidmFuZGVydmFpeiIsImEiOiJjbGRpbTJvcHEwOHR4M25td203cDA0aXdrIn0.mP_I0HQ84N1-SLmgnU6XUQ',
+        'sk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY21lOWxuNHgyMDUxMTJqczVha256NnZxaiJ9.cbs7Kyd1tFBMsTjK9B0Pfg',
   });
 
   @GET(
@@ -35,7 +35,7 @@ abstract class MapboxApi {
     @Path('mapbox_id') required String mapboxId,
     @Query('session_token') required String sessionToken,
     @Query('access_token') String accessToken =
-        'pk.eyJ1IjoidmFuZGVydmFpeiIsImEiOiJjbGRpbTJvcHEwOHR4M25td203cDA0aXdrIn0.mP_I0HQ84N1-SLmgnU6XUQ',
+        'sk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY21lOWxuNHgyMDUxMTJqczVha256NnZxaiJ9.cbs7Kyd1tFBMsTjK9B0Pfg',
   });
 
   @GET(
@@ -50,7 +50,7 @@ abstract class MapboxApi {
     @Query('overview') String overview = 'full',
     @Query('steps') bool steps = true,
     @Query('access_token') String accessToken =
-        'pk.eyJ1IjoidmFuZGVydmFpeiIsImEiOiJjbGRpbTJvcHEwOHR4M25td203cDA0aXdrIn0.mP_I0HQ84N1-SLmgnU6XUQ',
+        'sk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY21lOWxuNHgyMDUxMTJqczVha256NnZxaiJ9.cbs7Kyd1tFBMsTjK9B0Pfg',
   });
 
   // @GET(
@@ -69,6 +69,6 @@ abstract class MapboxApi {
     @Path('longitude') required double longitude,
     @Path('latitude') required double latitude,
     @Query('access_token') String accessToken =
-        'pk.eyJ1IjoidmFuZGVydmFpeiIsImEiOiJjbGRpbTJvcHEwOHR4M25td203cDA0aXdrIn0.mP_I0HQ84N1-SLmgnU6XUQ',
+        'sk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY21lOWxuNHgyMDUxMTJqczVha256NnZxaiJ9.cbs7Kyd1tFBMsTjK9B0Pfg',
   });
 }

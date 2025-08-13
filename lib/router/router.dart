@@ -6,6 +6,7 @@ import 'package:aktau_go/ui/map_picker/map_picker_screen.dart';
 import 'package:aktau_go/ui/notifications/notifications_screen.dart';
 import 'package:aktau_go/ui/onboarding/onboarding_screen.dart';
 import 'package:aktau_go/ui/registration/registration_screen.dart';
+import 'package:aktau_go/ui/profile/edit_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:seafarer/seafarer.dart';
 
@@ -96,10 +97,7 @@ class Routes {
       ),
       SeafarerRoute(
         name: editProfileScreen,
-        builder: (context, args, params) => Scaffold(
-          appBar: AppBar(title: Text('Редактирование профиля')),
-          body: Center(child: Text('Экран редактирования профиля в разработке')),
-        ),
+        builder: (context, args, params) => EditProfileScreen(),
       ),
     ]);
   }

@@ -49,6 +49,37 @@ fi
 
 print_status "Xcode найден: $(xcodebuild -version | head -n 1)"
 
+# Mapbox downloads token (for SPM binary targets like Mapbox)
+# Set the public Mapbox token for iOS builds (this token works for SDK downloads)
+export MAPBOX_DOWNLOADS_TOKEN='pk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY203MG04dzlpMDJ1NTJxcXd0NTlkeDdsdyJ9.x57YdgO8r_TCCQBTOvzHFw'
+
+# Prefer env var if already set; otherwise try to read from ~/.netrc
+if [ -z "${MAPBOX_DOWNLOADS_TOKEN}" ]; then
+    if [ -f "$HOME/.netrc" ]; then
+        NETRC_TOKEN=$(awk '/machine api.mapbox.com/{found=1} found&&/password /{print $2; exit}' "$HOME/.netrc")
+        NETRC_LOGIN=$(awk '/machine api.mapbox.com/{found=1} found&&/login /{print $2; exit}' "$HOME/.netrc")
+        if [ -n "$NETRC_TOKEN" ] && [ "$NETRC_LOGIN" = "mapbox" ]; then
+            export MAPBOX_DOWNLOADS_TOKEN="$NETRC_TOKEN"
+            print_status "Mapbox token loaded from ~/.netrc"
+        fi
+    fi
+fi
+
+# Validate that the token works to avoid SPM 401 errors during build
+if [ -n "${MAPBOX_DOWNLOADS_TOKEN}" ]; then
+    if command -v curl >/dev/null 2>&1; then
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${MAPBOX_DOWNLOADS_TOKEN}" "https://api.mapbox.com/downloads/v2/mapbox-common/releases/ios/packages/24.12.0/MapboxCommon.zip") || HTTP_STATUS="000"
+        if [ "$HTTP_STATUS" != "200" ]; then
+            print_warning "Mapbox token seems invalid (HTTP $HTTP_STATUS). SPM may fail to resolve Mapbox packages."
+        else
+            print_status "Mapbox token verified"
+        fi
+    fi
+else
+    print_warning "MAPBOX_DOWNLOADS_TOKEN is not set and not found in ~/.netrc. Mapbox SPM dependencies may fail with 401."
+    print_warning "Set env var MAPBOX_DOWNLOADS_TOKEN or add to ~/.netrc: 'machine api.mapbox.com login mapbox password <token>'"
+fi
+
 # Проверка iOS устройств/симуляторов
 if ! flutter devices | grep -q ios; then
     print_warning "iOS устройства не найдены. Откройте симулятор или подключите iPhone."

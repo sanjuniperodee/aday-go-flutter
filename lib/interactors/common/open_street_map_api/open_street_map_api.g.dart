@@ -79,7 +79,7 @@ class _OpenStreetMapApi implements OpenStreetMapApi {
     String overview = 'full',
     bool steps = true,
     String accessToken =
-        'pk.eyJ1IjoidmFuZGVydmFpeiIsImEiOiJjbGRpbTJvcHEwOHR4M25td203cDA0aXdrIn0.mP_I0HQ84N1-SLmgnU6XUQ',
+        'sk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY21lOWxuNHgyMDUxMTJqczVha256NnZxaiJ9.cbs7Kyd1tFBMsTjK9B0Pfg',
   }) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{

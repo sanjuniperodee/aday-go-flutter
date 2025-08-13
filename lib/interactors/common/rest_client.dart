@@ -54,6 +54,14 @@ abstract class RestClient {
   /// запрос профиля пользователя
   @GET('v1/user/GetMe')
   Future<UserModel> getUserProfile();
+  
+  /// обновление профиля пользователя
+  @PUT('v1/user/profile')
+  Future<void> updateUserProfile({
+    @Field('firstName') String? firstName,
+    @Field('lastName') String? lastName,
+    @Field('middleName') String? middleName,
+  });
 
   /// запрос профиля пользователя
   @POST('v1/order-requests/accept')
@@ -136,6 +144,12 @@ abstract class RestClient {
     @Field('brand') required String brand,
     @Field('color') required String color,
     @Field('SSN') required String SSN,
+  });
+
+  /// запрос профиля пользователя
+  @DELETE('v1/order-requests/category/{id}')
+  Future<void> deleteDriverCategory({
+    @Path('id') required String id,
   });
 
   /// запрос профиля пользователя

@@ -36,7 +36,7 @@ abstract class OpenStreetMapApi {
     @Query('overview') String overview = 'full',
     @Query('steps') bool steps = true,
     @Query('access_token') String accessToken =
-        'pk.eyJ1IjoidmFuZGVydmFpeiIsImEiOiJjbGRpbTJvcHEwOHR4M25td203cDA0aXdrIn0.mP_I0HQ84N1-SLmgnU6XUQ',
+        'sk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY21lOWxuNHgyMDUxMTJqczVha256NnZxaiJ9.cbs7Kyd1tFBMsTjK9B0Pfg',
   });
 
   @GET("reverse.php")

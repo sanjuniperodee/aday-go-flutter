@@ -12,6 +12,7 @@ import 'package:elementary_helper/elementary_helper.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/colors.dart';
 import './driver_registation_model.dart';
 import './driver_registration_screen.dart';
 
@@ -40,7 +41,25 @@ abstract class IDriverRegistrationWM implements IWidgetModel {
 
   void handleDriverTypeChanged(DriverType value);
 
-  selectCategory(DriverRegisteredCategoryDomain e);
+  void selectCategory(DriverRegisteredCategoryDomain e);
+  
+  void resetForm();
+  
+  void editCar(DriverRegisteredCategoryDomain car);
+  
+  void deleteCar(DriverRegisteredCategoryDomain car);
+  
+  void updateBrand(String value);
+  
+  void updateModel(String value);
+  
+  void updateGovernmentNumber(String value);
+  
+  void updateSSN(String value);
+  
+  void updateColor(String value);
+  
+  BuildContext get context;
 }
 
 class DriverRegistrationWM
@@ -52,30 +71,167 @@ class DriverRegistrationWM
 
   @override
   Future<void> submitProfileRegistration() async {
-    if (driverRegistrationForm.value?.id.value == null) {
-      await inject<RestClient>().createDriverCategory(
-        governmentNumber: driverRegistrationForm.value!.governmentNumber.value!,
-        type: driverRegistrationForm.value!.type.value!.key!,
-        model: driverRegistrationForm.value!.model.value!,
-        brand: driverRegistrationForm.value!.brand.value!,
-        color: driverRegistrationForm.value!.color.value!.hexCode,
-        SSN: driverRegistrationForm.value!.SSN.value,
+    try {
+      // Показываем индикатор загрузки
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('Сохранение...'),
+            ],
+          ),
+          backgroundColor: primaryColor,
+          duration: Duration(seconds: 10),
+        ),
       );
-    } else {
-      await inject<RestClient>().editDriverCategory(
-        id: driverRegistrationForm.value!.id.value!,
-        governmentNumber: driverRegistrationForm.value!.governmentNumber.value!,
-        type: driverRegistrationForm.value!.type.value!.key!,
-        model: driverRegistrationForm.value!.model.value!,
-        brand: driverRegistrationForm.value!.brand.value!,
-        color: driverRegistrationForm.value!.color.value!.hexCode,
-        SSN: driverRegistrationForm.value!.SSN.value,
+
+      if (driverRegistrationForm.value?.id.value == null) {
+        // Создание нового автомобиля
+        await inject<RestClient>().createDriverCategory(
+          governmentNumber: driverRegistrationForm.value!.governmentNumber.value!,
+          type: driverRegistrationForm.value!.type.value!.key!,
+          model: driverRegistrationForm.value!.model.value!,
+          brand: driverRegistrationForm.value!.brand.value!,
+          color: driverRegistrationForm.value!.color.value!.hexCode,
+          SSN: driverRegistrationForm.value!.SSN.value,
+        );
+        
+        // Показываем успешное сообщение
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Автомобиль успешно добавлен'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        // Редактирование существующего автомобиля
+        await inject<RestClient>().editDriverCategory(
+          id: driverRegistrationForm.value!.id.value!,
+          governmentNumber: driverRegistrationForm.value!.governmentNumber.value!,
+          type: driverRegistrationForm.value!.type.value!.key!,
+          model: driverRegistrationForm.value!.model.value!,
+          brand: driverRegistrationForm.value!.brand.value!,
+          color: driverRegistrationForm.value!.color.value!.hexCode,
+          SSN: driverRegistrationForm.value!.SSN.value,
+        );
+        
+        // Показываем успешное сообщение
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Автомобиль успешно обновлен'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Обновляем список автомобилей
+      fetchDriverRegisteredCategories();
+      
+      // Сбрасываем форму
+      resetForm();
+
+    } catch (e) {
+      // Показываем сообщение об ошибке
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
       );
     }
-
-    Routes.router.popUntil(
-      (predicate) => predicate.isFirst,
+  }
+  
+  @override
+  void editCar(DriverRegisteredCategoryDomain car) {
+    selectCategory(car);
+  }
+  
+  @override
+  void deleteCar(DriverRegisteredCategoryDomain car) async {
+    try {
+      await inject<RestClient>().deleteDriverCategory(id: car.id);
+      
+      // Обновляем список автомобилей
+      fetchDriverRegisteredCategories();
+      
+      // Показываем успешное сообщение
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Автомобиль успешно удален'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      // Показываем ошибку
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка при удалении автомобиля'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+  
+  @override
+  void updateBrand(String value) {
+    driverRegistrationForm.accept(
+      driverRegistrationForm.value?.copyWith(
+        brand: Required.dirty(value),
+      ),
     );
+  }
+  
+  @override
+  void updateModel(String value) {
+    driverRegistrationForm.accept(
+      driverRegistrationForm.value?.copyWith(
+        model: Required.dirty(value),
+      ),
+    );
+  }
+  
+  @override
+  void updateGovernmentNumber(String value) {
+    driverRegistrationForm.accept(
+      driverRegistrationForm.value?.copyWith(
+        governmentNumber: Required.dirty(value),
+      ),
+    );
+  }
+  
+  @override
+  void updateSSN(String value) {
+    driverRegistrationForm.accept(
+      driverRegistrationForm.value?.copyWith(
+        SSN: SSNFormzInput.dirty(value),
+      ),
+    );
+  }
+  
+  @override
+  void updateColor(String value) {
+    final carColor = CarColor.fromHex(value);
+    if (carColor != null) {
+      driverRegistrationForm.accept(
+        driverRegistrationForm.value?.copyWith(
+          color: Required.dirty(carColor),
+        ),
+      );
+    }
   }
 
   @override
@@ -197,7 +353,7 @@ class DriverRegistrationWM
   }
 
   @override
-  selectCategory(DriverRegisteredCategoryDomain e) {
+  void selectCategory(DriverRegisteredCategoryDomain e) {
     driverRegistrationForm.accept(
       driverRegistrationForm.value?.copyWith(
         id: Required.dirty(e.id),
@@ -214,6 +370,36 @@ class DriverRegistrationWM
     modelTextEditingController.text = e.model;
     governmentNumberTextEditingController.text = e.number;
     ssnTextEditingController.text = e.sSN;
+  }
+  
+  @override
+  void resetForm() {
+    // Проверяем, есть ли данные в форме
+    final currentForm = driverRegistrationForm.value;
+    final hasData = currentForm?.brand.value?.isNotEmpty == true ||
+                   currentForm?.model.value?.isNotEmpty == true ||
+                   currentForm?.governmentNumber.value?.isNotEmpty == true ||
+                   currentForm?.SSN.value?.isNotEmpty == true;
+    
+    // Сбрасываем форму к начальному состоянию
+    driverRegistrationForm.accept(DriverRegistrationForm());
+    
+    // Очищаем текстовые поля
+    brandTextEditingController.text = '';
+    modelTextEditingController.text = '';
+    governmentNumberTextEditingController.text = '';
+    ssnTextEditingController.text = '';
+    
+    // Показываем сообщение пользователю только если была отмена редактирования
+    if (hasData) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Редактирование отменено'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }
 

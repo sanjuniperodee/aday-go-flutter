@@ -12,6 +12,12 @@ abstract class IProfileInteractor {
 
   Future<List<DriverRegisteredCategoryDomain>>
       fetchDriverRegisteredCategories();
+      
+  Future<void> updateUserProfile({
+    String? firstName,
+    String? lastName,
+    String? middleName,
+  });
 }
 
 @singleton
@@ -29,4 +35,15 @@ class ProfileInteractor extends IProfileInteractor {
       fetchDriverRegisteredCategories() async =>
           driverRegisteredCategoryListMapper(
               await _restClient.driverRegisteredCategories());
+              
+  @override
+  Future<void> updateUserProfile({
+    String? firstName,
+    String? lastName,
+    String? middleName,
+  }) async => _restClient.updateUserProfile(
+    firstName: firstName,
+    lastName: lastName,
+    middleName: middleName,
+  );
 }

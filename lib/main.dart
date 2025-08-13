@@ -19,7 +19,7 @@ Future<void> main() async {
   await EasyLocalization.ensureInitialized();
 
   // Set Mapbox access token
-  MapboxOptions.setAccessToken('sk.eyJ1IjoidmFuZGVydmFpeiIsImEiOiJjbTA1azhkNjEwNDF2MmtzNHA0eWJ3eTR0In0.cSGmIeLW1Wc44gyBBWJsYA');
+  MapboxOptions.setAccessToken('sk.eyJ1Ijoic2FuanVuaXBlcm9kZWUiLCJhIjoiY21lOWxuNHgyMDUxMTJqczVha256NnZxaiJ9.cbs7Kyd1tFBMsTjK9B0Pfg');
 
   await Firebase.initializeApp();
 
