@@ -88,7 +88,7 @@ class HistoryScreen extends ElementaryWidget<IHistoryWM> {
                           ),
                           SizedBox(height: 8),
                           Text(
-                            'Завершенные заказы появятся здесь',
+                            'Завершенные и отмененные заказы появятся здесь',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,

@@ -50,12 +50,19 @@ class HistoryOrderCard extends StatelessWidget {
     final orderStatus = _getOrderStatus(orderRequest);
     final statusColor = _getStatusColor(orderStatus);
 
+    // Определяем, является ли заказ отмененным
+    final isCancelled = orderStatus.contains('Отменен');
+    
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 0,
+      color: isCancelled ? Colors.grey.shade50 : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(
+          color: isCancelled ? Colors.grey.shade300 : Colors.grey.shade200,
+          width: isCancelled ? 1.5 : 1,
+        ),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -89,13 +96,27 @@ class HistoryOrderCard extends StatelessWidget {
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      orderStatus,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: statusColor,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Иконка для отмененных заказов
+                        if (orderStatus.contains('Отменен'))
+                          Icon(
+                            Icons.cancel_outlined,
+                            size: 14,
+                            color: statusColor,
+                          ),
+                        if (orderStatus.contains('Отменен'))
+                          SizedBox(width: 4),
+                        Text(
+                          orderStatus,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -103,45 +124,44 @@ class HistoryOrderCard extends StatelessWidget {
               
               SizedBox(height: 12),
               
-              // Маршрут
-              Row(
+              // Маршрут - улучшенное отображение адресов
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Иконки и линия маршрута
-                  Column(
+                  // Откуда
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.circle, color: Colors.green, size: 14),
-                      Container(
-                        width: 1,
-                        height: 30,
-                        color: Colors.grey.shade300,
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          fromAddress,
+                          style: TextStyle(fontSize: 14),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      Icon(Icons.place, color: primaryColor, size: 14),
                     ],
                   ),
                   
-                  SizedBox(width: 12),
+                  SizedBox(height: 12),
                   
-                  // Адреса
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          fromAddress,
-                          style: TextStyle(fontSize: 14),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
+                  // Куда
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.place, color: primaryColor, size: 14),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
                           toAddress,
                           style: TextStyle(fontSize: 14),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -161,7 +181,7 @@ class HistoryOrderCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: primaryColor,
+                          color: isCancelled ? Colors.grey.shade600 : primaryColor,
                         ),
                       ),
                       if (durationText.isNotEmpty)
@@ -232,6 +252,12 @@ class HistoryOrderCard extends StatelessWidget {
     
     if (status == 'COMPLETED') {
       return 'Завершен';
+    } else if (status == 'REJECTED_BY_CLIENT') {
+      return 'Отменен клиентом';
+    } else if (status == 'REJECTED_BY_DRIVER') {
+      return 'Отменен водителем';
+    } else if (status == 'REJECTED') {
+      return 'Отменен';
     } else if (status == 'CANCELLED') {
       return 'Отменен';
     } else if (status == 'ACTIVE') {
@@ -248,6 +274,10 @@ class HistoryOrderCard extends StatelessWidget {
     switch (status) {
       case 'Завершен':
         return Colors.green;
+      case 'Отменен клиентом':
+        return Colors.red.shade600;
+      case 'Отменен водителем':
+        return Colors.red.shade700;
       case 'Отменен':
         return Colors.red;
       case 'Активен':

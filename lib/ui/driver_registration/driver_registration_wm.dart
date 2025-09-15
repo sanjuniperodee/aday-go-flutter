@@ -11,6 +11,7 @@ import 'package:elementary/elementary.dart';
 import 'package:elementary_helper/elementary_helper.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'dart:math';
 
 import '../../core/colors.dart';
 import './driver_registation_model.dart';
@@ -161,7 +162,44 @@ class DriverRegistrationWM
   @override
   void deleteCar(DriverRegisteredCategoryDomain car) async {
     try {
-      await inject<RestClient>().deleteDriverCategory(id: car.id);
+      // Показываем индикатор загрузки
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('Удаление...'),
+            ],
+          ),
+          backgroundColor: primaryColor,
+          duration: Duration(seconds: 10),
+        ),
+      );
+
+      // Пытаемся использовать PUT запрос для мягкого удаления
+      try {
+        await inject<RestClient>().editDriverCategory(
+          id: car.id,
+          governmentNumber: car.number,
+          type: car.categoryType.key!,
+          model: car.model,
+          brand: car.brand,
+          color: car.color ?? '#FF000000',
+          SSN: car.sSN,
+        );
+      } catch (e) {
+        print('Edit failed, trying delete: $e');
+        // Если редактирование не работает, пробуем удаление
+        await inject<RestClient>().deleteDriverCategory(id: car.id);
+      }
       
       // Обновляем список автомобилей
       fetchDriverRegisteredCategories();
@@ -175,12 +213,13 @@ class DriverRegistrationWM
         ),
       );
     } catch (e) {
+      print('Error deleting car: $e');
       // Показываем ошибку
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Ошибка при удалении автомобиля'),
+          content: Text('Ошибка при удалении автомобиля: ${e.toString()}'),
           backgroundColor: Colors.red,
-          duration: Duration(seconds: 2),
+          duration: Duration(seconds: 3),
         ),
       );
     }
@@ -271,6 +310,32 @@ class DriverRegistrationWM
   void initWidgetModel() {
     super.initWidgetModel();
     fetchDriverRegisteredCategories();
+    
+    // Слушаем изменения в контроллерах для обновления формы
+    brandTextEditingController.addListener(_updateForm);
+    modelTextEditingController.addListener(_updateForm);
+    governmentNumberTextEditingController.addListener(_updateForm);
+    ssnTextEditingController.addListener(_updateForm);
+  }
+  
+  @override
+  void dispose() {
+    brandTextEditingController.dispose();
+    modelTextEditingController.dispose();
+    governmentNumberTextEditingController.dispose();
+    ssnTextEditingController.dispose();
+    super.dispose();
+  }
+  
+  void _updateForm() {
+    driverRegistrationForm.accept(
+      driverRegistrationForm.value?.copyWith(
+        brand: Required.dirty(brandTextEditingController.text),
+        model: Required.dirty(modelTextEditingController.text),
+        governmentNumber: Required.dirty(governmentNumberTextEditingController.text),
+        SSN: SSNFormzInput.dirty(ssnTextEditingController.text),
+      ),
+    );
   }
 
   @override
@@ -316,16 +381,16 @@ class DriverRegistrationWM
 
   @override
   List<CarColor> get carColors => [
-        CarColor(color: Colors.red, label: 'Красный'),
-        CarColor(color: Colors.green, label: 'Зелёный'),
-        CarColor(color: Colors.blue, label: 'Синий'),
-        CarColor(color: Colors.yellow, label: 'Жёлтый'),
-        CarColor(color: Colors.orange, label: 'Оранжевый'),
-        CarColor(color: Colors.purple, label: 'Фиолетовый'),
-        CarColor(color: Colors.black, label: 'Чёрный'),
-        CarColor(color: Colors.white, label: 'Белый'),
-        CarColor(color: Colors.grey, label: 'Серый'),
-        CarColor(color: Colors.brown, label: 'Коричневый'),
+        CarColor(hexCode: '#FF0000', label: 'Красный'),
+        CarColor(hexCode: '#00FF00', label: 'Зелёный'),
+        CarColor(hexCode: '#0000FF', label: 'Синий'),
+        CarColor(hexCode: '#FFFF00', label: 'Жёлтый'),
+        CarColor(hexCode: '#FFA500', label: 'Оранжевый'),
+        CarColor(hexCode: '#800080', label: 'Фиолетовый'),
+        CarColor(hexCode: '#000000', label: 'Чёрный'),
+        CarColor(hexCode: '#FFFFFF', label: 'Белый'),
+        CarColor(hexCode: '#808080', label: 'Серый'),
+        CarColor(hexCode: '#A52A2A', label: 'Коричневый'),
       ];
 
   @override
@@ -404,49 +469,58 @@ class DriverRegistrationWM
 }
 
 class CarColor with EquatableMixin {
-  final Color color;
+  final String hexCode;
   final String label;
 
-  // Convert color to hex code
-  String get hexCode =>
-      '#${color.value.toRadixString(16).padLeft(8, '0').toUpperCase()}';
-
   CarColor({
-    required this.color,
+    required this.hexCode,
     required this.label,
   });
 
   // Create a CarColor from a hex code
   static CarColor? fromHex(String hexCode) {
-    final carColors = [
-      CarColor(color: Colors.red, label: 'Красный'),
-      CarColor(color: Colors.green, label: 'Зелёный'),
-      CarColor(color: Colors.blue, label: 'Синий'),
-      CarColor(color: Colors.yellow, label: 'Жёлтый'),
-      CarColor(color: Colors.orange, label: 'Оранжевый'),
-      CarColor(color: Colors.purple, label: 'Фиолетовый'),
-      CarColor(color: Colors.black, label: 'Чёрный'),
-      CarColor(color: Colors.white, label: 'Белый'),
-      CarColor(color: Colors.grey, label: 'Серый'),
-      CarColor(color: Colors.brown, label: 'Коричневый'),
-    ];
-    // Remove the '#' if present
-    String cleanHex = hexCode.replaceFirst('#', '');
-    for (var carColor in carColors) {
-      if (carColor.color.value
-              .toRadixString(16)
-              .padLeft(8, '0')
-              .toUpperCase() ==
-          cleanHex) {
-        return carColor;
+    try {
+      // Remove the '#' if present
+      String cleanHex = hexCode.replaceFirst('#', '');
+      
+      // Handle different hex formats
+      if (cleanHex.length == 6) {
+        // RGB format, add alpha
+        cleanHex = 'FF$cleanHex';
+      } else if (cleanHex.length == 8) {
+        // ARGB format
+        cleanHex = cleanHex;
+      } else {
+        return null;
       }
+      
+      // Find matching color name
+      final colorMap = {
+        'FF0000': 'Красный',
+        '00FF00': 'Зеленый',
+        '0000FF': 'Синий',
+        'FFFF00': 'Желтый',
+        'FFA500': 'Оранжевый',
+        '800080': 'Фиолетовый',
+        '000000': 'Черный',
+        'FFFFFF': 'Белый',
+        '808080': 'Серый',
+        'A52A2A': 'Коричневый',
+      };
+      
+      // Extract RGB part (remove alpha)
+      final rgbHex = cleanHex.substring(2, 8);
+      final colorName = colorMap[rgbHex] ?? 'Цвет #$rgbHex';
+      
+      return CarColor(
+        hexCode: '#$rgbHex',
+        label: colorName,
+      );
+    } catch (e) {
+      return null;
     }
-    return null; // Return null if no match found
   }
 
   @override
-  List<Object?> get props => [
-        color,
-        label,
-      ];
+  List<Object?> get props => [hexCode, label];
 }

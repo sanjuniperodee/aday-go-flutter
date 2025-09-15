@@ -81,7 +81,7 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
   void _connectToSocket() {
     try {
       final prefs = inject<SharedPreferences>();
-      final sessionId = prefs.getString('sessionId');
+      final sessionId = prefs.getString('access_token');
       final userId = prefs.getString('userId');
       
       if (sessionId != null && userId != null) {
@@ -128,7 +128,7 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
   Future<void> _checkOrderStatus() async {
     try {
       final prefs = inject<SharedPreferences>();
-      final sessionId = prefs.getString('sessionId');
+      final sessionId = prefs.getString('access_token');
       
       if (sessionId != null && !isOrderCancelled) {
         // Здесь можно добавить API вызов для проверки статуса заказа
@@ -431,6 +431,8 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
                                           fontWeight: FontWeight.w600,
                                           color: Colors.black87,
                                         ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ],
                                   ),
@@ -480,6 +482,8 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
                                           fontWeight: FontWeight.w600,
                                           color: Colors.black87,
                                         ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ],
                                   ),
@@ -526,7 +530,9 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
                               });
                                 
                                 try {
-                                  // ДОБАВЛЯЕМ: Явно включаем все жесты карты для водителя
+                                  // Настройка жестов с задержкой для полной инициализации карты
+                                  await Future.delayed(Duration(milliseconds: 500));
+                                  
                                   await mapboxController.gestures.updateSettings(
                                     mapbox.GesturesSettings(
                                       rotateEnabled: true,
@@ -538,7 +544,7 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
                                       pinchToZoomEnabled: true,
                                     ),
                                   );
-                                  print('✅ Все жесты карты явно включены для водителя');
+                                  print('✅ Gesture settings applied');
                                   
                                   // Add marker images first
                                   await addImageFromAsset('point_a', 'assets/images/point_a.png');
@@ -765,7 +771,7 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
   }
 
   Future<void> fetchActiveOrderRoute() async {
-    String? sessionId = inject<SharedPreferences>().getString('sessionId');
+    String? sessionId = inject<SharedPreferences>().getString('access_token');
 
     try {
       // Safely parse coordinates with enhanced validation

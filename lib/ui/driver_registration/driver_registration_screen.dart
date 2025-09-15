@@ -12,6 +12,7 @@ import '../../core/text_styles.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/rounded_text_field.dart';
 import 'driver_registration_wm.dart';
+import 'add_edit_car_screen.dart';
 
 class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
   DriverRegistrationScreen({
@@ -41,10 +42,42 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
           onPressed: () => Navigator.of(wm.context).pop(),
         ),
         actions: [
-          IconButton(
-            icon: Icon(Icons.add_circle_outline, color: primaryColor, size: 28),
-            onPressed: () => wm.resetForm(),
-            tooltip: 'Добавить автомобиль',
+          // Показываем кнопку добавления только если есть доступные типы
+          StateNotifierBuilder<List<DriverRegisteredCategoryDomain>>(
+            listenableState: wm.driverRegisteredCategories,
+            builder: (context, driverRegisteredCategories) {
+              if (driverRegisteredCategories == null || driverRegisteredCategories.isEmpty) {
+                return IconButton(
+                  icon: Icon(Icons.add_circle_outline, color: primaryColor, size: 28),
+                  onPressed: () => _navigateToAddEditCar(wm.context),
+                  tooltip: 'Добавить автомобиль',
+                );
+              }
+              
+              // Проверяем, есть ли доступные типы машин
+              final existingTypes = driverRegisteredCategories
+                  .map((car) => car.categoryType)
+                  .toSet();
+              
+              final allTypes = [
+                DriverType.TAXI,
+                DriverType.DELIVERY,
+                DriverType.INTERCITY_TAXI,
+                DriverType.CARGO,
+              ];
+              
+              final availableTypes = allTypes.where((type) => !existingTypes.contains(type)).toList();
+              
+              if (availableTypes.isEmpty) {
+                return SizedBox.shrink(); // Скрываем кнопку
+              }
+              
+              return IconButton(
+                icon: Icon(Icons.add_circle_outline, color: primaryColor, size: 28),
+                onPressed: () => _navigateToAddEditCar(wm.context),
+                tooltip: 'Добавить автомобиль',
+              );
+            },
           ),
         ],
         bottom: PreferredSize(
@@ -53,93 +86,66 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
         ),
       ),
       body: SafeArea(
-        child: DoubleSourceBuilder(
-          firstSource: wm.driverRegistrationForm,
-          secondSource: wm.driverRegisteredCategories,
-          builder: (
-            context,
-            DriverRegistrationForm? driverRegistrationForm,
-            List<DriverRegisteredCategoryDomain>? driverRegisteredCategories,
-          ) {
-            return Column(
-              children: [
-                // Основной контент
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        child: StateNotifierBuilder<List<DriverRegisteredCategoryDomain>>(
+          listenableState: wm.driverRegisteredCategories,
+          builder: (context, driverRegisteredCategories) {
+            if (driverRegisteredCategories == null) {
+              return Center(child: CircularProgressIndicator());
+            }
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Заголовок секции
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: Row(
                       children: [
-                        // Секция с зарегистрированными автомобилями
-                        if (driverRegisteredCategories != null && driverRegisteredCategories.isNotEmpty)
-                          _buildRegisteredCarsSection(context, wm, driverRegisteredCategories),
-                        
-                        // Форма добавления/редактирования автомобиля
-                        if (driverRegistrationForm != null)
-                          _buildCarRegistrationForm(context, wm, driverRegistrationForm, driverRegisteredCategories),
+                        Icon(Icons.directions_car, color: primaryColor, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Зарегистрированные автомобили',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Spacer(),
+                        Text(
+                          '${driverRegisteredCategories.length}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                  
+                  // Список автомобилей
+                  if (driverRegisteredCategories.isNotEmpty)
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      itemCount: driverRegisteredCategories.length,
+                      separatorBuilder: (context, index) => SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final car = driverRegisteredCategories[index];
+                        return _buildCarCard(context, wm, car);
+                      },
+                    )
+                  else
+                    _buildEmptyState(),
+                ],
+              ),
             );
           },
         ),
       ),
-    );
-  }
-  
-  // Секция с зарегистрированными автомобилями
-  Widget _buildRegisteredCarsSection(
-    BuildContext context, 
-    IDriverRegistrationWM wm,
-    List<DriverRegisteredCategoryDomain> categories
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Заголовок секции
-        Padding(
-          padding: EdgeInsets.only(bottom: 16),
-          child: Row(
-            children: [
-              Icon(Icons.directions_car, color: primaryColor, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Зарегистрированные автомобили',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              Spacer(),
-              Text(
-                '${categories.length}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        // Список автомобилей
-        ListView.separated(
-          shrinkWrap: true,
-          physics: NeverScrollableScrollPhysics(),
-          itemCount: categories.length,
-          separatorBuilder: (context, index) => SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final car = categories[index];
-            return _buildCarCard(context, wm, car);
-          },
-        ),
-        
-        SizedBox(height: 24),
-      ],
     );
   }
   
@@ -150,6 +156,7 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
     DriverRegisteredCategoryDomain car
   ) {
     final isActive = car.deletedAt == null;
+    final carColor = _getCarColor(car.color);
     
     return Container(
       decoration: BoxDecoration(
@@ -167,7 +174,7 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => wm.editCar(car),
+          onTap: () => _navigateToAddEditCar(context, car),
           child: Padding(
             padding: EdgeInsets.all(16),
             child: Column(
@@ -181,11 +188,11 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: _getCarColor(car.color),
+                        color: carColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
-                        Icons.directions_car,
+                        _getCarTypeIcon(car.categoryType),
                         color: Colors.white,
                         size: 20,
                       ),
@@ -246,6 +253,15 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
                 // Дополнительная информация
                 Row(
                   children: [
+                    // Тип автомобиля
+                    Expanded(
+                      child: _buildInfoItem(
+                        icon: _getCarTypeIcon(car.categoryType),
+                        label: 'Тип',
+                        value: _getCarTypeLabel(car.categoryType),
+                      ),
+                    ),
+                    
                     // SSN
                     if (car.sSN.isNotEmpty)
                       Expanded(
@@ -253,16 +269,6 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
                           icon: Icons.badge,
                           label: 'SSN',
                           value: car.sSN,
-                        ),
-                      ),
-                    
-                    // Цвет автомобиля
-                    if (car.color.isNotEmpty)
-                      Expanded(
-                        child: _buildInfoItem(
-                          icon: Icons.palette,
-                          label: 'Цвет',
-                          value: car.color,
                         ),
                       ),
                   ],
@@ -276,7 +282,7 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
                     // Кнопка редактирования
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => wm.editCar(car),
+                        onPressed: () => _navigateToAddEditCar(context, car),
                         icon: Icon(Icons.edit, size: 16),
                         label: Text('Редактировать'),
                         style: OutlinedButton.styleFrom(
@@ -318,6 +324,40 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
     );
   }
   
+  // Пустое состояние
+  Widget _buildEmptyState() {
+    return Container(
+      padding: EdgeInsets.all(32),
+      child: Column(
+        children: [
+          Icon(
+            Icons.directions_car_outlined,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          SizedBox(height: 16),
+          Text(
+            'У вас пока нет автомобилей',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Добавьте свой первый автомобиль для начала работы',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
   // Элемент информации
   Widget _buildInfoItem({
     required IconData icon,
@@ -355,187 +395,19 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
     );
   }
   
-  // Форма добавления/редактирования автомобиля
-  Widget _buildCarRegistrationForm(
-    BuildContext context,
-    IDriverRegistrationWM wm,
-    DriverRegistrationForm form,
-    List<DriverRegisteredCategoryDomain>? existingCars,
-  ) {
-    final isEditMode = form.id.value != null;
-    
-    return Container(
-      margin: EdgeInsets.only(top: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Заголовок формы
-            Row(
-              children: [
-                Icon(
-                  isEditMode ? Icons.edit : Icons.add_circle_outline,
-                  color: primaryColor,
-                  size: 20,
-                ),
-                SizedBox(width: 8),
-                Text(
-                  isEditMode ? 'Редактирование автомобиля' : 'Добавление нового автомобиля',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                Spacer(),
-                // Кнопка закрытия формы
-                IconButton(
-                  onPressed: () => wm.resetForm(),
-                  icon: Icon(Icons.close, color: Colors.grey[600]),
-                  padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(),
-                ),
-              ],
-            ),
-            
-            SizedBox(height: 20),
-            
-            // Поля формы
-            Column(
-              children: [
-                // Марка автомобиля
-                RoundedTextField(
-                  controller: wm.brandTextEditingController,
-                  labelText: 'Марка автомобиля *',
-                  hintText: 'Например: Toyota',
-                ),
-                
-                SizedBox(height: 16),
-                
-                // Модель автомобиля
-                RoundedTextField(
-                  controller: wm.modelTextEditingController,
-                  labelText: 'Модель автомобиля *',
-                  hintText: 'Например: Camry',
-                ),
-                
-                SizedBox(height: 16),
-                
-                // Государственный номер
-                RoundedTextField(
-                  controller: wm.governmentNumberTextEditingController,
-                  labelText: 'Государственный номер *',
-                  hintText: 'Например: 123ABC01',
-                ),
-                
-                SizedBox(height: 16),
-                
-                // SSN
-                RoundedTextField(
-                  controller: wm.ssnTextEditingController,
-                  labelText: 'SSN *',
-                  hintText: 'Введите SSN',
-                ),
-                
-                SizedBox(height: 16),
-                
-                // Выбор цвета
-                _buildColorSelector(context, wm, form),
-                
-                SizedBox(height: 24),
-                
-                // Кнопка сохранения
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: PrimaryButton.primary(
-                    text: isEditMode ? 'Сохранить изменения' : 'Добавить автомобиль',
-                    onPressed: form.isValid ? () => wm.submitProfileRegistration() : null,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+  // Навигация к странице добавления/редактирования
+  void _navigateToAddEditCar(BuildContext context, [DriverRegisteredCategoryDomain? car]) async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddEditCarScreen(carToEdit: car),
       ),
     );
-  }
-  
-  // Селектор цвета
-  Widget _buildColorSelector(
-    BuildContext context,
-    IDriverRegistrationWM wm,
-    DriverRegistrationForm form,
-  ) {
-    final colors = [
-      {'name': 'Красный', 'value': 'red', 'color': Colors.red},
-      {'name': 'Синий', 'value': 'blue', 'color': Colors.blue},
-      {'name': 'Зеленый', 'value': 'green', 'color': Colors.green},
-      {'name': 'Желтый', 'value': 'yellow', 'color': Colors.yellow},
-      {'name': 'Оранжевый', 'value': 'orange', 'color': Colors.orange},
-      {'name': 'Фиолетовый', 'value': 'purple', 'color': Colors.purple},
-      {'name': 'Черный', 'value': 'black', 'color': Colors.black},
-      {'name': 'Белый', 'value': 'white', 'color': Colors.white},
-    ];
     
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Цвет автомобиля',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
-        SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: colors.map((colorData) {
-            final isSelected = form.color.value == colorData['value'];
-            return GestureDetector(
-              onTap: () => wm.updateColor(colorData['value'] as String),
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: colorData['color'] as Color,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isSelected ? primaryColor : Colors.grey[300]!,
-                    width: isSelected ? 3 : 1,
-                  ),
-                  boxShadow: isSelected ? [
-                    BoxShadow(
-                      color: primaryColor.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ] : null,
-                ),
-                child: isSelected
-                    ? Icon(Icons.check, color: Colors.white, size: 24)
-                    : null,
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
+    // Обновляем список если вернулись с результатом
+    if (result == true) {
+      // Обновляем список автомобилей
+      // Это будет обработано в WidgetModel
+    }
   }
   
   // Диалог подтверждения удаления
@@ -571,25 +443,62 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
   
   // Получение цвета автомобиля
   Color _getCarColor(String? colorName) {
-    switch (colorName?.toLowerCase()) {
-      case 'red':
-        return Colors.red;
-      case 'blue':
-        return Colors.blue;
-      case 'green':
-        return Colors.green;
-      case 'yellow':
-        return Colors.yellow;
-      case 'orange':
-        return Colors.orange;
-      case 'purple':
-        return Colors.purple;
-      case 'black':
-        return Colors.black;
-      case 'white':
-        return Colors.white;
-      default:
+    if (colorName == null || colorName.isEmpty) {
+      return Colors.grey;
+    }
+    
+    try {
+      // Remove the '#' if present
+      String cleanHex = colorName.replaceFirst('#', '');
+      
+      // Handle different hex formats
+      if (cleanHex.length == 6) {
+        // RGB format, add alpha
+        cleanHex = 'FF$cleanHex';
+      } else if (cleanHex.length == 8) {
+        // ARGB format
+        cleanHex = cleanHex;
+      } else {
         return Colors.grey;
+      }
+      
+      // Parse hex to int
+      int colorValue = int.parse(cleanHex, radix: 16);
+      return Color(colorValue);
+    } catch (e) {
+      return Colors.grey;
+    }
+  }
+  
+  // Получение иконки типа автомобиля
+  IconData _getCarTypeIcon(DriverType categoryType) {
+    switch (categoryType) {
+      case DriverType.TAXI:
+        return Icons.local_taxi;
+      case DriverType.DELIVERY:
+        return Icons.delivery_dining;
+      case DriverType.INTERCITY_TAXI:
+        return Icons.directions_car;
+      case DriverType.CARGO:
+        return Icons.local_shipping;
+      default:
+        return Icons.directions_car;
+    }
+  }
+  
+  // Получение названия типа автомобиля
+  String _getCarTypeLabel(DriverType categoryType) {
+    switch (categoryType) {
+      case DriverType.TAXI:
+        return 'Такси';
+      case DriverType.DELIVERY:
+        return 'Доставка';
+      case DriverType.INTERCITY_TAXI:
+        return 'Междугороднее такси';
+      case DriverType.CARGO:
+        return 'Грузоперевозки';
+      default:
+        return 'Неизвестно';
     }
   }
 }

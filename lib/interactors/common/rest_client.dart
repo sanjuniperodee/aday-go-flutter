@@ -9,6 +9,7 @@ import 'package:retrofit/retrofit.dart';
 import '../../models/active_client_request/active_client_request_model.dart';
 import '../../models/open_street_map/open_street_map_place_model.dart';
 import '../../models/order_request/order_request_response_model.dart';
+import '../../models/order_request/order_request_history_response_model.dart';
 import '../../models/sign_in/sign_in_by_phone_confirm_code_response_model.dart';
 import '../../models/sign_in/sign_in_by_phone_response_model.dart';
 
@@ -113,13 +114,13 @@ abstract class RestClient {
 
   /// запрос профиля пользователя
   @GET('v1/order-requests/history/{type}')
-  Future<List<ActiveRequestModel>> getHistoryOrders({
+  Future<List<OrderRequestHistoryResponseModel>> getHistoryOrders({
     @Path('type') required String type,
   });
 
   /// запрос профиля пользователя
   @GET('v1/order-requests/client-history/{type}')
-  Future<List<ActiveRequestModel>> getClientHistoryOrders({
+  Future<List<OrderRequestHistoryResponseModel>> getClientHistoryOrders({
     @Path('type') required String type,
   });
 

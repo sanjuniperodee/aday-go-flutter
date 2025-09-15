@@ -42,6 +42,7 @@ import './tenant_home_screen.dart';
 import '../../interactors/location_interactor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/network_utils.dart';
+import '../../services/websocket_service.dart';
 
 defaultTenantHomeWMFactory(BuildContext context) => TenantHomeWM(
       TenantHomeModel(
@@ -161,7 +162,6 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     TenantHomeModel model,
   ) : super(model);
 
-  IO.Socket? newOrderSocket;
   
   // Добавляем MapboxMapController для управления картой
   MapboxMap? _mapboxMapController;
@@ -676,144 +676,125 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
 
   Future<void> initializeSocket() async {
     try {
-      // Проверяем, есть ли уже активное подключение
-      if (newOrderSocket != null) {
-        if (newOrderSocket!.connected) {
-          // print('Сокет уже подключен, используем существующее соединение');
-          return;
-        } else {
-          // Закрываем старое подключение перед созданием нового
-          // print('Закрываем старое неактивное соединение перед созданием нового');
-          newOrderSocket!.dispose();
-          newOrderSocket = null;
-        }
-      }
-
       // Запрашиваем разрешения на геолокацию и обновляем местоположение
       await determineLocationPermission();
 
       // Проверяем наличие необходимых данных для подключения
       if (me.value == null || me.value!.id == null) {
-        // print('Ошибка: нет данных пользователя для подключения сокета');
+        logger.e('❌ КЛИЕНТ: Нет данных пользователя для подключения сокета');
         return;
       }
 
-      // print('Создаем новое соединение сокета для пользователя ${me.value!.id}');
+      logger.i('🔌 КЛИЕНТ: Инициализация WebSocket через WebSocketService...');
       
-      // Получаем sessionId из SharedPreferences
-      final prefs = inject<SharedPreferences>();
-      final sessionId = prefs.getString('sessionId') ?? 'client_session_${me.value!.id}';
+      // Используем централизованный WebSocketService
+      final websocketService = WebSocketService();
       
-      newOrderSocket = IO.io(
-        'https://taxi.aktau-go.kz',
-        <String, dynamic>{
-          'transports': ['websocket'],
-          'autoConnect': false,
-          'force new connection': true,
-          'query': {
-            'userType': 'client',        // ИСПРАВЛЕНИЕ: Добавляем тип пользователя
-            'userId': me.value!.id,      // ID клиента
-            'sessionId': sessionId,      // ИСПРАВЛЕНИЕ: Добавляем sessionId
-          },
-        },
-      );
-
+      // Проверяем, не подключен ли уже сокет
+      if (websocketService.isClientConnected) {
+        logger.i('✅ КЛИЕНТ: WebSocket уже подключен, пропускаем инициализацию');
+        return;
+      }
+      
+      // Очищаем все старые обработчики событий (предотвращаем утечки памяти)
+      _clearAllEventListeners(websocketService);
+      
       // Настраиваем обработчики событий
-      
-      // Обработчики подключения для отладки
-      newOrderSocket?.onConnect((_) {
-        print('✅ КЛИЕНТ: Сокет успешно подключен');
-        logger.i('✅ КЛИЕНТ: WebSocket подключение установлено');
-      });
-      
-      newOrderSocket?.onConnectError((error) {
-        print('❌ КЛИЕНТ: Ошибка подключения сокета: $error');
-        logger.e('❌ КЛИЕНТ: Ошибка WebSocket подключения: $error');
-      });
-      
-      newOrderSocket?.on(
-        'orderRejected',
-        (data) async {
-          // print('Получено событие orderRejected: $data');
-          isOrderRejected.accept(true);
-          await showModalBottomSheet(
-            context: context,
-            isDismissible: true,
-            isScrollControlled: true,
-            builder: (context) => PrimaryBottomSheet(
-              contentPadding: EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  const SizedBox(height: 10),
-                  Center(
-                    child: Container(
-                      width: 38,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: greyscale30,
-                        borderRadius: BorderRadius.circular(1.4),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SvgPicture.asset(icPlacemarkError),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Text(
-                      'Поездка отклонена',
-                      style: text500Size20Greyscale90,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrimaryButton.primary(
-                      onPressed: () async {
-                        isOrderRejected.accept(false);
-                        Navigator.of(context).pop();
-                      },
-                      text: 'Закрыть',
-                      textStyle: text400Size16White,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          );
-          fetchActiveOrder();
-        },
-      );
-
-      newOrderSocket?.on('orderStarted', (data) {
-        // print('Получено событие orderStarted: $data');
-        fetchActiveOrder();
-      });
-
-      newOrderSocket?.on('driverArrived', (data) {
-        // print('Получено событие driverArrived: $data');
-        fetchActiveOrder();
-      });
-
-      newOrderSocket?.on('rideStarted', (data) {
-        // print('Получено событие rideStarted: $data');
-        fetchActiveOrder();
-      });
-
-      newOrderSocket?.on('rideEnded', (data) {
-        // print('Получено событие rideEnded: $data');
-        fetchActiveOrder();
-      });
-
-      newOrderSocket?.on('orderAccepted', (data) {
+      websocketService.addEventListener(SocketEventType.orderAccepted, (data) {
         print('✅ КЛИЕНТ: Получено событие orderAccepted: $data');
         logger.i('✅ КЛИЕНТ: Заказ принят водителем, обновляем активный заказ');
+        
+        // Принудительно обновляем UI
+        Future.delayed(Duration(milliseconds: 100), () {
+          fetchActiveOrder();
+        });
+        
+        // Дополнительная проверка через 500ms
+        Future.delayed(Duration(milliseconds: 500), () {
+          fetchActiveOrder();
+        });
+      });
+      
+      websocketService.addEventListener(SocketEventType.orderRejected, (data) async {
+        logger.i('📨 КЛИЕНТ: Получено событие orderRejected');
+        isOrderRejected.accept(true);
+        await showModalBottomSheet(
+          context: context,
+          isDismissible: true,
+          isScrollControlled: true,
+          builder: (context) => PrimaryBottomSheet(
+            contentPadding: EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: greyscale30,
+                      borderRadius: BorderRadius.circular(1.4),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SvgPicture.asset(icPlacemarkError),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    'Поездка отклонена',
+                    style: text500Size20Greyscale90,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: PrimaryButton.primary(
+                    onPressed: () async {
+                      isOrderRejected.accept(false);
+                      Navigator.of(context).pop();
+                    },
+                    text: 'Закрыть',
+                    textStyle: text400Size16White,
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        );
         fetchActiveOrder();
       });
-
-      newOrderSocket?.on('driverLocation', (data) {
-        // print('Получено событие driverLocation');
+      
+      websocketService.addEventListener(SocketEventType.orderCancelledByClient, (data) async {
+        logger.i('📨 КЛИЕНТ: Получено событие orderCancelledByClient');
+        // Обновляем активный заказ (он должен стать null)
+        fetchActiveOrder();
+      });
+      
+      websocketService.addEventListener(SocketEventType.orderStarted, (data) {
+        logger.i('📨 КЛИЕНТ: Получено событие orderStarted');
+        fetchActiveOrder();
+      });
+      
+      websocketService.addEventListener(SocketEventType.driverArrived, (data) {
+        logger.i('📨 КЛИЕНТ: Получено событие driverArrived');
+        fetchActiveOrder();
+      });
+      
+      websocketService.addEventListener(SocketEventType.rideStarted, (data) {
+        logger.i('📨 КЛИЕНТ: Получено событие rideStarted');
+        fetchActiveOrder();
+      });
+      
+      websocketService.addEventListener(SocketEventType.rideEnded, (data) {
+        logger.i('📨 КЛИЕНТ: Получено событие rideEnded');
+        fetchActiveOrder();
+      });
+      
+      websocketService.addEventListener(SocketEventType.driverLocation, (data) {
+        logger.i('📨 КЛИЕНТ: Получено событие driverLocation');
         geotypes.Position point;
         if (data['lat'] is String) {
           point = geotypes.Position(double.tryParse(data['lng']) ?? 0, double.tryParse(data['lat']) ?? 0);
@@ -822,20 +803,29 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         }
         driverLocation.accept(point);
       });
-
-      // Настраиваем обработчик отключения
-      newOrderSocket?.onDisconnect((_) {
-        // print('Сокет отключен: $_, для tenant (клиента) переподключаемся автоматически');
-        // Только для tenant (клиента) переподключаемся автоматически
-        initializeSocket();
+      
+      // Настраиваем обработчики подключения
+      websocketService.addClientConnectionListener((isConnected) {
+        if (isConnected) {
+          print('✅ КЛИЕНТ: Сокет успешно подключен через WebSocketService');
+          logger.i('✅ КЛИЕНТ: WebSocket подключение установлено');
+        } else {
+          print('❌ КЛИЕНТ: Сокет отключен');
+          logger.w('❌ КЛИЕНТ: WebSocket отключен');
+        }
       });
       
-      // Устанавливаем соединение
-      newOrderSocket?.connect();
-      // print('Сокет подключен для пользователя (tenant)');
-    } on Exception catch (e) {
-      // print('Ошибка при инициализации сокета: $e');
-      logger.e(e);
+      // Инициализируем подключение
+      await websocketService.initializeConnection(
+        type: SocketConnectionType.client,
+        user: me.value!,
+      );
+      
+      logger.i('🔌 КЛИЕНТ: WebSocket инициализирован через WebSocketService');
+      
+    } catch (e) {
+      logger.e('❌ КЛИЕНТ: Ошибка инициализации WebSocket: $e');
+      print('❌ КЛИЕНТ: Ошибка инициализации WebSocket: $e');
     }
   }
 
@@ -847,17 +837,29 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     super.dispose();
   }
 
+  // Очистка всех обработчиков событий (предотвращение утечек памяти)
+  void _clearAllEventListeners(WebSocketService websocketService) {
+    websocketService.clearEventListeners(SocketEventType.orderAccepted);
+    websocketService.clearEventListeners(SocketEventType.orderRejected);
+    websocketService.clearEventListeners(SocketEventType.orderCancelledByClient);
+    websocketService.clearEventListeners(SocketEventType.orderStarted);
+    websocketService.clearEventListeners(SocketEventType.driverArrived);
+    websocketService.clearEventListeners(SocketEventType.rideStarted);
+    websocketService.clearEventListeners(SocketEventType.rideEnded);
+    websocketService.clearEventListeners(SocketEventType.driverLocation);
+  }
+
   Future<void> disconnectWebsocket() async {
-    if (newOrderSocket != null) {
-      print('Отключаем сокет клиента');
-      try {
-        newOrderSocket!.disconnect();
-        // Важно: не пытаемся автоматически переподключиться после явного отключения
-        newOrderSocket!.clearListeners();
-        newOrderSocket = null;
-      } catch (e) {
-        print('Ошибка при отключении сокета: $e');
-      }
+    print('Отключаем сокет клиента через WebSocketService');
+    try {
+      final websocketService = WebSocketService();
+      
+      // Очищаем все обработчики событий перед отключением
+      _clearAllEventListeners(websocketService);
+      
+      await websocketService.disconnectClient();
+    } catch (e) {
+      print('Ошибка при отключении сокета: $e');
     }
   }
 

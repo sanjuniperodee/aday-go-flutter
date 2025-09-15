@@ -520,34 +520,35 @@ class _RestClient implements RestClient {
   }
 
   @override
-  Future<List<ActiveRequestModel>> getHistoryOrders(
+  Future<List<OrderRequestHistoryResponseModel>> getHistoryOrders(
       {required String type}) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
-    final _options = _setStreamType<List<ActiveRequestModel>>(Options(
+    final _options =
+        _setStreamType<List<OrderRequestHistoryResponseModel>>(Options(
       method: 'GET',
       headers: _headers,
       extra: _extra,
     )
-        .compose(
-          _dio.options,
-          'v1/order-requests/history/${type}',
-          queryParameters: queryParameters,
-          data: _data,
-        )
-        .copyWith(
-            baseUrl: _combineBaseUrls(
-          _dio.options.baseUrl,
-          baseUrl,
-        )));
+            .compose(
+              _dio.options,
+              'v1/order-requests/history/${type}',
+              queryParameters: queryParameters,
+              data: _data,
+            )
+            .copyWith(
+                baseUrl: _combineBaseUrls(
+              _dio.options.baseUrl,
+              baseUrl,
+            )));
     final _result = await _dio.fetch<List<dynamic>>(_options);
-    late List<ActiveRequestModel> _value;
+    late List<OrderRequestHistoryResponseModel> _value;
     try {
       _value = _result.data!
-          .map((dynamic i) =>
-              ActiveRequestModel.fromJson(i as Map<String, dynamic>))
+          .map((dynamic i) => OrderRequestHistoryResponseModel.fromJson(
+              i as Map<String, dynamic>))
           .toList();
     } on Object catch (e, s) {
       errorLogger?.logError(e, s, _options);
@@ -557,34 +558,35 @@ class _RestClient implements RestClient {
   }
 
   @override
-  Future<List<ActiveRequestModel>> getClientHistoryOrders(
+  Future<List<OrderRequestHistoryResponseModel>> getClientHistoryOrders(
       {required String type}) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
-    final _options = _setStreamType<List<ActiveRequestModel>>(Options(
+    final _options =
+        _setStreamType<List<OrderRequestHistoryResponseModel>>(Options(
       method: 'GET',
       headers: _headers,
       extra: _extra,
     )
-        .compose(
-          _dio.options,
-          'v1/order-requests/client-history/${type}',
-          queryParameters: queryParameters,
-          data: _data,
-        )
-        .copyWith(
-            baseUrl: _combineBaseUrls(
-          _dio.options.baseUrl,
-          baseUrl,
-        )));
+            .compose(
+              _dio.options,
+              'v1/order-requests/client-history/${type}',
+              queryParameters: queryParameters,
+              data: _data,
+            )
+            .copyWith(
+                baseUrl: _combineBaseUrls(
+              _dio.options.baseUrl,
+              baseUrl,
+            )));
     final _result = await _dio.fetch<List<dynamic>>(_options);
-    late List<ActiveRequestModel> _value;
+    late List<OrderRequestHistoryResponseModel> _value;
     try {
       _value = _result.data!
-          .map((dynamic i) =>
-              ActiveRequestModel.fromJson(i as Map<String, dynamic>))
+          .map((dynamic i) => OrderRequestHistoryResponseModel.fromJson(
+              i as Map<String, dynamic>))
           .toList();
     } on Object catch (e, s) {
       errorLogger?.logError(e, s, _options);

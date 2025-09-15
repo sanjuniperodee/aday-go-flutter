@@ -3,7 +3,7 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:logger/logger.dart';
-import '../models/user/user_model.dart';
+import '../domains/user/user_domain.dart';
 import '../utils/utils.dart';
 
 enum SocketConnectionType { client, driver }
@@ -11,6 +11,8 @@ enum SocketConnectionType { client, driver }
 enum SocketEventType {
   // Client events
   orderRejected,
+  orderCancelledByClient,
+  orderCancelledByDriver,
   orderStarted,
   driverArrived,
   rideStarted,
@@ -21,9 +23,7 @@ enum SocketEventType {
   // Driver events
   newOrder,
   orderTaken,
-  orderAcceptedByMe,
-  orderUpdated,
-  orderCancelled,
+  orderCancelledByClientForDriver, // Для водителя - когда клиент отменил заказ
   orderDeleted,
   eventAck,
 }
@@ -57,27 +57,36 @@ class WebSocketService {
   // Initialize socket connection based on user role
   Future<void> initializeConnection({
     required SocketConnectionType type,
-    required UserModel user,
+    required UserDomain user,
     Position? position,
   }) async {
     try {
-      final sessionId = inject<SharedPreferences>().getString('sessionId');
+      final sessionId = inject<SharedPreferences>().getString('access_token');
       
       if (sessionId == null || sessionId.isEmpty) {
-        _logger.e('❌ SessionId отсутствует, невозможно подключить сокет');
+        _logger.e('❌ Access token отсутствует, невозможно подключить сокет');
         return;
       }
       
-      if (user.id == null) {
+      if (user.id.isEmpty) {
         _logger.e('❌ ID пользователя отсутствует');
         return;
       }
       
+      // Проверяем, не подключен ли уже сокет этого типа
       switch (type) {
         case SocketConnectionType.client:
+          if (_isClientConnected) {
+            _logger.i('✅ Клиентский сокет уже подключен, пропускаем инициализацию');
+            return;
+          }
           await _initializeClientSocket(user, sessionId);
           break;
         case SocketConnectionType.driver:
+          if (_isDriverConnected) {
+            _logger.i('✅ Сокет водителя уже подключен, пропускаем инициализацию');
+            return;
+          }
           if (position == null) {
             _logger.e('❌ Позиция обязательна для водителя');
             return;
@@ -91,7 +100,7 @@ class WebSocketService {
   }
   
   // Initialize client socket
-  Future<void> _initializeClientSocket(UserModel user, String sessionId) async {
+  Future<void> _initializeClientSocket(UserDomain user, String sessionId) async {
     await _disconnectClientSocket();
     
     _logger.i('🚀 Инициализация клиентского сокета...');
@@ -99,7 +108,7 @@ class WebSocketService {
     _clientSocket = IO.io(
       'https://taxi.aktau-go.kz',
       <String, dynamic>{
-        'transports': ['websocket'],
+        'transports': ['websocket', 'polling'],
         'autoConnect': false,
         'forceNew': true,
         'timeout': 30000,
@@ -108,7 +117,7 @@ class WebSocketService {
         'reconnectionDelay': 3000,
         'query': {
           'sessionId': sessionId,
-          'userId': user.id.toString(),
+          'userId': user.id,
           'userType': 'client',
           'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
         },
@@ -122,7 +131,7 @@ class WebSocketService {
   }
   
   // Initialize driver socket
-  Future<void> _initializeDriverSocket(UserModel user, String sessionId, Position position) async {
+  Future<void> _initializeDriverSocket(UserDomain user, String sessionId, Position position) async {
     await _disconnectDriverSocket();
     
     _logger.i('🚀 Инициализация сокета водителя...');
@@ -130,7 +139,7 @@ class WebSocketService {
     _driverSocket = IO.io(
       'https://taxi.aktau-go.kz',
       <String, dynamic>{
-        'transports': ['websocket'],
+        'transports': ['websocket', 'polling'],
         'autoConnect': false,
         'forceNew': true,
         'timeout': 30000,
@@ -139,7 +148,7 @@ class WebSocketService {
         'reconnectionDelay': 3000,
         'query': {
           'sessionId': sessionId,
-          'driverId': user.id.toString(),
+          'driverId': user.id,
           'userType': 'driver',
           'lat': position.latitude.toString(),
           'lng': position.longitude.toString(),
@@ -172,12 +181,13 @@ class WebSocketService {
       _isClientConnected = false;
       _notifyClientConnectionCallbacks(false);
       
-      // Auto-reconnect for clients
-      if (reason != 'io client disconnect') {
+      // Auto-reconnect for clients (только если это не было инициировано пользователем)
+      if (reason != 'io client disconnect' && reason != 'transport close') {
         _logger.i('🔄 Автоматическое переподключение клиентского сокета...');
         Future.delayed(Duration(seconds: 3), () {
-          if (!_isClientConnected) {
-            _clientSocket?.connect();
+          // Дополнительная проверка, что сокет еще не подключен
+          if (!_isClientConnected && _clientSocket != null) {
+            _clientSocket!.connect();
           }
         });
       }
@@ -193,6 +203,16 @@ class WebSocketService {
     _clientSocket!.on('orderRejected', (data) {
       _logger.i('📦 Client: orderRejected');
       _notifyEventCallbacks(SocketEventType.orderRejected, data);
+    });
+    
+    _clientSocket!.on('orderCancelledByClient', (data) {
+      _logger.i('📦 Client: orderCancelledByClient');
+      _notifyEventCallbacks(SocketEventType.orderCancelledByClient, data);
+    });
+    
+    _clientSocket!.on('orderCancelledByDriver', (data) {
+      _logger.i('📦 Client: orderCancelledByDriver');
+      _notifyEventCallbacks(SocketEventType.orderCancelledByDriver, data);
     });
     
     _clientSocket!.on('orderStarted', (data) {
@@ -271,19 +291,10 @@ class WebSocketService {
       _notifyEventCallbacks(SocketEventType.orderTaken, data);
     });
     
-    _driverSocket!.on('orderAcceptedByMe', (data) {
-      _logger.i('📦 Driver: orderAcceptedByMe');
-      _notifyEventCallbacks(SocketEventType.orderAcceptedByMe, data);
-    });
     
-    _driverSocket!.on('orderUpdated', (data) {
-      _logger.i('📦 Driver: orderUpdated');
-      _notifyEventCallbacks(SocketEventType.orderUpdated, data);
-    });
-    
-    _driverSocket!.on('orderCancelled', (data) {
-      _logger.i('📦 Driver: orderCancelled');
-      _notifyEventCallbacks(SocketEventType.orderCancelled, data);
+    _driverSocket!.on('orderCancelledByClient', (data) {
+      _logger.i('📦 Driver: orderCancelledByClient');
+      _notifyEventCallbacks(SocketEventType.orderCancelledByClientForDriver, data);
     });
     
     _driverSocket!.on('orderDeleted', (data) {

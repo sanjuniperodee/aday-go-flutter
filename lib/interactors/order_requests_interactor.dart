@@ -5,6 +5,9 @@ import 'package:injectable/injectable.dart';
 import 'package:aktau_go/domains/order_request/order_request_domain.dart';
 import 'package:aktau_go/interactors/common/rest_client.dart';
 import 'package:aktau_go/models/order_request/mapper/order_request_mapper.dart';
+import 'package:aktau_go/models/order_request/mapper/order_request_history_list_mapper.dart';
+import 'package:aktau_go/models/order_request/mapper/order_request_client_history_mapper.dart';
+import 'package:aktau_go/models/order_request/mapper/order_request_client_history_list_mapper.dart';
 
 import '../forms/driver_registration_form.dart';
 import '../models/active_client_request/active_client_request_model.dart';
@@ -134,7 +137,7 @@ class OrderRequestsInteractor extends IOrderRequestsInteractor {
   Future<List<ActiveRequestDomain>> getHistoryOrders({
     required String type,
   }) async =>
-      activeRequestListMapper(await _restClient.getHistoryOrders(
+      orderRequestHistoryListMapper(await _restClient.getHistoryOrders(
         type: type,
       ));
 
@@ -161,7 +164,7 @@ class OrderRequestsInteractor extends IOrderRequestsInteractor {
   Future<List<ActiveRequestDomain>> getClientHistoryOrders({
     required String type,
   }) async =>
-      activeRequestListMapper(await _restClient.getClientHistoryOrders(
+      orderRequestClientHistoryListMapper(await _restClient.getClientHistoryOrders(
         type: type,
       ));
 

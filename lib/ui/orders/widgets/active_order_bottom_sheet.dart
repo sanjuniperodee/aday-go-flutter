@@ -164,7 +164,7 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
 
       activeRequest = response;
 
-      String? sessionId = inject<SharedPreferences>().getString('sessionId');
+      String? sessionId = inject<SharedPreferences>().getString('access_token');
       
       // Проверяем статус заказа
       if (activeRequest.orderRequest?.orderStatus == 'COMPLETED') {
@@ -1051,6 +1051,8 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
                       fontWeight: FontWeight.w600,
                       color: Colors.black87,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -1095,6 +1097,8 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
                       fontWeight: FontWeight.w600,
                       color: Colors.black87,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

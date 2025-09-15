@@ -88,7 +88,7 @@ class ClientHistoryScreen extends ElementaryWidget<IClientHistoryWM> {
                           ),
                           SizedBox(height: 8),
                           Text(
-                            'Завершенные поездки появятся здесь',
+                            'Завершенные и отмененные поездки появятся здесь',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,

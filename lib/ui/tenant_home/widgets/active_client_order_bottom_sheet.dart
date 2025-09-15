@@ -427,6 +427,7 @@ class _ActiveClientOrderBottomSheetState
             children: [
               // Откуда
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.radio_button_checked, color: Colors.green, size: 20),
                   SizedBox(width: 12),
@@ -437,25 +438,18 @@ class _ActiveClientOrderBottomSheetState
                         fontSize: 14,
                         color: Colors.black87,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
               
-              // Вертикальная линия
-              Padding(
-                padding: EdgeInsets.only(left: 10),
-                child: Container(
-                  height: 20,
-                  width: 1,
-                  color: Colors.grey.shade300,
-                ),
-              ),
+              SizedBox(height: 12),
               
               // Куда
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.location_on, color: Colors.red, size: 20),
                   SizedBox(width: 12),
@@ -466,7 +460,7 @@ class _ActiveClientOrderBottomSheetState
                         fontSize: 14,
                         color: Colors.black87,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

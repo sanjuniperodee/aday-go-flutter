@@ -117,87 +117,80 @@ class OrderRequestCard extends StatelessWidget {
                 if (orderRequest.comment.isNotEmpty)
                   const SizedBox(height: 12),
                 
-                // Route information
-                Row(
+                // Route information - вертикальный layout для лучшего отображения адресов
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // From location
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(top: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
                               Text(
                                 'Откуда',
                                 style: text400Size10Greyscale60,
                               ),
+                              const SizedBox(height: 2),
+                              Text(
+                                orderRequest.from,
+                                style: text400Size12Greyscale90,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 2),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 14),
-                            child:                             Text(
-                              orderRequest.from,
-                              style: text400Size12Greyscale90,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                     
-                    // Divider
-                    Container(
-                      width: 1,
-                      height: 24,
-                      color: Colors.grey.withOpacity(0.2),
-                      margin: const EdgeInsets.symmetric(horizontal: 12),
-                    ),
+                    const SizedBox(height: 12),
                     
                     // To location
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(top: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
                               Text(
                                 'Куда',
                                 style: text400Size10Greyscale60,
                               ),
+                              const SizedBox(height: 2),
+                              Text(
+                                orderRequest.to,
+                                style: text400Size12Greyscale90,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 2),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 14),
-                            child:                             Text(
-                              orderRequest.to,
-                              style: text400Size12Greyscale90,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
