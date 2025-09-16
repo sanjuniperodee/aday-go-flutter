@@ -50,13 +50,13 @@ class WebSocketService {
   bool _clientConnecting = false;
   bool _driverConnecting = false;
   
+  // Store last user data for reconnection
+  UserDomain? _lastClientUser;
+  UserDomain? _lastDriverUser;
+  
   // Reconnection timers
   Timer? _clientReconnectTimer;
   Timer? _driverReconnectTimer;
-  
-  // Heartbeat timers for connection health check
-  Timer? _clientHeartbeatTimer;
-  Timer? _driverHeartbeatTimer;
   
   // Event callbacks
   final Map<SocketEventType, List<Function(dynamic)>> _eventCallbacks = {};
@@ -126,6 +126,7 @@ class WebSocketService {
   Future<void> _initializeClientSocket(UserDomain user, String sessionId) async {
     _clientConnecting = true;
     _clientReconnectTimer?.cancel(); // Отменяем любые активные таймеры переподключения
+    _lastClientUser = user; // Сохраняем данные пользователя для переподключения
     
     try {
       await _disconnectClientSocket();
@@ -137,10 +138,12 @@ class WebSocketService {
         <String, dynamic>{
           'transports': ['websocket', 'polling'],
           'autoConnect': false,
-          'forceNew': true,
-          'timeout': 10000, // Уменьшаем таймаут до 10 секунд
-          'reconnection': false, // Отключаем автоматическое переподключение socket.io
-          'reconnectionAttempts': 0,
+          'forceNew': false, // Не создаем новое соединение каждый раз
+          'timeout': 20000, // Увеличиваем таймаут до 20 секунд
+          'reconnection': true, // Включаем автоматическое переподключение
+          'reconnectionAttempts': 5, // 5 попыток переподключения
+          'reconnectionDelay': 1000, // 1 секунда между попытками
+          'reconnectionDelayMax': 5000, // Максимум 5 секунд
           'upgrade': true, // Разрешаем апгрейд с polling на websocket
           'rememberUpgrade': true, // Запоминаем предпочтение websocket
           'query': {
@@ -166,6 +169,7 @@ class WebSocketService {
   Future<void> _initializeDriverSocket(UserDomain user, String sessionId, Position position) async {
     _driverConnecting = true;
     _driverReconnectTimer?.cancel(); // Отменяем любые активные таймеры переподключения
+    _lastDriverUser = user; // Сохраняем данные пользователя для переподключения
     
     try {
       await _disconnectDriverSocket();
@@ -177,10 +181,12 @@ class WebSocketService {
         <String, dynamic>{
           'transports': ['websocket', 'polling'],
           'autoConnect': false,
-          'forceNew': true,
-          'timeout': 10000, // Уменьшаем таймаут до 10 секунд
-          'reconnection': false, // Отключаем автоматическое переподключение socket.io
-          'reconnectionAttempts': 0,
+          'forceNew': false, // Не создаем новое соединение каждый раз
+          'timeout': 20000, // Увеличиваем таймаут до 20 секунд
+          'reconnection': true, // Включаем автоматическое переподключение
+          'reconnectionAttempts': 5, // 5 попыток переподключения
+          'reconnectionDelay': 1000, // 1 секунда между попытками
+          'reconnectionDelayMax': 5000, // Максимум 5 секунд
           'upgrade': true, // Разрешаем апгрейд с polling на websocket
           'rememberUpgrade': true, // Запоминаем предпочтение websocket
           'query': {
@@ -216,7 +222,7 @@ class WebSocketService {
       _isClientConnected = true;
       _clientConnecting = false;
       _clientReconnectTimer?.cancel();
-      _startClientHeartbeat();
+      // Убираем дублирующий heartbeat - Socket.IO имеет встроенный ping/pong
       _notifyClientConnectionCallbacks(true);
     });
     
@@ -224,21 +230,32 @@ class WebSocketService {
       _logger.w('🔌 Клиентский сокет отключен: $reason');
       _isClientConnected = false;
       _clientConnecting = false;
-      _stopClientHeartbeat();
+      // Убираем дублирующий heartbeat - Socket.IO имеет встроенный ping/pong
       _notifyClientConnectionCallbacks(false);
       
       // Контролируемое переподключение только для неожиданных отключений
       if (reason != 'io client disconnect' && reason != 'transport close' && reason != 'client namespace disconnect') {
-        _logger.i('🔄 Планируется переподключение клиентского сокета через 3 секунды...');
+        _logger.i('🔄 Планируется переподключение клиентского сокета через 5 секунд...');
         _clientReconnectTimer?.cancel();
-        _clientReconnectTimer = Timer(Duration(seconds: 3), () {
+        _clientReconnectTimer = Timer(Duration(seconds: 5), () async {
           if (!_isClientConnected && !_clientConnecting) {
             _logger.i('🔄 Выполняется переподключение клиентского сокета...');
-            // Полностью пересоздаем сокет для надежности
-            _clientSocket?.dispose();
-            _clientSocket = null;
-            // Переподключение будет выполнено через полную переинициализацию
-            _logger.i('🔄 Требуется полная переинициализация клиентского сокета');
+            try {
+              // Полностью очищаем старое соединение
+              await _disconnectClientSocket();
+              
+              // Получаем актуальные данные пользователя
+              final prefs = inject<SharedPreferences>();
+              final sessionId = prefs.getString('access_token');
+              if (sessionId != null && _lastClientUser != null) {
+                _logger.i('🔄 Переподключаем клиентский сокет...');
+                await _initializeClientSocket(_lastClientUser!, sessionId);
+              } else {
+                _logger.w('⚠️ Нет данных для переподключения клиентского сокета');
+              }
+            } catch (e) {
+              _logger.e('❌ Ошибка переподключения клиентского сокета: $e');
+            }
           }
         });
       }
@@ -297,9 +314,7 @@ class WebSocketService {
       _notifyEventCallbacks(SocketEventType.driverLocation, data);
     });
     
-    _clientSocket!.on('pong', (data) {
-      _logger.d('💓 Client: pong received');
-    });
+    // Pong handler removed - Socket.IO has built-in ping/pong mechanism
     
     _clientSocket!.on('orderSync', (data) {
       _logger.i('📦 Client: orderSync');
@@ -324,7 +339,7 @@ class WebSocketService {
       _isDriverConnected = true;
       _driverConnecting = false;
       _driverReconnectTimer?.cancel();
-      _startDriverHeartbeat();
+      // Убираем дублирующий heartbeat - Socket.IO имеет встроенный ping/pong
       _notifyDriverConnectionCallbacks(true);
     });
     
@@ -332,7 +347,7 @@ class WebSocketService {
       _logger.w('🔌 Сокет водителя отключен: $reason');
       _isDriverConnected = false;
       _driverConnecting = false;
-      _stopDriverHeartbeat();
+      // Убираем дублирующий heartbeat - Socket.IO имеет встроенный ping/pong
       _notifyDriverConnectionCallbacks(false);
       
       // Контролируемое переподключение для водителей только при неожиданных отключениях
@@ -386,9 +401,7 @@ class WebSocketService {
       _notifyEventCallbacks(SocketEventType.eventAck, data);
     });
     
-    _driverSocket!.on('pong', (data) {
-      _logger.d('💓 Driver: pong received');
-    });
+    // Pong handler removed - Socket.IO has built-in ping/pong mechanism
     
     _driverSocket!.on('orderSync', (data) {
       _logger.i('📦 Driver: orderSync');
@@ -573,47 +586,13 @@ class WebSocketService {
     });
   }
   
-  // Heartbeat methods
-  void _startClientHeartbeat() {
-    _stopClientHeartbeat();
-    _clientHeartbeatTimer = Timer.periodic(Duration(seconds: 30), (timer) {
-      if (_isClientConnected && _clientSocket != null) {
-        _clientSocket!.emit('ping', {'timestamp': DateTime.now().millisecondsSinceEpoch});
-        _logger.d('💓 Client heartbeat sent');
-      } else {
-        _stopClientHeartbeat();
-      }
-    });
-  }
-  
-  void _stopClientHeartbeat() {
-    _clientHeartbeatTimer?.cancel();
-    _clientHeartbeatTimer = null;
-  }
-  
-  void _startDriverHeartbeat() {
-    _stopDriverHeartbeat();
-    _driverHeartbeatTimer = Timer.periodic(Duration(seconds: 30), (timer) {
-      if (_isDriverConnected && _driverSocket != null) {
-        _driverSocket!.emit('ping', {'timestamp': DateTime.now().millisecondsSinceEpoch});
-        _logger.d('💓 Driver heartbeat sent');
-      } else {
-        _stopDriverHeartbeat();
-      }
-    });
-  }
-  
-  void _stopDriverHeartbeat() {
-    _driverHeartbeatTimer?.cancel();
-    _driverHeartbeatTimer = null;
-  }
+  // Heartbeat methods removed - Socket.IO has built-in ping/pong mechanism
 
   // Cleanup
   void dispose() {
     _clientReconnectTimer?.cancel();
     _driverReconnectTimer?.cancel();
-    _stopClientHeartbeat();
-    _stopDriverHeartbeat();
+    // Heartbeat methods removed - Socket.IO has built-in ping/pong mechanism
     disconnectAll();
     _eventCallbacks.clear();
     _clientConnectionCallbacks.clear();

@@ -996,6 +996,11 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     websocketService.addClientConnectionListener((isConnected) {
       if (isConnected) {
         logger.i('WebSocket подключение установлено');
+        // Принудительно синхронизируем активный заказ при переподключении
+        Future.delayed(Duration(milliseconds: 500), () {
+          logger.i('🔄 Принудительная синхронизация после переподключения');
+          _fetchActiveOrderInternal(forceUpdate: true);
+        });
       } else {
         logger.w('WebSocket отключен');
       }
