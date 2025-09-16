@@ -126,8 +126,8 @@ class LocationInteractor extends ILocationInteractor {
     try {
       final position = await geoLocator.Geolocator.getCurrentPosition(
         locationSettings: geoLocator.LocationSettings(
-          accuracy: geoLocator.LocationAccuracy.high,
-          timeLimit: Duration(seconds: 5), // Уменьшаем таймаут до 5 секунд
+          accuracy: geoLocator.LocationAccuracy.medium, // Снижаем точность для быстрейшего получения
+          timeLimit: Duration(seconds: 10), // Увеличиваем таймаут до 10 секунд
         ),
       );
       
@@ -142,7 +142,10 @@ class LocationInteractor extends ILocationInteractor {
       
       return position;
     } catch (e) {
-      print('❌ Ошибка получения актуальных координат: $e');
+      // Не логируем таймауты как ошибки - это нормальное поведение
+      if (e is! TimeoutException) {
+        print('❌ Ошибка получения актуальных координат: $e');
+      }
       return null;
     }
   }

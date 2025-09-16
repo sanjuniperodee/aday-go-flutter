@@ -262,12 +262,12 @@ class DriverRegistrationScreen extends ElementaryWidget<IDriverRegistrationWM> {
                       ),
                     ),
                     
-                    // SSN
+                    // ИИН
                     if (car.sSN.isNotEmpty)
                       Expanded(
                         child: _buildInfoItem(
                           icon: Icons.badge,
-                          label: 'SSN',
+                          label: 'ИИН',
                           value: car.sSN,
                         ),
                       ),

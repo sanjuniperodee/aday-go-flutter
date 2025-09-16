@@ -321,7 +321,7 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
             await mapboxMapController!.style.removeStyleLayer(layerId);
           }
         } catch (e) {
-          // Игнорируем ошибки при удалении отдельных слоев
+          // Игнорируем ошибки при удалении отдельных слоев - не логируем
         }
       }
       
@@ -332,7 +332,7 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
             await mapboxMapController!.style.removeStyleSource(sourceId);
           }
         } catch (e) {
-          // Игнорируем ошибки при удалении отдельных источников
+          // Игнорируем ошибки при удалении отдельных источников - не логируем
         }
       }
     } catch (e) {
@@ -728,8 +728,8 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
       double maxLng = -double.infinity;
       
       for (var coord in routeCoordinates) {
-        final lng = coord[0] as double;
-        final lat = coord[1] as double;
+        final lng = (coord[0] as num).toDouble();
+        final lat = (coord[1] as num).toDouble();
         
         minLat = math.min(minLat, lat);
         maxLat = math.max(maxLat, lat);
@@ -1157,7 +1157,47 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
   }
 
   Widget _buildActionButtons() {
+    // Проверяем, есть ли активный заказ и его статус
+    if (activeRequest.orderRequest == null) {
+      print('⚠️ activeRequest.orderRequest is null');
+      return Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.blue,
+                side: BorderSide(color: Colors.blue),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.arrow_back, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Вернуться',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    
     final orderStatus = activeRequest.orderRequest?.orderStatus ?? '';
+    print('🔄 Building action buttons for order status: $orderStatus');
     
     if (orderStatus == 'CREATED') {
       return Column(
@@ -1341,6 +1381,62 @@ class _ActiveOrderBottomSheetState extends State<ActiveOrderBottomSheet> {
                     SizedBox(width: 8),
                     Text(
                       'Завершить поездку',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            // Для неизвестных статусов показываем информационное сообщение
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Статус заказа: $orderStatus. Обновите данные, чтобы продолжить.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.orange.shade800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: fetchActiveOrder,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.refresh, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Обновить данные',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,

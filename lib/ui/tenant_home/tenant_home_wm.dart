@@ -31,6 +31,8 @@ import '../../domains/user/user_domain.dart';
 import '../../interactors/common/rest_client.dart';
 import '../../interactors/food_interactor.dart';
 import '../../models/active_client_request/active_client_request_model.dart';
+import '../../models/order_request/order_request_props_model.dart';
+import '../../models/order_request/order_request_client_model.dart';
 import '../../utils/logger.dart';
 import '../../utils/utils.dart';
 import '../widgets/primary_bottom_sheet.dart';
@@ -114,6 +116,8 @@ abstract class ITenantHomeWM implements IWidgetModel {
 
   void cancelActiveClientOrder();
 
+  Future<void> fetchActiveOrder();
+
   void getMyLocation();
 
   void scrollDraggableSheetDown();
@@ -156,7 +160,7 @@ abstract class ITenantHomeWM implements IWidgetModel {
 }
 
 class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
-    with SingleTickerProviderWidgetModelMixin
+    with SingleTickerProviderWidgetModelMixin, WidgetsBindingObserver
     implements ITenantHomeWM {
   TenantHomeWM(
     TenantHomeModel model,
@@ -269,15 +273,47 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
   void initWidgetModel() {
     super.initWidgetModel();
     
-    print('Инициализация TenantHomeWM...');
+    print('🔄 КЛИЕНТ: Инициализация TenantHomeWM...');
+    
+    // Добавляем lifecycle observer для отслеживания состояния приложения
+    WidgetsBinding.instance.addObserver(this);
+    
+    // Добавляем слушатель для отладки изменений activeOrder
+    activeOrder.addListener(() {
+      final order = activeOrder.value;
+      if (order != null) {
+        print('✅ КЛИЕНТ: activeOrder изменился - статус: ${order.order?.orderStatus}, ID: ${order.order?.id}');
+      } else {
+        print('❌ КЛИЕНТ: activeOrder стал null');
+      }
+    });
+    
+    // Добавляем обработку ошибок сокета
+    try {
+      final websocketService = WebSocketService();
+      websocketService.addClientConnectionListener((isConnected) {
+        if (isConnected) {
+          print('✅ КЛИЕНТ: WebSocket подключен');
+        } else {
+          print('❌ КЛИЕНТ: WebSocket отключен');
+        }
+      });
+    } catch (socketError) {
+      print('❌ КЛИЕНТ: Ошибка инициализации WebSocket: $socketError');
+    }
     
     // Важно: сначала получаем профиль пользователя
     fetchUserProfile().then((_) {
-      // После получения профиля - инициализируем сокет
-      initializeSocket();
-      
-      // Проверяем наличие активного заказа
+      print('✅ КЛИЕНТ: Профиль пользователя загружен, запрашиваем активный заказ...');
+      // Инициализация сокета делается внутри fetchUserProfile(),
+      // здесь только запрашиваем активный заказ
       fetchActiveOrder();
+      
+      // Дополнительный вызов через небольшую задержку для надежности
+      Future.delayed(Duration(seconds: 2), () {
+        print('🔄 КЛИЕНТ: Повторный запрос активного заказа через 2 секунды...');
+        fetchActiveOrder();
+      });
     });
     
     // Загружаем категории и еду в параллели
@@ -647,31 +683,60 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
 
   @override
   Future<void> onSubmit(DriverOrderForm form, DriverType taxi) async {
-    await NetworkUtils.executeWithErrorHandling<void>(
-      () => inject<RestClient>().createDriverOrder(body: {
-      "from": form.fromAddress.value,
-      "to": form.toAddress.value,
-      "lng": userLocation.value?.lng,
-      "lat": userLocation.value?.lat,
-      "price": form.cost.value,
-        "orderType": "TAXI",
-      "comment": '${form.comment};${form.fromMapboxId.value};${form.toMapboxId.value}',
-      "fromMapboxId": form.fromMapboxId.value,
-      "toMapboxId": form.toMapboxId.value,
-      }),
-      customErrorMessage: 'Не удалось создать заказ',
-    );
+    print('🚀 КЛИЕНТ: Создание заказа...');
+    print('📋 КЛИЕНТ: Данные формы:');
+    print('📍 КЛИЕНТ: Откуда: ${form.fromAddress.value}');
+    print('📍 КЛИЕНТ: Куда: ${form.toAddress.value}');
+    print('💰 КЛИЕНТ: Стоимость: ${form.cost.value}');
     
-    // Check if controller is attached before using it
     try {
-      if (draggableScrollableController.isAttached) {
-        draggableScrollableController.jumpTo(0.3);
+      await NetworkUtils.executeWithErrorHandling<void>(
+        () => inject<RestClient>().createDriverOrder(body: {
+        "from": form.fromAddress.value,
+        "to": form.toAddress.value,
+        "lng": userLocation.value?.lng,
+        "lat": userLocation.value?.lat,
+        "price": form.cost.value,
+          "orderType": "TAXI",
+        "comment": '${form.comment};${form.fromMapboxId.value};${form.toMapboxId.value}',
+        "fromMapboxId": form.fromMapboxId.value,
+        "toMapboxId": form.toMapboxId.value,
+        }),
+        customErrorMessage: 'Не удалось создать заказ',
+      );
+      
+      print('✅ КЛИЕНТ: Заказ успешно создан');
+      
+      // Check if controller is attached before using it
+      try {
+        if (draggableScrollableController.isAttached) {
+          draggableScrollableController.jumpTo(0.3);
+          print('✅ КЛИЕНТ: DraggableScrollableController перемещен в позицию 0.3');
+        }
+      } catch (e) {
+        print('❌ КЛИЕНТ: Ошибка с draggableScrollableController: $e');
+      }
+      
+      // Добавляем задержку перед запросом активного заказа
+      print('⏱️ КЛИЕНТ: Ожидаем 1 секунду перед запросом активного заказа...');
+      await Future.delayed(Duration(seconds: 1));
+      
+      print('🔄 КЛИЕНТ: Запрашиваем активный заказ после создания...');
+      await fetchActiveOrder();
+      
+      // Проверяем, что заказ получен
+      print('🔍 КЛИЕНТ: Проверка активного заказа после создания: ${activeOrder.value != null ? "получен" : "не получен"}');
+      
+      // Если заказ не получен, пробуем еще раз через 2 секунды
+      if (activeOrder.value == null) {
+        print('⏱️ КЛИЕНТ: Заказ не получен, повторная попытка через 2 секунды...');
+        await Future.delayed(Duration(seconds: 2));
+        await fetchActiveOrder();
+        print('🔍 КЛИЕНТ: Повторная проверка: ${activeOrder.value != null ? "получен" : "не получен"}');
       }
     } catch (e) {
-      print('Error with draggableScrollableController: $e');
+      print('❌ КЛИЕНТ: Ошибка при создании заказа: $e');
     }
-    
-    fetchActiveOrder();
   }
 
   Future<void> initializeSocket() async {
@@ -699,121 +764,8 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       // Очищаем все старые обработчики событий (предотвращаем утечки памяти)
       _clearAllEventListeners(websocketService);
       
-      // Настраиваем обработчики событий
-      websocketService.addEventListener(SocketEventType.orderAccepted, (data) {
-        print('✅ КЛИЕНТ: Получено событие orderAccepted: $data');
-        logger.i('✅ КЛИЕНТ: Заказ принят водителем, обновляем активный заказ');
-        
-        // Принудительно обновляем UI
-        Future.delayed(Duration(milliseconds: 100), () {
-          fetchActiveOrder();
-        });
-        
-        // Дополнительная проверка через 500ms
-        Future.delayed(Duration(milliseconds: 500), () {
-          fetchActiveOrder();
-        });
-      });
-      
-      websocketService.addEventListener(SocketEventType.orderRejected, (data) async {
-        logger.i('📨 КЛИЕНТ: Получено событие orderRejected');
-        isOrderRejected.accept(true);
-        await showModalBottomSheet(
-          context: context,
-          isDismissible: true,
-          isScrollControlled: true,
-          builder: (context) => PrimaryBottomSheet(
-            contentPadding: EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                Center(
-                  child: Container(
-                    width: 38,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: greyscale30,
-                      borderRadius: BorderRadius.circular(1.4),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SvgPicture.asset(icPlacemarkError),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    'Поездка отклонена',
-                    style: text500Size20Greyscale90,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: PrimaryButton.primary(
-                    onPressed: () async {
-                      isOrderRejected.accept(false);
-                      Navigator.of(context).pop();
-                    },
-                    text: 'Закрыть',
-                    textStyle: text400Size16White,
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
-        );
-        fetchActiveOrder();
-      });
-      
-      websocketService.addEventListener(SocketEventType.orderCancelledByClient, (data) async {
-        logger.i('📨 КЛИЕНТ: Получено событие orderCancelledByClient');
-        // Обновляем активный заказ (он должен стать null)
-        fetchActiveOrder();
-      });
-      
-      websocketService.addEventListener(SocketEventType.orderStarted, (data) {
-        logger.i('📨 КЛИЕНТ: Получено событие orderStarted');
-        fetchActiveOrder();
-      });
-      
-      websocketService.addEventListener(SocketEventType.driverArrived, (data) {
-        logger.i('📨 КЛИЕНТ: Получено событие driverArrived');
-        fetchActiveOrder();
-      });
-      
-      websocketService.addEventListener(SocketEventType.rideStarted, (data) {
-        logger.i('📨 КЛИЕНТ: Получено событие rideStarted');
-        fetchActiveOrder();
-      });
-      
-      websocketService.addEventListener(SocketEventType.rideEnded, (data) {
-        logger.i('📨 КЛИЕНТ: Получено событие rideEnded');
-        fetchActiveOrder();
-      });
-      
-      websocketService.addEventListener(SocketEventType.driverLocation, (data) {
-        logger.i('📨 КЛИЕНТ: Получено событие driverLocation');
-        geotypes.Position point;
-        if (data['lat'] is String) {
-          point = geotypes.Position(double.tryParse(data['lng']) ?? 0, double.tryParse(data['lat']) ?? 0);
-        } else {
-          point = geotypes.Position(data['lng'], data['lat']);
-        }
-        driverLocation.accept(point);
-      });
-      
-      // Настраиваем обработчики подключения
-      websocketService.addClientConnectionListener((isConnected) {
-        if (isConnected) {
-          print('✅ КЛИЕНТ: Сокет успешно подключен через WebSocketService');
-          logger.i('✅ КЛИЕНТ: WebSocket подключение установлено');
-        } else {
-          print('❌ КЛИЕНТ: Сокет отключен');
-          logger.w('❌ КЛИЕНТ: WebSocket отключен');
-        }
-      });
+      // Настраиваем обработчики событий с использованием единого метода
+      _setupOrderStatusEventListeners(websocketService);
       
       // Инициализируем подключение
       await websocketService.initializeConnection(
@@ -834,7 +786,89 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     // Отключаем сокет при уничтожении виджета
     print('Отключаем сокет в dispose');
     disconnectWebsocket();
+    
+    // Удаляем lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
+    
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    print('🔄 App lifecycle изменился: $state');
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // Приложение вернулось на передний план
+        print('✅ Приложение возобновлено - синхронизируем состояние заказа');
+        _handleAppResumed();
+        break;
+      case AppLifecycleState.paused:
+        // Приложение ушло в фон
+        print('⏸️ Приложение приостановлено');
+        break;
+      case AppLifecycleState.inactive:
+        // Приложение неактивно (переходное состояние)
+        break;
+      case AppLifecycleState.detached:
+        // Приложение отсоединено
+        break;
+      case AppLifecycleState.hidden:
+        // Приложение скрыто
+        break;
+    }
+  }
+
+  /// Обрабатывает возврат приложения на передний план
+  Future<void> _handleAppResumed() async {
+    try {
+      print('🔄 КЛИЕНТ: Приложение вернулось на передний план, начинаем синхронизацию...');
+      
+      // 1. Проверяем подключение к интернету
+      final hasInternet = await NetworkUtils.hasInternetConnection();
+      if (!hasInternet) {
+        print('❌ КЛИЕНТ: Нет подключения к интернету при возврате в приложение');
+        return;
+      }
+      print('✅ КЛИЕНТ: Подключение к интернету доступно');
+
+      // 2. Синхронизируем активный заказ
+      print('🔄 КЛИЕНТ: Синхронизация активного заказа...');
+      await fetchActiveOrder();
+      print('✅ КЛИЕНТ: Активный заказ синхронизирован: ${activeOrder.value != null ? "заказ найден" : "заказа нет"}');
+
+      // 3. Переподключаем WebSocket если он отключен
+      final websocketService = WebSocketService();
+      if (!websocketService.isClientConnected && me.value != null) {
+        print('🔄 КЛИЕНТ: Переподключение WebSocket после возврата в приложение...');
+        await initializeSocket();
+        print('✅ КЛИЕНТ: WebSocket переподключен');
+      } else {
+        print('ℹ️ КЛИЕНТ: WebSocket уже подключен или пользователь не авторизован');
+      }
+
+      // 4. Обновляем местоположение
+      if (locationPermission.value == geoLocator.LocationPermission.always ||
+          locationPermission.value == geoLocator.LocationPermission.whileInUse) {
+        print('🔄 КЛИЕНТ: Обновление местоположения...');
+        await _updateMapCamera();
+        print('✅ КЛИЕНТ: Местоположение обновлено');
+      } else {
+        print('ℹ️ КЛИЕНТ: Нет разрешения на доступ к геолокации');
+      }
+
+      // 5. Повторная проверка активного заказа через 2 секунды
+      await Future.delayed(Duration(seconds: 2));
+      print('🔄 КЛИЕНТ: Повторная проверка активного заказа...');
+      await fetchActiveOrder();
+      print('✅ КЛИЕНТ: Повторная проверка завершена: ${activeOrder.value != null ? "заказ найден" : "заказа нет"}');
+
+      print('✅ КЛИЕНТ: Синхронизация при возврате в приложение завершена');
+    } catch (e) {
+      print('❌ КЛИЕНТ: Ошибка при синхронизации после возврата в приложение: $e');
+    }
   }
 
   // Очистка всех обработчиков событий (предотвращение утечек памяти)
@@ -847,6 +881,253 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
     websocketService.clearEventListeners(SocketEventType.rideStarted);
     websocketService.clearEventListeners(SocketEventType.rideEnded);
     websocketService.clearEventListeners(SocketEventType.driverLocation);
+  }
+  
+  // Настройка обработчиков событий для статусов заказа
+  void _setupOrderStatusEventListeners(WebSocketService websocketService) {
+    // Обработчик события принятия заказа водителем
+    websocketService.addEventListener(SocketEventType.orderAccepted, (data) {
+      logger.i('📦 КЛИЕНТ: Получено событие orderAccepted');
+      print('📦 КЛИЕНТ: Получено событие orderAccepted: $data');
+      _handleOrderStatusChange('orderAccepted', data);
+    });
+    
+    // Обработчик события отклонения заказа
+    websocketService.addEventListener(SocketEventType.orderRejected, (data) async {
+      logger.i('📦 КЛИЕНТ: Получено событие orderRejected');
+      print('📦 КЛИЕНТ: Получено событие orderRejected: $data');
+      isOrderRejected.accept(true);
+      await _showOrderRejectedBottomSheet();
+      fetchActiveOrder();
+    });
+    
+    // Обработчик события отмены заказа клиентом
+    websocketService.addEventListener(SocketEventType.orderCancelledByClient, (data) {
+      logger.i('📦 КЛИЕНТ: Получено событие orderCancelledByClient');
+      print('📦 КЛИЕНТ: Получено событие orderCancelledByClient: $data');
+      _handleOrderStatusChange('orderCancelledByClient', data);
+    });
+    
+    // Обработчик события начала поездки
+    websocketService.addEventListener(SocketEventType.orderStarted, (data) {
+      logger.i('📦 КЛИЕНТ: Получено событие orderStarted');
+      print('📦 КЛИЕНТ: Получено событие orderStarted: $data');
+      _handleOrderStatusChange('orderStarted', data);
+    });
+    
+    // Обработчик события прибытия водителя
+    websocketService.addEventListener(SocketEventType.driverArrived, (data) {
+      logger.i('📦 КЛИЕНТ: Получено событие driverArrived');
+      print('📦 КЛИЕНТ: Получено событие driverArrived: $data');
+      _handleOrderStatusChange('driverArrived', data);
+    });
+    
+    // Обработчик события начала поездки
+    websocketService.addEventListener(SocketEventType.rideStarted, (data) {
+      logger.i('📦 КЛИЕНТ: Получено событие rideStarted');
+      print('📦 КЛИЕНТ: Получено событие rideStarted: $data');
+      _handleOrderStatusChange('rideStarted', data);
+    });
+    
+    // Обработчик события завершения поездки
+    websocketService.addEventListener(SocketEventType.rideEnded, (data) {
+      logger.i('📦 КЛИЕНТ: Получено событие rideEnded');
+      print('📦 КЛИЕНТ: Получено событие rideEnded: $data');
+      _handleRideEnded(data);
+    });
+    
+    // Обработчик события обновления местоположения водителя
+    websocketService.addEventListener(SocketEventType.driverLocation, (data) {
+      logger.i('📦 КЛИЕНТ: Получено событие driverLocation');
+      print('📦 КЛИЕНТ: Получено событие driverLocation: $data');
+      
+      // Обновляем позицию водителя
+      geotypes.Position point;
+      if (data['lat'] is String) {
+        point = geotypes.Position(double.tryParse(data['lng']) ?? 0, double.tryParse(data['lat']) ?? 0);
+      } else {
+        point = geotypes.Position(data['lng'], data['lat']);
+      }
+      driverLocation.accept(point);
+      
+      // ВАЖНО: Проверяем статус заказа из driverLocation
+      final orderStatus = data['orderStatus'] as String?;
+      if (orderStatus != null) {
+        print('📊 КЛИЕНТ: Получен статус заказа из driverLocation: $orderStatus');
+        
+        // Если статус изменился на STARTED (водитель принял заказ), обновляем UI
+        if (orderStatus == 'STARTED') {
+          print('✅ КЛИЕНТ: Водитель принял заказ (статус STARTED), обновляем UI');
+          _handleOrderStatusChange('orderAccepted', data);
+        }
+        // Если статус изменился на WAITING (водитель на месте), обновляем UI
+        else if (orderStatus == 'WAITING') {
+          print('✅ КЛИЕНТ: Водитель на месте (статус WAITING), обновляем UI');
+          _handleOrderStatusChange('driverArrived', data);
+        }
+        // Если статус изменился на ONGOING (поездка началась), обновляем UI
+        else if (orderStatus == 'ONGOING') {
+          print('✅ КЛИЕНТ: Поездка началась (статус ONGOING), обновляем UI');
+          _handleOrderStatusChange('rideStarted', data);
+        }
+        // Если статус изменился на COMPLETED (поездка завершена), обновляем UI
+        else if (orderStatus == 'COMPLETED') {
+          print('✅ КЛИЕНТ: Поездка завершена (статус COMPLETED), обновляем UI');
+          _handleRideEnded(data);
+        }
+      }
+    });
+    
+    // Обработчик события синхронизации активного заказа
+    websocketService.addEventListener(SocketEventType.orderSync, (data) {
+      logger.i('📦 КЛИЕНТ: Получено событие orderSync');
+      print('📦 КЛИЕНТ: Получено событие orderSync: $data');
+      _handleOrderSync(data);
+    });
+    
+    // Обработчик события информации о водителе
+    websocketService.addEventListener(SocketEventType.driverInfo, (data) {
+      logger.i('📦 КЛИЕНТ: Получено событие driverInfo');
+      print('📦 КЛИЕНТ: Получено событие driverInfo: $data');
+      _handleDriverInfo(data);
+    });
+
+    // Настраиваем обработчики подключения
+    websocketService.addClientConnectionListener((isConnected) {
+      if (isConnected) {
+        logger.i('WebSocket подключение установлено');
+      } else {
+        logger.w('WebSocket отключен');
+      }
+    });
+  }
+  
+  // Обработка изменения статуса заказа
+  void _handleOrderStatusChange(String eventType, Map<String, dynamic> data) {
+    print('🔄 КЛИЕНТ: Обработка изменения статуса заказа: $eventType');
+    
+    // Добавляем небольшую задержку перед первым обновлением
+    Future.delayed(Duration(milliseconds: 100), () {
+      print('🔄 КЛИЕНТ: Первое обновление активного заказа (100ms)');
+      _fetchActiveOrderInternal(forceUpdate: true);
+    });
+    
+    // Повторное обновление для надежности
+    Future.delayed(Duration(milliseconds: 500), () {
+      print('🔄 КЛИЕНТ: Повторное обновление активного заказа (500ms)');
+      _fetchActiveOrderInternal(forceUpdate: true);
+    });
+  }
+  
+  // Специальная обработка завершения поездки
+  void _handleRideEnded(Map<String, dynamic> data) {
+    print('🏁 КЛИЕНТ: Обработка завершения поездки');
+    
+    // Сначала очищаем активный заказ
+    print('🔄 КЛИЕНТ: Очищаем активный заказ');
+    activeOrder.accept(null);
+    
+    // Затем запрашиваем актуальные данные
+    Future.delayed(Duration(milliseconds: 200), () {
+      print('🔄 КЛИЕНТ: Запрашиваем актуальные данные после завершения поездки');
+      _fetchActiveOrderInternal(forceUpdate: true);
+    });
+    
+    // Дополнительная проверка через 1 секунду
+    Future.delayed(Duration(seconds: 1), () {
+      print('🔄 КЛИЕНТ: Финальная проверка активного заказа');
+      _fetchActiveOrderInternal(forceUpdate: true);
+    });
+  }
+  
+  // Обработка синхронизации активного заказа
+  void _handleOrderSync(Map<String, dynamic> data) {
+    print('🔄 КЛИЕНТ: Обработка синхронизации активного заказа');
+    print('📋 КЛИЕНТ: Данные синхронизации: $data');
+    
+    final orderStatus = data['orderStatus'] as String?;
+    final orderId = data['orderId'] as String?;
+    final driverId = data['driverId'] as String?;
+    
+    if (orderStatus != null && orderId != null) {
+      print('✅ КЛИЕНТ: Синхронизирован активный заказ $orderId со статусом $orderStatus');
+      
+      // Принудительно обновляем активный заказ
+      _fetchActiveOrderInternal(forceUpdate: true);
+      
+      // Дополнительно обновляем через небольшую задержку для надежности
+      Future.delayed(Duration(milliseconds: 500), () {
+        _fetchActiveOrderInternal(forceUpdate: true);
+      });
+    } else {
+      print('❌ КЛИЕНТ: Неполные данные синхронизации');
+    }
+  }
+  
+  // Обработка информации о водителе
+  void _handleDriverInfo(Map<String, dynamic> data) {
+    print('🚕 КЛИЕНТ: Получена информация о водителе');
+    print('📋 КЛИЕНТ: Данные водителя: $data');
+    
+    final driverId = data['driverId'] as String?;
+    final driver = data['driver'] as Map<String, dynamic>?;
+    
+    if (driverId != null && driver != null) {
+      print('✅ КЛИЕНТ: Информация о водителе $driverId получена');
+      // Здесь можно сохранить информацию о водителе для отображения в UI
+    } else {
+      print('❌ КЛИЕНТ: Неполная информация о водителе');
+    }
+  }
+  
+  // Показать модальное окно с сообщением об отклонении заказа
+  Future<void> _showOrderRejectedBottomSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isDismissible: true,
+      isScrollControlled: true,
+      builder: (context) => PrimaryBottomSheet(
+        contentPadding: EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: greyscale30,
+                  borderRadius: BorderRadius.circular(1.4),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SvgPicture.asset(icPlacemarkError),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                'Поездка отклонена',
+                style: text500Size20Greyscale90,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: PrimaryButton.primary(
+                onPressed: () async {
+                  isOrderRejected.accept(false);
+                  Navigator.of(context).pop();
+                },
+                text: 'Закрыть',
+                textStyle: text400Size16White,
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> disconnectWebsocket() async {
@@ -865,14 +1146,95 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
 
   @override
   Future<void> fetchActiveOrder() async {
-    final result = await NetworkUtils.executeWithErrorHandling<ActiveClientRequestModel>(
-      () => model.getMyClientActiveOrder(),
-      showErrorMessages: false, // Не показываем ошибки для автоматических запросов
-    );
-    
-    if (result != null) {
-      activeOrder.accept(result);
+    await _fetchActiveOrderInternal(forceUpdate: false);
+  }
+  
+  // Внутренний метод с возможностью принудительного обновления
+  Future<void> _fetchActiveOrderInternal({bool forceUpdate = false}) async {
+    try {
+      print('🔄 КЛИЕНТ: Запрос активного заказа...');
+      logger.i('Запрос активного заказа');
+      
+      // Проверяем наличие токена и данных пользователя
+      final token = inject<SharedPreferences>().getString('access_token');
+      if (token == null || me.value == null) {
+        print('❌ КЛИЕНТ: Нет токена или данных пользователя');
+        logger.w('Невозможно получить активный заказ: отсутствует токен или данные пользователя');
+        return;
+      }
+      
+      print('✅ КЛИЕНТ: Токен и данные пользователя есть, делаем запрос...');
+      
+      // Получаем активный заказ с обработкой ошибок
+      final result = await NetworkUtils.executeWithErrorHandling<ActiveClientRequestModel>(
+        () => model.getMyClientActiveOrder(),
+        showErrorMessages: false, // Не показываем ошибки для автоматических запросов
+      );
+      
+      print('📋 КЛИЕНТ: Результат запроса: ${result != null ? "получен" : "null"}');
+      
+      if (result != null) {
+        print('✅ КЛИЕНТ: Получен активный заказ:');
+        print('📋 КЛИЕНТ: Статус: ${result.order?.orderStatus}');
+        print('🆔 КЛИЕНТ: ID: ${result.order?.id}');
+        print('🚕 КЛИЕНТ: Водитель: ${result.driver != null ? "назначен" : "не назначен"}');
+        print('🚗 КЛИЕНТ: Автомобиль: ${result.car != null ? "указан" : "не указан"}');
+        print('📍 КЛИЕНТ: Маршрут: ${result.order?.from} -> ${result.order?.to}');
+        
+        logger.i('Получен активный заказ: ${result.order?.orderStatus}');
+        
+        // Проверяем, изменился ли заказ
+        final currentOrder = activeOrder.value;
+        final orderChanged = _hasOrderChanged(currentOrder, result);
+        
+        print('🔄 КЛИЕНТ: Заказ изменился: $orderChanged');
+        print('📊 КЛИЕНТ: Текущий статус: ${currentOrder?.order?.orderStatus}');
+        print('📊 КЛИЕНТ: Новый статус: ${result.order?.orderStatus}');
+        
+        // Обновляем только если заказ изменился или его не было, или принудительное обновление
+        if (orderChanged || forceUpdate) {
+          print('✅ КЛИЕНТ: Заказ изменился или принудительное обновление, обновляем UI');
+          logger.i('Заказ изменился или принудительное обновление, обновляем UI');
+          activeOrder.accept(result);
+        } else {
+          print('ℹ️ КЛИЕНТ: Заказ не изменился, UI не обновляем');
+        }
+      } else {
+        print('❌ КЛИЕНТ: Активный заказ не найден (result == null)');
+        // Если result == null, это может означать что заказа нет или была ошибка
+        // Очищаем activeOrder только если он был не null (чтобы избежать лишних обновлений UI)
+        if (activeOrder.value != null) {
+          print('🔄 КЛИЕНТ: Очищаем состояние (был заказ, теперь нет)');
+          logger.i('Активный заказ не найден, очищаем состояние');
+          activeOrder.accept(null);
+        } else {
+          print('ℹ️ КЛИЕНТ: Состояние уже пустое, ничего не делаем');
+        }
+      }
+    } catch (e) {
+      print('❌ КЛИЕНТ: Ошибка при получении активного заказа: $e');
+      logger.e('Ошибка при получении активного заказа: $e');
+      // При ошибке очищаем состояние только если заказ был
+      if (activeOrder.value != null) {
+        print('🔄 КЛИЕНТ: Очищаем состояние из-за ошибки');
+        activeOrder.accept(null);
+      }
     }
+  }
+  
+  // Проверяет, изменился ли заказ
+  bool _hasOrderChanged(ActiveClientRequestModel? current, ActiveClientRequestModel? newOrder) {
+    // Если один из заказов null, а другой нет - заказ изменился
+    if (current == null && newOrder != null) return true;
+    if (current != null && newOrder == null) return true;
+    if (current == null && newOrder == null) return false;
+    
+    // Проверяем изменение основных параметров
+    if (current!.order?.id != newOrder!.order?.id) return true;
+    if (current.order?.orderStatus != newOrder.order?.orderStatus) return true;
+    if (current.driver?.props?.phone != newOrder.driver?.props?.phone) return true;
+    
+    return false;
   }
 
   @override
@@ -1340,6 +1702,27 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
       return;
     }
 
+    // Сразу создаем временный заказ в UI для мгновенного отображения
+    final temporaryOrder = ActiveClientRequestModel(
+      order: OrderRequestClientModel(
+        id: "temp_${DateTime.now().millisecondsSinceEpoch}",
+        orderStatus: 'CREATED',
+        from: form.fromAddress.value,
+        to: form.toAddress.value,
+        price: form.cost.value?.toInt(),
+        orderType: "TAXI",
+        fromMapboxId: form.fromMapboxId.value,
+        toMapboxId: form.toMapboxId.value,
+        comment: '',
+      ),
+      // Водитель пока не назначен
+      driver: null,
+      car: null,
+    );
+    
+    // Обновляем UI с временным заказом
+    activeOrder.accept(temporaryOrder);
+
     try {
       await inject<RestClient>().createDriverOrder(body: {
         "from": form.fromAddress.value,
@@ -1353,8 +1736,18 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         "toMapboxId": form.toMapboxId.value,
       });
       
-      fetchActiveOrder();
+      // Получаем актуальный заказ с сервера
+      await Future.delayed(Duration(milliseconds: 500)); // Небольшая задержка для обработки заказа на сервере
+      await fetchActiveOrder();
+      
+      // Если по какой-то причине заказ не получен с сервера, оставляем временный
+      if (activeOrder.value == null) {
+        activeOrder.accept(temporaryOrder);
+      }
     } catch (error) {
+      // При ошибке сохраняем временный заказ
+      activeOrder.accept(temporaryOrder);
+      
       // Специальная обработка ошибки блокировки пользователя
       if (error is DioException && 
           error.response?.statusCode == 403 &&
@@ -1369,7 +1762,7 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         if (blockedUntilStr != null) {
           try {
             blockedUntil = DateTime.parse(blockedUntilStr);
-    } catch (e) {
+          } catch (e) {
             print('Error parsing blockedUntil date: $e');
           }
         }
@@ -1576,17 +1969,19 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
         if (steps != null) {
           for (int stepIndex = 0; stepIndex < steps.length; stepIndex++) {
             final step = steps[stepIndex];
-            final duration = step['duration'] as double?;
-            final distance = step['distance'] as double?;
+            final duration = (step['duration'] as num?)?.toDouble();
+            final distance = (step['distance'] as num?)?.toDouble();
             final geometry = step['geometry'];
             
-            if (duration != null && distance != null && geometry != null) {
+            if (duration != null && distance != null && geometry != null && duration > 0) {
               // Вычисляем уровень пробок на основе скорости
               final speed = distance / duration; // м/с
               final speedKmh = speed * 3.6; // км/ч
               
-              final trafficLevel = _calculateTrafficLevel(speedKmh);
-              final color = _getTrafficColor(trafficLevel);
+              // Проверяем на валидность скорости
+              if (speedKmh.isFinite && speedKmh > 0) {
+                final trafficLevel = _calculateTrafficLevel(speedKmh);
+                final color = _getTrafficColor(trafficLevel);
               
               // Счетчики для статистики
               segmentCount++;
@@ -1621,13 +2016,17 @@ class TenantHomeWM extends WidgetModel<TenantHomeScreen, TenantHomeModel>
                 }),
               ));
               
-              await _mapboxMapController!.style.addLayer(LineLayer(
-                id: segmentId,
-                sourceId: '${segmentId}-source',
-                lineColor: color.value,
-                lineWidth: 5.0,
-                lineOpacity: 0.9,
-              ));
+                await _mapboxMapController!.style.addLayer(LineLayer(
+                  id: segmentId,
+                  sourceId: '${segmentId}-source',
+                  lineColor: color.value,
+                  lineWidth: 5.0,
+                  lineOpacity: 0.9,
+                ));
+              } else {
+                // Пропускаем сегменты с невалидной скоростью
+                print('⚠️ Пропущен сегмент с невалидной скоростью: $speedKmh км/ч');
+              }
             }
           }
         }

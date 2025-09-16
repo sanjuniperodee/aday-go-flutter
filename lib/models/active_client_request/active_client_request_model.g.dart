@@ -11,7 +11,7 @@ ActiveClientRequestModel _$ActiveClientRequestModelFromJson(
     ActiveClientRequestModel(
       order: json['order'] == null
           ? null
-          : OrderRequestPropsModel.fromJson(
+          : OrderRequestClientModel.fromJson(
               json['order'] as Map<String, dynamic>),
       driver: json['driver'] == null
           ? null

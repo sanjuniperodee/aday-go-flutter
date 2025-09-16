@@ -62,13 +62,16 @@ class _ActiveClientOrderBottomSheetState
 
   Future<void> fetchActiveOrder() async {
     try {
+      print('🔄 ActiveClientOrderBottomSheet: Запрос активного заказа...');
       final response =
           await inject<OrderRequestsInteractor>().getMyClientActiveOrder();
 
+      print('✅ ActiveClientOrderBottomSheet: Получен активный заказ: ${response.order?.orderStatus}');
       activeRequest = response;
 
       setState(() {});
     } on Exception catch (e) {
+      print('❌ ActiveClientOrderBottomSheet: Ошибка при получении активного заказа: $e');
       setState(() {
         isOrderFinished = true;
       });

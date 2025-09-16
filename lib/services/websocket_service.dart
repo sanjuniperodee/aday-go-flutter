@@ -19,6 +19,8 @@ enum SocketEventType {
   rideEnded,
   orderAccepted,
   driverLocation,
+  orderSync, // Синхронизация активного заказа
+  driverInfo, // Информация о водителе
   
   // Driver events
   newOrder,
@@ -26,6 +28,7 @@ enum SocketEventType {
   orderCancelledByClientForDriver, // Для водителя - когда клиент отменил заказ
   orderDeleted,
   eventAck,
+  clientInfo, // Информация о клиенте
 }
 
 class WebSocketService {
@@ -42,6 +45,18 @@ class WebSocketService {
   // Connection states
   bool _isClientConnected = false;
   bool _isDriverConnected = false;
+  
+  // Connection in progress flags to prevent duplicate connections
+  bool _clientConnecting = false;
+  bool _driverConnecting = false;
+  
+  // Reconnection timers
+  Timer? _clientReconnectTimer;
+  Timer? _driverReconnectTimer;
+  
+  // Heartbeat timers for connection health check
+  Timer? _clientHeartbeatTimer;
+  Timer? _driverHeartbeatTimer;
   
   // Event callbacks
   final Map<SocketEventType, List<Function(dynamic)>> _eventCallbacks = {};
@@ -73,11 +88,15 @@ class WebSocketService {
         return;
       }
       
-      // Проверяем, не подключен ли уже сокет этого типа
+      // Проверяем, не подключен ли уже сокет этого типа или не происходит ли подключение
       switch (type) {
         case SocketConnectionType.client:
           if (_isClientConnected) {
             _logger.i('✅ Клиентский сокет уже подключен, пропускаем инициализацию');
+            return;
+          }
+          if (_clientConnecting) {
+            _logger.i('⏳ Клиентский сокет уже подключается, пропускаем дублирующий запрос');
             return;
           }
           await _initializeClientSocket(user, sessionId);
@@ -85,6 +104,10 @@ class WebSocketService {
         case SocketConnectionType.driver:
           if (_isDriverConnected) {
             _logger.i('✅ Сокет водителя уже подключен, пропускаем инициализацию');
+            return;
+          }
+          if (_driverConnecting) {
+            _logger.i('⏳ Сокет водителя уже подключается, пропускаем дублирующий запрос');
             return;
           }
           if (position == null) {
@@ -101,66 +124,84 @@ class WebSocketService {
   
   // Initialize client socket
   Future<void> _initializeClientSocket(UserDomain user, String sessionId) async {
-    await _disconnectClientSocket();
+    _clientConnecting = true;
+    _clientReconnectTimer?.cancel(); // Отменяем любые активные таймеры переподключения
     
-    _logger.i('🚀 Инициализация клиентского сокета...');
-    
-    _clientSocket = IO.io(
-      'https://taxi.aktau-go.kz',
-      <String, dynamic>{
-        'transports': ['websocket', 'polling'],
-        'autoConnect': false,
-        'forceNew': true,
-        'timeout': 30000,
-        'reconnection': true,
-        'reconnectionAttempts': 5,
-        'reconnectionDelay': 3000,
-        'query': {
-          'sessionId': sessionId,
-          'userId': user.id,
-          'userType': 'client',
-          'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+    try {
+      await _disconnectClientSocket();
+      
+      _logger.i('🚀 Инициализация клиентского сокета...');
+      
+      _clientSocket = IO.io(
+        'https://taxi.aktau-go.kz',
+        <String, dynamic>{
+          'transports': ['websocket', 'polling'],
+          'autoConnect': false,
+          'forceNew': true,
+          'timeout': 10000, // Уменьшаем таймаут до 10 секунд
+          'reconnection': false, // Отключаем автоматическое переподключение socket.io
+          'reconnectionAttempts': 0,
+          'upgrade': true, // Разрешаем апгрейд с polling на websocket
+          'rememberUpgrade': true, // Запоминаем предпочтение websocket
+          'query': {
+            'sessionId': sessionId,
+            'userId': user.id,
+            'userType': 'client',
+            'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+          },
         },
-      },
-    );
-    
-    _setupClientEventHandlers();
-    _clientSocket!.connect();
-    
-    _logger.i('🔌 Клиентский сокет создан и подключается...');
+      );
+      
+      _setupClientEventHandlers();
+      _clientSocket!.connect();
+      
+      _logger.i('🔌 Клиентский сокет создан и подключается...');
+    } catch (e) {
+      _logger.e('❌ Ошибка при создании клиентского сокета: $e');
+      _clientConnecting = false;
+    }
   }
   
   // Initialize driver socket
   Future<void> _initializeDriverSocket(UserDomain user, String sessionId, Position position) async {
-    await _disconnectDriverSocket();
+    _driverConnecting = true;
+    _driverReconnectTimer?.cancel(); // Отменяем любые активные таймеры переподключения
     
-    _logger.i('🚀 Инициализация сокета водителя...');
-    
-    _driverSocket = IO.io(
-      'https://taxi.aktau-go.kz',
-      <String, dynamic>{
-        'transports': ['websocket', 'polling'],
-        'autoConnect': false,
-        'forceNew': true,
-        'timeout': 30000,
-        'reconnection': true,
-        'reconnectionAttempts': 5,
-        'reconnectionDelay': 3000,
-        'query': {
-          'sessionId': sessionId,
-          'driverId': user.id,
-          'userType': 'driver',
-          'lat': position.latitude.toString(),
-          'lng': position.longitude.toString(),
-          'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+    try {
+      await _disconnectDriverSocket();
+      
+      _logger.i('🚀 Инициализация сокета водителя...');
+      
+      _driverSocket = IO.io(
+        'https://taxi.aktau-go.kz',
+        <String, dynamic>{
+          'transports': ['websocket', 'polling'],
+          'autoConnect': false,
+          'forceNew': true,
+          'timeout': 10000, // Уменьшаем таймаут до 10 секунд
+          'reconnection': false, // Отключаем автоматическое переподключение socket.io
+          'reconnectionAttempts': 0,
+          'upgrade': true, // Разрешаем апгрейд с polling на websocket
+          'rememberUpgrade': true, // Запоминаем предпочтение websocket
+          'query': {
+            'sessionId': sessionId,
+            'driverId': user.id,
+            'userType': 'driver',
+            'lat': position.latitude.toString(),
+            'lng': position.longitude.toString(),
+            'timestamp': DateTime.now().millisecondsSinceEpoch.toString(),
+          },
         },
-      },
-    );
-    
-    _setupDriverEventHandlers();
-    _driverSocket!.connect();
-    
-    _logger.i('🔌 Сокет водителя создан и подключается...');
+      );
+      
+      _setupDriverEventHandlers();
+      _driverSocket!.connect();
+      
+      _logger.i('🔌 Сокет водителя создан и подключается...');
+    } catch (e) {
+      _logger.e('❌ Ошибка при создании сокета водителя: $e');
+      _driverConnecting = false;
+    }
   }
   
   // Setup client event handlers
@@ -173,21 +214,31 @@ class WebSocketService {
     _clientSocket!.onConnect((_) {
       _logger.i('✅ Клиентский сокет подключен');
       _isClientConnected = true;
+      _clientConnecting = false;
+      _clientReconnectTimer?.cancel();
+      _startClientHeartbeat();
       _notifyClientConnectionCallbacks(true);
     });
     
     _clientSocket!.onDisconnect((reason) {
       _logger.w('🔌 Клиентский сокет отключен: $reason');
       _isClientConnected = false;
+      _clientConnecting = false;
+      _stopClientHeartbeat();
       _notifyClientConnectionCallbacks(false);
       
-      // Auto-reconnect for clients (только если это не было инициировано пользователем)
-      if (reason != 'io client disconnect' && reason != 'transport close') {
-        _logger.i('🔄 Автоматическое переподключение клиентского сокета...');
-        Future.delayed(Duration(seconds: 3), () {
-          // Дополнительная проверка, что сокет еще не подключен
-          if (!_isClientConnected && _clientSocket != null) {
-            _clientSocket!.connect();
+      // Контролируемое переподключение только для неожиданных отключений
+      if (reason != 'io client disconnect' && reason != 'transport close' && reason != 'client namespace disconnect') {
+        _logger.i('🔄 Планируется переподключение клиентского сокета через 3 секунды...');
+        _clientReconnectTimer?.cancel();
+        _clientReconnectTimer = Timer(Duration(seconds: 3), () {
+          if (!_isClientConnected && !_clientConnecting) {
+            _logger.i('🔄 Выполняется переподключение клиентского сокета...');
+            // Полностью пересоздаем сокет для надежности
+            _clientSocket?.dispose();
+            _clientSocket = null;
+            // Переподключение будет выполнено через полную переинициализацию
+            _logger.i('🔄 Требуется полная переинициализация клиентского сокета');
           }
         });
       }
@@ -196,6 +247,7 @@ class WebSocketService {
     _clientSocket!.onConnectError((error) {
       _logger.e('❌ Ошибка подключения клиентского сокета: $error');
       _isClientConnected = false;
+      _clientConnecting = false;
       _notifyClientConnectionCallbacks(false);
     });
     
@@ -244,6 +296,20 @@ class WebSocketService {
       _logger.i('📦 Client: driverLocation');
       _notifyEventCallbacks(SocketEventType.driverLocation, data);
     });
+    
+    _clientSocket!.on('pong', (data) {
+      _logger.d('💓 Client: pong received');
+    });
+    
+    _clientSocket!.on('orderSync', (data) {
+      _logger.i('📦 Client: orderSync');
+      _notifyEventCallbacks(SocketEventType.orderSync, data);
+    });
+    
+    _clientSocket!.on('driverInfo', (data) {
+      _logger.i('📦 Client: driverInfo');
+      _notifyEventCallbacks(SocketEventType.driverInfo, data);
+    });
   }
   
   // Setup driver event handlers
@@ -256,28 +322,41 @@ class WebSocketService {
     _driverSocket!.onConnect((_) {
       _logger.i('✅ Сокет водителя подключен');
       _isDriverConnected = true;
+      _driverConnecting = false;
+      _driverReconnectTimer?.cancel();
+      _startDriverHeartbeat();
       _notifyDriverConnectionCallbacks(true);
-      
     });
     
     _driverSocket!.onDisconnect((reason) {
       _logger.w('🔌 Сокет водителя отключен: $reason');
       _isDriverConnected = false;
+      _driverConnecting = false;
+      _stopDriverHeartbeat();
       _notifyDriverConnectionCallbacks(false);
       
-      // Don't auto-reconnect drivers - they need to manually go online
+      // Контролируемое переподключение для водителей только при неожиданных отключениях
+      if (reason != 'io client disconnect' && reason != 'transport close' && reason != 'client namespace disconnect') {
+        _logger.i('🔄 Планируется переподключение сокета водителя через 5 секунд...');
+        _driverReconnectTimer?.cancel();
+        _driverReconnectTimer = Timer(Duration(seconds: 5), () {
+          if (!_isDriverConnected && !_driverConnecting) {
+            _logger.i('🔄 Выполняется переподключение сокета водителя...');
+            // Полностью пересоздаем сокет для надежности
+            _driverSocket?.dispose();
+            _driverSocket = null;
+            // Переподключение будет выполнено через полную переинициализацию
+            _logger.i('🔄 Требуется полная переинициализация сокета водителя');
+          }
+        });
+      }
     });
     
     _driverSocket!.onConnectError((error) {
       _logger.e('❌ Ошибка подключения сокета водителя: $error');
       _isDriverConnected = false;
+      _driverConnecting = false;
       _notifyDriverConnectionCallbacks(false);
-    });
-    
-    _driverSocket!.onReconnect((attempt) {
-      _logger.i('🔄 Сокет водителя переподключился (попытка $attempt)');
-      _isDriverConnected = true;
-      _notifyDriverConnectionCallbacks(true);
     });
     
     // Driver-specific events
@@ -305,6 +384,20 @@ class WebSocketService {
     _driverSocket!.on('eventAck', (data) {
       _logger.i('📦 Driver: eventAck');
       _notifyEventCallbacks(SocketEventType.eventAck, data);
+    });
+    
+    _driverSocket!.on('pong', (data) {
+      _logger.d('💓 Driver: pong received');
+    });
+    
+    _driverSocket!.on('orderSync', (data) {
+      _logger.i('📦 Driver: orderSync');
+      _notifyEventCallbacks(SocketEventType.orderSync, data);
+    });
+    
+    _driverSocket!.on('clientInfo', (data) {
+      _logger.i('📦 Driver: clientInfo');
+      _notifyEventCallbacks(SocketEventType.clientInfo, data);
     });
   }
   
@@ -384,6 +477,10 @@ class WebSocketService {
   
   // Disconnect methods
   Future<void> _disconnectClientSocket() async {
+    _clientReconnectTimer?.cancel();
+    _clientReconnectTimer = null;
+    _clientConnecting = false;
+    
     if (_clientSocket != null) {
       _logger.i('🔌 Отключение клиентского сокета');
       _clientSocket!.clearListeners();
@@ -395,6 +492,10 @@ class WebSocketService {
   }
   
   Future<void> _disconnectDriverSocket() async {
+    _driverReconnectTimer?.cancel();
+    _driverReconnectTimer = null;
+    _driverConnecting = false;
+    
     if (_driverSocket != null) {
       _logger.i('🔌 Отключение сокета водителя');
       
@@ -428,11 +529,26 @@ class WebSocketService {
   
   // Notification helpers
   void _notifyEventCallbacks(SocketEventType eventType, dynamic data) {
-    _eventCallbacks[eventType]?.forEach((callback) {
+    // Проверяем, что есть активные обработчики для этого события
+    final callbacks = _eventCallbacks[eventType];
+    if (callbacks == null || callbacks.isEmpty) {
+      _logger.w('⚠️ Нет активных обработчиков для события $eventType');
+      print('⚠️ WebSocket: Нет активных обработчиков для события $eventType');
+      return;
+    }
+    
+    _logger.i('📡 Уведомляем ${callbacks.length} обработчиков о событии $eventType');
+    print('📡 WebSocket: Уведомляем ${callbacks.length} обработчиков о событии $eventType');
+    print('📡 WebSocket: Данные события: $data');
+    
+    callbacks.forEach((callback) {
       try {
+        print('🔄 WebSocket: Выполняем callback для $eventType');
         callback(data);
+        print('✅ WebSocket: Callback для $eventType выполнен успешно');
       } catch (e) {
         _logger.e('❌ Ошибка в callback для события $eventType: $e');
+        print('❌ WebSocket: Ошибка в callback для события $eventType: $e');
       }
     });
   }
@@ -457,8 +573,47 @@ class WebSocketService {
     });
   }
   
+  // Heartbeat methods
+  void _startClientHeartbeat() {
+    _stopClientHeartbeat();
+    _clientHeartbeatTimer = Timer.periodic(Duration(seconds: 30), (timer) {
+      if (_isClientConnected && _clientSocket != null) {
+        _clientSocket!.emit('ping', {'timestamp': DateTime.now().millisecondsSinceEpoch});
+        _logger.d('💓 Client heartbeat sent');
+      } else {
+        _stopClientHeartbeat();
+      }
+    });
+  }
+  
+  void _stopClientHeartbeat() {
+    _clientHeartbeatTimer?.cancel();
+    _clientHeartbeatTimer = null;
+  }
+  
+  void _startDriverHeartbeat() {
+    _stopDriverHeartbeat();
+    _driverHeartbeatTimer = Timer.periodic(Duration(seconds: 30), (timer) {
+      if (_isDriverConnected && _driverSocket != null) {
+        _driverSocket!.emit('ping', {'timestamp': DateTime.now().millisecondsSinceEpoch});
+        _logger.d('💓 Driver heartbeat sent');
+      } else {
+        _stopDriverHeartbeat();
+      }
+    });
+  }
+  
+  void _stopDriverHeartbeat() {
+    _driverHeartbeatTimer?.cancel();
+    _driverHeartbeatTimer = null;
+  }
+
   // Cleanup
   void dispose() {
+    _clientReconnectTimer?.cancel();
+    _driverReconnectTimer?.cancel();
+    _stopClientHeartbeat();
+    _stopDriverHeartbeat();
     disconnectAll();
     _eventCallbacks.clear();
     _clientConnectionCallbacks.clear();

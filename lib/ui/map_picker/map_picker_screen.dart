@@ -337,10 +337,12 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                       icon: Icon(Icons.clear),
                                       onPressed: () {
                                         _textFieldController.clear();
-                                        setState(() {
-                                          _showDeleteButton = false;
-                                          _addressName = '';
-                                        });
+                                        if (mounted) {
+                                          setState(() {
+                                            _showDeleteButton = false;
+                                            _addressName = '';
+                                          });
+                                        }
                                       },
                                     )
                                   : null,
@@ -424,18 +426,20 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
                                   );
                                   
                                   // Обновляем UI и переменные
-                                  setState(() {
-                                    _addressName = feature.name ?? '';
-                                    _selectedGooglePredictions = feature.name;
-                                    currentPosition = newPosition;
-                                    _lastFetchedPosition = newPosition; // Обновляем последнюю полученную позицию
-                                    
-                                    // Обновляем текстовое поле
-                                    if (_addressName.isNotEmpty && _textFieldController.text != _addressName) {
-                                      _textFieldController.text = _addressName;
-                                      _showDeleteButton = true;
-                                    }
-                                  });
+                                  if (mounted) {
+                                    setState(() {
+                                      _addressName = feature.name ?? '';
+                                      _selectedGooglePredictions = feature.name;
+                                      currentPosition = newPosition;
+                                      _lastFetchedPosition = newPosition; // Обновляем последнюю полученную позицию
+                                      
+                                      // Обновляем текстовое поле
+                                      if (_addressName.isNotEmpty && _textFieldController.text != _addressName) {
+                                        _textFieldController.text = _addressName;
+                                        _showDeleteButton = true;
+                                      }
+                                    });
+                                  }
                                   
                                   print('Updated address to: $_addressName');
                                   
@@ -661,7 +665,7 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   
   // Show animation when pin drops on map
   void _showPinDropAnimation() {
-    if (!_locationComponentEnabled) {
+    if (!_locationComponentEnabled && mounted) {
       // Animation will be handled by AnimatedContainer in the widget tree
       setState(() {});
     }
@@ -707,9 +711,11 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     if (!mounted) return;
     
     try {
-      setState(() {
-        _isAddressLoading = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isAddressLoading = true;
+        });
+      }
       
       print('Fetching address for position: ${position.lat}, ${position.lng}');
       
@@ -725,13 +731,15 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       print('Address fetched: $addressText');
       
       // Force UI update with the new address
-      setState(() {
-        _addressName = addressText;
-        _textFieldController.text = addressText;
-        _isAddressLoading = false;
-        _showDeleteButton = addressText != "Адрес не найден" && addressText.isNotEmpty;
-        _lastFetchedPosition = position;
-      });
+      if (mounted) {
+        setState(() {
+          _addressName = addressText;
+          _textFieldController.text = addressText;
+          _isAddressLoading = false;
+          _showDeleteButton = addressText != "Адрес не найден" && addressText.isNotEmpty;
+          _lastFetchedPosition = position;
+        });
+      }
       
       // Verify the text update took effect
       print('UI updated with address: $_addressName, text field: ${_textFieldController.text}');
@@ -739,18 +747,22 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       if (!mounted) return;
       
       print('Error fetching address: $e');
-      setState(() {
-        _isAddressLoading = false;
-        _addressName = "Ошибка получения адреса";
-        _textFieldController.text = "Ошибка получения адреса";
-      });
+      if (mounted) {
+        setState(() {
+          _isAddressLoading = false;
+          _addressName = "Ошибка получения адреса";
+          _textFieldController.text = "Ошибка получения адреса";
+        });
+      }
     }
   }
 
   void onMapCreated(MapboxMap mapboxController) async {
-    setState(() {
-      mapboxMapController = mapboxController;
-    });
+    if (mounted) {
+      setState(() {
+        mapboxMapController = mapboxController;
+      });
+    }
     
     try {
       // Add markers for route points - make them smaller
@@ -766,10 +778,12 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
           puckBearingEnabled: false,
         ),
       );
-      setState(() {
-        _locationComponentEnabled = true;
-        _isMapReady = true;
-      });
+      if (mounted) {
+        setState(() {
+          _locationComponentEnabled = true;
+          _isMapReady = true;
+        });
+      }
       
       print('Map is ready, locationComponentEnabled: $_locationComponentEnabled');
       
@@ -804,10 +818,12 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
       );
       
       // Update marker position
-      setState(() {
-        currentPosition = newPosition;
-        _isDragging = false;
-      });
+      if (mounted) {
+        setState(() {
+          currentPosition = newPosition;
+          _isDragging = false;
+        });
+      }
       
       // Immediately fetch address for the new position
       await _fetchAddress(newPosition);
@@ -827,10 +843,12 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
     if (widget.args.fromPosition != null && currentPosition != null) {
       try {
         // Show loading indicator
-        setState(() {
-          _isRouteLoading = true;
-          _hasRoute = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isRouteLoading = true;
+            _hasRoute = false;
+          });
+        }
         
         print('Drawing route in map picker...');
         print('From position: ${widget.args.fromPosition!.lat}, ${widget.args.fromPosition!.lng}');
@@ -845,9 +863,11 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
         if (_calculateDistance(
             geotypes.Position(fromLng, fromLat), 
             geotypes.Position(toLng, toLat)) < 50) {
-          setState(() {
-            _isRouteLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              _isRouteLoading = false;
+            });
+          }
           return;
         }
         
@@ -864,11 +884,13 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
         
         if (!mounted) return;
         
-        setState(() {
-          _route = directions ?? {};
-          _isRouteLoading = false;
-          _hasRoute = directions != null && directions.isNotEmpty;
-        });
+        if (mounted) {
+          setState(() {
+            _route = directions ?? {};
+            _isRouteLoading = false;
+            _hasRoute = directions != null && directions.isNotEmpty;
+          });
+        }
         
         print('Route data received, hasRoute: $_hasRoute');
         
@@ -1470,13 +1492,17 @@ class _MapAddressPickerScreenState extends State<MapAddressPickerScreen> {
   // Search field change handler
   onPlaceSearchChanged(String searchValue) {
     if (searchValue.isEmpty) {
-    setState(() {
-        _showDeleteButton = false;
-      });
+      if (mounted) {
+        setState(() {
+          _showDeleteButton = false;
+        });
+      }
     } else {
-      setState(() {
-        _showDeleteButton = true;
-    });
+      if (mounted) {
+        setState(() {
+          _showDeleteButton = true;
+        });
+      }
     }
   }
 

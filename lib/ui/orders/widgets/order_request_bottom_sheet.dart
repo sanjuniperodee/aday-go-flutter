@@ -588,7 +588,7 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
                                   SizedBox(height: 2),
                                   Text(
                                     route.isNotEmpty && route.containsKey('routes') && route['routes'].isNotEmpty && route['routes'][0].containsKey('duration')
-                                      ? '${((route['routes'][0]['duration'] as double) / 60).round()} мин'
+                                      ? '${(((route['routes'][0]['duration'] as num).toDouble()) / 60).round()} мин'
                                       : '-- мин',
                                     style: TextStyle(
                                         fontSize: 11,
@@ -626,7 +626,7 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
                                   SizedBox(height: 2),
                                   Text(
                                     route.isNotEmpty && route.containsKey('routes') && route['routes'].isNotEmpty && route['routes'][0].containsKey('distance')
-                                      ? '${((route['routes'][0]['distance'] as double) / 1000).toStringAsFixed(1)} км'
+                                      ? '${(((route['routes'][0]['distance'] as num).toDouble()) / 1000).toStringAsFixed(1)} км'
                                       : '-- км',
                                     style: TextStyle(
                                         fontSize: 11,
@@ -912,9 +912,9 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
         }
       }
       
-      print('🧹 Map annotations cleared');
+      // Map annotations cleared
     } catch (e) {
-      print('⚠️ Error clearing map annotations: $e');
+      // Error clearing map annotations - не логируем
     }
   }
 
@@ -1238,8 +1238,8 @@ class _OrderRequestBottomSheetState extends State<OrderRequestBottomSheet> {
       if (route.containsKey('routes') && route['routes'].isNotEmpty) {
         List<dynamic> coordinates = route['routes'][0]['geometry']['coordinates'];
       for (var coord in coordinates) {
-        final longitude = coord[0] as double;
-        final latitude = coord[1] as double;
+        final longitude = (coord[0] as num).toDouble();
+        final latitude = (coord[1] as num).toDouble();
         
         minLat = math.min(minLat, latitude);
         maxLat = math.max(maxLat, latitude);

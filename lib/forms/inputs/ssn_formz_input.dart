@@ -6,9 +6,9 @@ extension SSNFormzInputErrorExt on SSNFormzInputError {
   String? get value {
     switch (this) {
       case SSNFormzInputError.invalid:
-        return 'Неверный формат SSN';
+        return 'Неверный формат ИИН';
       case SSNFormzInputError.lengthLimit:
-        return 'SSN должен содержать 12 цифр';
+        return 'ИИН должен содержать 12 цифр';
     }
   }
 }
@@ -28,7 +28,7 @@ class SSNFormzInput extends FormzInput<String, SSNFormzInputError> {
       return null; // Пустое значение не является ошибкой
     }
     
-    // Проверяем, что SSN содержит только цифры и имеет правильную длину
+    // Проверяем, что ИИН содержит только цифры и имеет правильную длину
     if (value.length != 12) {
       return SSNFormzInputError.lengthLimit;
     }

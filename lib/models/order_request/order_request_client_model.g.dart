@@ -1,26 +1,23 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'order_request_props_model.dart';
+part of 'order_request_client_model.dart';
 
 // **************************************************************************
 // JsonSerializableGenerator
 // **************************************************************************
 
-OrderRequestPropsModel _$OrderRequestPropsModelFromJson(
+OrderRequestClientModel _$OrderRequestClientModelFromJson(
         Map<String, dynamic> json) =>
-    OrderRequestPropsModel(
-      id: OrderRequestPropsModel._propsToString(
-          json['id'] as Map<String, dynamic>?),
+    OrderRequestClientModel(
+      id: json['id'] as String?,
       createdAt: json['createdAt'] == null
           ? null
           : DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] == null
           ? null
           : DateTime.parse(json['updatedAt'] as String),
-      driverId: OrderRequestPropsModel._propsToString(
-          json['driverId'] as Map<String, dynamic>?),
-      clientId: OrderRequestPropsModel._propsToString(
-          json['clientId'] as Map<String, dynamic>?),
+      driverId: json['driverId'] as String?,
+      clientId: json['clientId'] as String?,
       user_phone: json['user_phone'] as String?,
       orderType: json['orderType'] as String?,
       orderStatus: json['orderStatus'] as String?,
@@ -34,16 +31,16 @@ OrderRequestPropsModel _$OrderRequestPropsModelFromJson(
       arrivalTime: json['arrivalTime'] == null
           ? null
           : DateTime.parse(json['arrivalTime'] as String),
-      lat: json['lat'] as num?,
-      lng: json['lng'] as num?,
-      price: json['price'] as num?,
+      lat: (json['lat'] as num?)?.toDouble(),
+      lng: (json['lng'] as num?)?.toDouble(),
+      price: (json['price'] as num?)?.toInt(),
       comment: json['comment'] as String?,
-      rating: json['rating'] as num?,
+      rating: (json['rating'] as num?)?.toDouble(),
       sessionid: json['sessionid'] as String?,
     );
 
-Map<String, dynamic> _$OrderRequestPropsModelToJson(
-        OrderRequestPropsModel instance) =>
+Map<String, dynamic> _$OrderRequestClientModelToJson(
+        OrderRequestClientModel instance) =>
     <String, dynamic>{
       'id': instance.id,
       'createdAt': instance.createdAt?.toIso8601String(),

@@ -12,7 +12,8 @@ class OrderRequestPropsModel {
   final DateTime? updatedAt;
   @JsonKey(name: 'driverId', fromJson: _propsToString)
   final String? driverId;
-  final PropsModel? clientId;
+  @JsonKey(name: 'clientId', fromJson: _propsToString)
+  final String? clientId;
   final String? user_phone;
   final String? orderType;
   final String? orderStatus;

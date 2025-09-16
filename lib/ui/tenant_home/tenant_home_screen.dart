@@ -306,7 +306,10 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
                   }
                   
                   if (activeOrder != null) {
+                    print('✅ UI: Отображаем активный заказ - статус: ${activeOrder.order?.orderStatus}');
                     return _buildActiveOrderBottomSheet(activeOrder, me!, wm);
+                  } else {
+                    print('❌ UI: Активный заказ отсутствует, показываем форму создания заказа');
                   }
                   
                   return Positioned(
@@ -1468,7 +1471,7 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
   // Очистка слоев маршрута
   Future<void> _clearPreviousRoutes(MapboxMap mapboxController) async {
     try {
-      print('🧹 Начинаем ПОЛНУЮ очистку карты от всех маршрутов и маркеров...');
+      // Начинаем очистку карты от всех маршрутов и маркеров
       
       // РАСШИРЕННАЯ ОЧИСТКА: удаляем ВСЕ возможные слои маршрутов и маркеров
       final layersToRemove = [
@@ -1537,11 +1540,9 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
         try {
           if (await mapboxController.style.styleLayerExists(layerId)) {
             await mapboxController.style.removeStyleLayer(layerId);
-            print('✅ Удален слой: $layerId');
           }
         } catch (e) {
-          // Игнорируем ошибки при удалении отдельных слоев
-          print('⚠️ Ошибка при удалении слоя $layerId: $e');
+          // Игнорируем ошибки при удалении отдельных слоев - не логируем
         }
       }
       
@@ -1550,15 +1551,13 @@ class TenantHomeScreen extends ElementaryWidget<ITenantHomeWM> {
         try {
           if (await mapboxController.style.styleSourceExists(sourceId)) {
             await mapboxController.style.removeStyleSource(sourceId);
-            print('✅ Удален источник: $sourceId');
           }
         } catch (e) {
-          // Игнорируем ошибки при удалении отдельных источников
-          print('⚠️ Ошибка при удалении источника $sourceId: $e');
+          // Игнорируем ошибки при удалении отдельных источников - не логируем
         }
       }
       
-      print('✅ Очистка карты успешно завершена');
+      // Очистка карты завершена
     } catch (e) {
       print('❌ Ошибка очистки карты: $e');
     }

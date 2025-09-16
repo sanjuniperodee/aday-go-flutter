@@ -19,6 +19,7 @@ import '../../interactors/order_requests_interactor.dart';
 import '../../router/router.dart';
 import '../../utils/logger.dart';
 import '../../utils/utils.dart';
+import '../../utils/network_utils.dart';
 import './widgets/order_request_bottom_sheet.dart';
 import './orders_model.dart';
 import './orders_screen.dart';
@@ -117,6 +118,10 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
   @override
   void initWidgetModel() {
     super.initWidgetModel();
+    
+    // Добавляем lifecycle observer для отслеживания состояния приложения
+    WidgetsBinding.instance.addObserver(this);
+    
     fetchDriverRegisteredCategories();
     fetchUserProfile();
     
@@ -182,7 +187,81 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
     _activeOrderCheckTimer?.cancel();
     onUserLocationChanged?.cancel();
     disconnectWebsocket();
+    
+    // Удаляем lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
+    
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    print('🔄 DRIVER App lifecycle изменился: $state');
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // Приложение вернулось на передний план
+        print('✅ DRIVER Приложение возобновлено - синхронизируем состояние заказа');
+        _handleAppResumed();
+        break;
+      case AppLifecycleState.paused:
+        // Приложение ушло в фон
+        print('⏸️ DRIVER Приложение приостановлено');
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        break;
+    }
+  }
+
+  /// Обрабатывает возврат приложения на передний план для водителя
+  Future<void> _handleAppResumed() async {
+    try {
+      // 1. Проверяем подключение к интернету
+      final hasInternet = await NetworkUtils.hasInternetConnection();
+      if (!hasInternet) {
+        print('❌ DRIVER Нет подключения к интернету при возврате в приложение');
+        return;
+      }
+
+      // 2. Синхронизируем активный заказ
+      print('🔄 DRIVER Синхронизация активного заказа...');
+      fetchActiveOrder();
+
+      // 3. Если водитель онлайн, переподключаем WebSocket и обновляем заказы
+      if (statusController.value && me.value != null) {
+        print('🔄 DRIVER Водитель онлайн - переподключение WebSocket...');
+        
+        if (!websocketService.isDriverConnected) {
+          await initializeSocket();
+        }
+        
+        // Обновляем список заказов
+        await fetchOrderRequests();
+        
+        // Отправляем текущее местоположение
+        if (driverPosition.value != null) {
+          _sendLocationUpdate(
+            driverPosition.value!.latitude, 
+            driverPosition.value!.longitude
+          );
+        }
+      }
+
+      // 4. Обновляем местоположение если есть разрешения
+      if (locationPermission.value == LocationPermission.always ||
+          locationPermission.value == LocationPermission.whileInUse) {
+        print('🔄 DRIVER Обновление местоположения...');
+        await _startLocationTracking();
+      }
+
+      print('✅ DRIVER Синхронизация при возврате в приложение завершена');
+    } catch (e) {
+      print('❌ DRIVER Ошибка при синхронизации после возврата в приложение: $e');
+    }
   }
 
   Future<void> _initializeLocationAndSocket() async {
@@ -374,6 +453,8 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
     websocketService.clearEventListeners(SocketEventType.orderCancelledByClientForDriver);
     websocketService.clearEventListeners(SocketEventType.orderDeleted);
     websocketService.clearEventListeners(SocketEventType.eventAck);
+    websocketService.clearEventListeners(SocketEventType.orderSync);
+    websocketService.clearEventListeners(SocketEventType.clientInfo);
   }
 
   // Настройка обработчиков событий для водителя
@@ -457,6 +538,20 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       }
     });
 
+    // Обработчик события синхронизации активного заказа
+    websocketService.addEventListener(SocketEventType.orderSync, (data) {
+      logger.i('📦 ВОДИТЕЛЬ: Получено событие orderSync');
+      print('📦 ВОДИТЕЛЬ: Получено событие orderSync: $data');
+      _handleOrderSync(data);
+    });
+    
+    // Обработчик события информации о клиенте
+    websocketService.addEventListener(SocketEventType.clientInfo, (data) {
+      logger.i('📦 ВОДИТЕЛЬ: Получено событие clientInfo');
+      print('📦 ВОДИТЕЛЬ: Получено событие clientInfo: $data');
+      _handleClientInfo(data);
+    });
+
     // Настраиваем обработчики подключения
     websocketService.addDriverConnectionListener((isConnected) {
       if (isConnected) {
@@ -497,6 +592,46 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
       HapticFeedback.heavyImpact();
     } catch (e) {
       logger.e('❌ Ошибка обработки нового заказа: $e');
+    }
+  }
+  
+  // Обработка синхронизации активного заказа
+  void _handleOrderSync(Map<String, dynamic> data) {
+    print('🔄 ВОДИТЕЛЬ: Обработка синхронизации активного заказа');
+    print('📋 ВОДИТЕЛЬ: Данные синхронизации: $data');
+    
+    final orderStatus = data['orderStatus'] as String?;
+    final orderId = data['orderId'] as String?;
+    final clientId = data['clientId'] as String?;
+    
+    if (orderStatus != null && orderId != null) {
+      print('✅ ВОДИТЕЛЬ: Синхронизирован активный заказ $orderId со статусом $orderStatus');
+      
+      // Принудительно обновляем активный заказ
+      fetchActiveOrder(openBottomSheet: true);
+      
+      // Дополнительно обновляем через небольшую задержку для надежности
+      Future.delayed(Duration(milliseconds: 500), () {
+        fetchActiveOrder(openBottomSheet: false);
+      });
+    } else {
+      print('❌ ВОДИТЕЛЬ: Неполные данные синхронизации');
+    }
+  }
+  
+  // Обработка информации о клиенте
+  void _handleClientInfo(Map<String, dynamic> data) {
+    print('👤 ВОДИТЕЛЬ: Получена информация о клиенте');
+    print('📋 ВОДИТЕЛЬ: Данные клиента: $data');
+    
+    final clientId = data['clientId'] as String?;
+    final client = data['client'] as Map<String, dynamic>?;
+    
+    if (clientId != null && client != null) {
+      print('✅ ВОДИТЕЛЬ: Информация о клиенте $clientId получена');
+      // Здесь можно сохранить информацию о клиенте для отображения в UI
+    } else {
+      print('❌ ВОДИТЕЛЬ: Неполная информация о клиенте');
     }
   }
   
@@ -640,8 +775,10 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
 
   void fetchActiveOrder({bool openBottomSheet = true}) async {
     try {
+      print('🔄 DRIVER Запрос активного заказа...');
       final response = await model.getActiveOrder();
       if (response != null) {
+        print('✅ DRIVER Получен активный заказ: ${response.orderRequest?.orderStatus}');
         activeOrder.accept(response);
         _activeOrderNotifier.accept(response);
         
@@ -686,10 +823,13 @@ class OrdersWM extends WidgetModel<OrdersScreen, OrdersModel>
         }
       } else {
         // Если нет активного заказа
+        print('❌ DRIVER Активный заказ не найден, очищаем состояние');
         activeOrder.accept(null);
       }
     } catch (e) {
+      print('❌ DRIVER Ошибка при получении активного заказа: $e');
       logger.e('❌ Ошибка получения активного заказа: $e');
+      // При ошибке также очищаем состояние
       activeOrder.accept(null);
     }
   }

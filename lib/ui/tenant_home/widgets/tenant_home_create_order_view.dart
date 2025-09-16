@@ -627,9 +627,11 @@ class _TenantHomeCreateOrderViewState extends State<TenantHomeCreateOrderView> {
         
         if (request != null && request.isNotEmpty) {
           final suggestions = request.map((e) => e.name ?? '').toList();
-          setState(() {
-            _suggestions = suggestions;
-          });
+          if (mounted) {
+            setState(() {
+              _suggestions = suggestions;
+            });
+          }
           return suggestions;
         }
         return <String>[];
@@ -642,20 +644,24 @@ class _TenantHomeCreateOrderViewState extends State<TenantHomeCreateOrderView> {
 
   _onFromSubmitted(String json) {
     fromAddressTextController.text = (jsonDecode(json))['label'];
-    setState(() {
-      driverOrderForm = driverOrderForm.copyWith(
-          fromAddress: Required.dirty((jsonDecode(json))['label']),
-          fromMapboxId: Required.dirty((jsonDecode(json))['mapbox_id']));
-    });
+    if (mounted) {
+      setState(() {
+        driverOrderForm = driverOrderForm.copyWith(
+            fromAddress: Required.dirty((jsonDecode(json))['label']),
+            fromMapboxId: Required.dirty((jsonDecode(json))['mapbox_id']));
+      });
+    }
   }
 
   _onToSubmitted(String json) {
     toAddressTextController.text = (jsonDecode(json))['label'];
-    setState(() {
-      driverOrderForm = driverOrderForm.copyWith(
-          toAddress: Required.dirty((jsonDecode(json))['label']),
-          toMapboxId: Required.dirty((jsonDecode(json))['mapbox_id']));
-    });
+    if (mounted) {
+      setState(() {
+        driverOrderForm = driverOrderForm.copyWith(
+            toAddress: Required.dirty((jsonDecode(json))['label']),
+            toMapboxId: Required.dirty((jsonDecode(json))['mapbox_id']));
+      });
+    }
   }
 
   geotypes.Position? _parseCoordinatesFromMapboxId(String? mapboxId) {
